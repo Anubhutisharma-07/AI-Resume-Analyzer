@@ -2090,3 +2090,54 @@ input {
 [data-theme='light'] .skip-to-content:focus {
   outline: 2px solid #2563eb;
 }
+
+@media print {
+
+  @page {
+    margin: 1cm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0;
+  }
+
+  .main-card {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    padding: 20px;
+  }
+
+  .navbar,
+  .upload-box,
+  .analyze-btn,
+  .secondary-btn,
+  .app-btn,
+  .suggestion-copy-btn {
+    display: none !important;
+  }
+
+  #ats-score,
+  .resume-preview,
+  .suggestion-box,
+  .suggestion-card,
+  .score-circle {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .resume-preview,
+  .suggestion-card {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .suggestion-card {
+    margin-bottom: 16px;
+  }
+}
