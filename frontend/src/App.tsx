@@ -12,6 +12,9 @@ import { Footer } from './Footer'
 import AnalysisSkeleton from './components/AnalysisSkeleton/AnalysisSkeleton'
 import { InfoTooltip } from './components/InfoTooltip'
 import { SkillWordCloud } from './components/SkillWordCloud'
+import { TrackMatrix } from './components/TrackMatrix'
+import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
+import type { TrackComparisons } from './components/TrackMatrix'
 import {
   FileText,
   Loader2,
@@ -24,9 +27,9 @@ import {
   HelpCircle,
   X,
 } from 'lucide-react'
-
 import { Navbar } from './components/Navbar'
 import EmptyState from './components/EmptyState'
+import { CuratedTips } from './components/CuratedTips'
 import { StepProgress } from './components/StepProgress'
 import { OnboardingTour } from './components/OnboardingTour'
 import { HowItWorks } from './components/HowItWorks'
@@ -38,12 +41,27 @@ import {
 } from './utils/notification'
 import { ProgressBar } from './components/ProgressBar/ProgressBar'
 import { UndoToast } from './components/UndoToast/UndoToast'
-
+import { FilePreview } from './components/FilePreview/FilePreview'
+import { ShareResult } from './components/ShareResult'
+import { SharedResultView } from './SharedResultView'
+import CookieConsentBanner from './components/CookieConsentBanner'
 type Theme = 'light' | 'dark'
+
+interface UndoState {
+  file: File | null
+  score: number | null
+  skills: string[]
+  suggestions: string[]
+  matchedSkills: string[]
+  missingSkills: string[]
+  resumeText: string
+  analysisSource: 'sample' | 'upload' | null
+  activeFileName: string
+  targetRole: string
+}
 
 const DEFAULT_TITLE = 'AI Resume Analyzer'
 const READY_TITLE = '✅ Analysis Ready — AI Resume Analyzer'
-
 
 function getInitialTheme(): Theme {
   try {
@@ -96,29 +114,6 @@ interface SuggestionCardProps {
   index: number
   backendUrl?: string
 }
-interface UndoState {
-  file: File | null
-  score: number | null
-  skills: string[]
-  suggestions: string[]
-  matchedSkills: string[]
-  missingSkills: string[]
-  resumeText: string
-  analysisSource: 'sample' | 'upload' | null
-  activeFileName: string
-  targetRole: string
-}
-interface HistoryApiItem {
-  id: number
-  created_at: string
-  score: number
-  skills_found: string[]
-  suggestions: string[]
-  matched_skills: string[]
-  missing_skills: string[]
-  target_role: string
-  file_name: string
-}
 
 const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl = '' }) => {
   const [copied, setCopied] = React.useState(false)
@@ -158,7 +153,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
             style={{
               fontSize: '12px',
               fontWeight: '700',
-              color: '#a5b4fc',
+              color: 'var(--color-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
@@ -170,7 +165,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
           style={{
             margin: 0,
             fontSize: 'var(--font-size-sm)',
-            color: 'var(--text-readable)',
+            color: '#e2e8f0',
             lineHeight: '1.6',
           }}
         >
@@ -185,7 +180,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
           justifyContent: 'space-between',
           marginTop: '16px',
           paddingTop: '12px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          borderTop: '1px solid var(--surface-border)',
           gap: '8px',
           flexWrap: 'wrap',
         }}
@@ -197,7 +192,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
               <span
                 style={{
                   fontSize: '0.78rem',
-                  color: 'var(--text-readable)',
+                  color: 'rgba(255, 255, 255, 0.6)',
                   fontWeight: '500',
                 }}
               >
@@ -210,12 +205,12 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
                 title="Helpful"
                 aria-label="Vote helpful"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'var(--surface-soft-bg)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '4px 8px',
                   cursor: 'pointer',
-                  color: '#fff',
+                  color: 'var(--body-text)',
                   fontSize: '0.85rem',
                   transition: 'all 0.2s ease',
                 }}
@@ -229,12 +224,12 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
                 title="Not helpful"
                 aria-label="Vote not helpful"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'var(--surface-soft-bg)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '4px 8px',
                   cursor: 'pointer',
-                  color: '#fff',
+                  color: 'var(--body-text)',
                   fontSize: '0.85rem',
                   transition: 'all 0.2s ease',
                 }}
@@ -280,6 +275,8 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
+ 
+  const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
 
@@ -297,6 +294,7 @@ function App() {
   const [showAllSkills, setShowAllSkills] = useState(false)
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
+  const [shareId, setShareId] = useState<string | null>(null)
   const [jobDesc, setJobDesc] = useState('')
   const [resumeText, setResumeText] = useState<string>('')
   const [activeFileName, setActiveFileName] = useState('')
@@ -305,8 +303,33 @@ function App() {
   const [analysisProgress, setAnalysisProgress] = useState<number>(0)
   const [analysisStageLabel, setAnalysisStageLabel] = useState<string>('')
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
+  const [trackComparisons, setTrackComparisons] = useState<TrackComparisons | null>(null)
+  const [activeTab, setActiveTab] = useState<'detailed' | 'matrix'>('detailed')
   const [resumeUrl, setResumeUrl] = useState<string>('')
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0])
+      setFileError(null)
+    }
+  }
 
   let currentStep: 1 | 2 | 3 = 1
   if (loading) {
@@ -345,7 +368,7 @@ function App() {
   }
 
   const MAX_CHARS = 2000
-  const isClose = jobDesc.length >= MAX_CHARS * 0.8
+  const isClose = jobDesc.length >= MAX_CHARS * 0.9
   const isOver = jobDesc.length > MAX_CHARS
 
   const handleClearAll = async () => {
@@ -367,25 +390,37 @@ function App() {
         const res = await axios.get(`${backendUrl}/api/history/`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-        const dbEntries: AnalysisEntry[] = res.data.map((item: HistoryApiItem) => ({
-          id: String(item.id),
-          timestamp: new Date(item.created_at).getTime(),
-          score: item.score,
-          skills: item.skills_found,
-          suggestions: item.suggestions,
-          matchedSkills: item.matched_skills,
-          missingSkills: item.missing_skills,
-          targetRole: item.target_role,
-          fileName: item.file_name,
-        }))
+        const dbEntries: AnalysisEntry[] = res.data.map(
+          (item: {
+            id: string | number
+            created_at: string | number
+            score: number
+            skills_found: string[]
+            suggestions: string[]
+            matched_skills: string[]
+            missing_skills: string[]
+            target_role: string
+            file_name: string
+          }) => ({
+            id: String(item.id),
+            timestamp: new Date(item.created_at).getTime(),
+            score: item.score,
+            skills: item.skills_found,
+            suggestions: item.suggestions,
+            matchedSkills: item.matched_skills,
+            missingSkills: item.missing_skills,
+            targetRole: item.target_role,
+            fileName: item.file_name,
+          })
+        )
         const uniqueDbEntries = dbEntries.filter(
           (entry, index, self) =>
             index ===
             self.findIndex((t) => t.fileName === entry.fileName && t.score === entry.score)
         )
         setEntries(uniqueDbEntries)
-      } catch (error) {
-        console.debug('Failed to fetch history', error)
+      } catch {
+        /* silently ignore */
       }
     },
     [backendUrl, setEntries]
@@ -397,11 +432,10 @@ function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-
     try {
       localStorage.setItem('theme', theme)
-    } catch (error) {
-      console.debug('Unable to save theme', error)
+    } catch {
+      // Ignore localStorage access restrictions in private browsing modes
     }
   }, [theme])
 
@@ -446,6 +480,7 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setAnalysisSource(null)
+    setShareId(null)
     setActiveFileName('')
     setShowExportDropdown(false)
     setFileError(null)
@@ -572,6 +607,11 @@ function App() {
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
+ 
+      setReadabilityLabel(res.data.readability_label ?? null)
+      if (res.data.share_id) setShareId(res.data.share_id)
+      setTrackComparisons(res.data.track_comparisons || null)
+      setActiveTab('detailed')
       const fileName = fileToAnalyze ? fileToAnalyze.name : url ? 'Imported Resume' : 'Resume'
       setActiveFileName(fileName)
 
@@ -630,9 +670,20 @@ function App() {
         }
       }
       if (!(axios.isAxiosError(error) && error.response?.status === 429)) {
-        alert(
-          source === 'sample' ? `Sample analysis failed: ${errorMsg}` : `Upload failed: ${errorMsg}`
-        )
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 400 &&
+          uploadMode === 'url' &&
+          source === 'upload'
+        ) {
+          setUrlError(errorMsg)
+        } else {
+          alert(
+            source === 'sample'
+              ? `Sample analysis failed: ${errorMsg}`
+              : `Upload failed: ${errorMsg}`
+          )
+        }
       }
 
       setLoading(false)
@@ -667,7 +718,13 @@ function App() {
         setUrlError('URL must start with http:// or https://')
         hasError = true
       } else {
-        setUrlError(null)
+        try {
+          new URL(resumeUrl.trim())
+          setUrlError(null)
+        } catch {
+          setUrlError('Please enter a valid URL.')
+          hasError = true
+        }
       }
     }
 
@@ -768,6 +825,9 @@ function App() {
 
   return (
     <>
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
       <OnboardingTour />
       <HistorySidebar
         entries={entries}
@@ -800,10 +860,12 @@ function App() {
         onHistoryClick={() => setHistoryOpen(true)}
       />
       <Routes>
+        <Route path="/shared/:shareId" element={<SharedResultView />} />
+        <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
         <Route
           path="/"
           element={
-            <main className="landing-page">
+            <main id="main-content" className="landing-page">
               {showAuthModal && (
                 <AuthModal
                   onSignup={signup}
@@ -815,7 +877,7 @@ function App() {
               <div className={score === null && !loading ? 'hero-container' : ''}>
                 <div className={score === null && !loading ? 'hero-left' : ''}>
                   {score === null && !loading && (
-                    <>
+                    <section className="hero-intro" aria-label="Introduction">
                       <span className="hero-badge">⭐ AI Powered Resume Optimization</span>
 
                       <h1
@@ -846,7 +908,7 @@ function App() {
                         compatibility and receive personalized recommendations in seconds.
                       </p>
 
-                      <div className="hero-stats">
+                      <div className="hero-stats" style={{ color: theme === 'light' ? '#000000' : '#ffffff' }}>
                         <div>
                           <h2>50K+</h2>
                           <span>Resumes Reviewed</span>
@@ -862,7 +924,7 @@ function App() {
                           <span>AI Available</span>
                         </div>
                       </div>
-                    </>
+                    </section>
                   )}
 
                   {(loading || score !== null) && <StepProgress currentStep={currentStep} />}
@@ -882,7 +944,7 @@ function App() {
                         display: 'block',
                         marginBottom: '12px',
                         fontWeight: '600',
-                        color: 'var(--text-readable)',
+                        color: '#e2e8f0',
                         fontSize: 'var(--font-size-sm)',
                       }}
                     >
@@ -918,60 +980,60 @@ function App() {
                     )}
                   </div>
 
-                  {/* STEP 2: Upload File / Link & Job Description */}
-                  <div className="mb-5">
-                    {/* Mode Switcher Tabs */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '8px',
-                        justifyContent: 'center',
-                        marginBottom: '16px',
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadMode('file')
-                          setUrlError(null)
-                        }}
+                    {/* STEP 2: Upload File / Link & Job Description */}
+                    <div className="mb-5">
+                      {/* Mode Switcher Tabs */}
+                      <div
                         style={{
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-md)',
-                          fontSize: '0.85rem',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          background:
-                            uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
-                          color: '#fff',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          transition: 'all 0.2s ease',
+                          display: 'flex',
+                          gap: '8px',
+                          justifyContent: 'center',
+                          marginBottom: '16px',
                         }}
                       >
-                        📄 Local File Upload
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadMode('url')
-                          setFileError(null)
-                        }}
-                        style={{
-                          padding: '8px 16px',
-                          borderRadius: 'var(--radius-md)',
-                          fontSize: '0.85rem',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          background:
-                            uploadMode === 'url' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
-                          color: '#fff',
-                          border: '1px solid rgba(255, 255, 255, 0.15)',
-                          transition: 'all 0.2s ease',
-                        }}
-                      >
-                        🔗 Import via Link
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadMode('file')
+                            setUrlError(null)
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          📄 Local File Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadMode('url')
+                            setFileError(null)
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          🔗 Import via Link
+                        </button>
+                      </div>
 
                     {uploadMode === 'file' ? (
                       <div
@@ -1015,7 +1077,7 @@ function App() {
                             fontWeight: '600',
                             display: 'block',
                             marginBottom: '8px',
-                            color: 'var(--text-readable)',
+                            color: '#e2e8f0',
                             fontSize: '0.85rem',
                           }}
                         >
@@ -1043,7 +1105,7 @@ function App() {
                         <span
                           style={{
                             fontSize: '0.78rem',
-                            color: 'var(--text-muted)',
+                            color: 'rgba(255,255,255,0.6)',
                             marginTop: '6px',
                             display: 'block',
                           }}
@@ -1069,20 +1131,20 @@ function App() {
                       </div>
                     )}
 
-                    {urlError && uploadMode === 'url' && (
-                      <div
-                        style={{
-                          color: '#ef4444',
-                          fontSize: '13px',
-                          marginTop: '4px',
-                          marginBottom: '16px',
-                          fontWeight: '500',
-                          textAlign: 'center',
-                        }}
-                      >
-                        ⚠️ {urlError}
-                      </div>
-                    )}
+                      {urlError && uploadMode === 'url' && (
+                        <div
+                          style={{
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            marginTop: '4px',
+                            marginBottom: '16px',
+                            fontWeight: '500',
+                            textAlign: 'center',
+                          }}
+                        >
+                          ⚠️ {urlError}
+                        </div>
+                      )}
 
                     {/* Optional Job Description */}
                     <div className="mb-4" style={{ textAlign: 'left' }}>
@@ -1092,7 +1154,7 @@ function App() {
                           fontWeight: '600',
                           display: 'block',
                           marginBottom: '8px',
-                          color: 'var(--text-readable)',
+                          color: '#e2e8f0',
                         }}
                       >
                         Job Description (Optional)
@@ -1131,87 +1193,85 @@ function App() {
                       >
                         <>
                           {jobDesc.length} / {MAX_CHARS} characters
-                          {isClose && !isOver && ' • Approaching limit'}
-                          {isOver && ' • Limit exceeded'}
-                        </>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* STEP 3: Action Buttons */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '12px',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}
-                      className="action-buttons"
-                    >
-                      <button
-                        className="analyze-btn"
-                        onClick={uploadResume}
-                        disabled={loading || retryDisabled}
-                        style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
-                      >
-                        {loading && analysisSource === 'upload'
-                          ? '⏳ Extracting...'
-                          : '🚀 Analyze Resume'}
-                      </button>
-
-                      <button
-                        className="secondary-btn"
-                        onClick={handleSampleResume}
-                        disabled={loading || retryDisabled}
-                        type="button"
-                        style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
-                      >
-                        {loading && analysisSource === 'sample' ? (
-                          <>
-                            <Loader2 size={15} className="spin" /> Loading...
-                          </>
-                        ) : (
-                          'Try Sample Resume'
-                        )}
-                      </button>
-                    </div>
-                    {retryDisabled && retryAfter !== null && (
-                      <p
+                      {/* STEP 3: Action Buttons */}
+                      <div
                         style={{
-                          color: '#ef4444',
-                          marginTop: '10px',
-                          fontWeight: 600,
-                          textAlign: 'center',
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          justifyContent: 'center',
+                          alignItems: 'center',
                         }}
+                        className="action-buttons"
                       >
-                        Too many requests. Please wait {retryAfter}s before trying again.
-                      </p>
-                    )}
-                  </div>
+                        <button
+                          className="analyze-btn"
+                          onClick={uploadResume}
+                          disabled={loading || retryDisabled}
+                          style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
+                        >
+                          {loading && analysisSource === 'upload'
+                            ? '⏳ Extracting...'
+                            : '🚀 Analyze Resume'}
+                        </button>
+
+                        <button
+                          className="secondary-btn"
+                          onClick={handleSampleResume}
+                          disabled={loading || retryDisabled}
+                          type="button"
+                          style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
+                        >
+                          {loading && analysisSource === 'sample' ? (
+                            <>
+                              <Loader2 size={15} className="spin" /> Loading...
+                            </>
+                          ) : (
+                            'Try Sample Resume'
+                          )}
+                        </button>
+                      </div>
+                      {retryDisabled && retryAfter !== null && (
+                        <p
+                          style={{
+                            color: '#ef4444',
+                            marginTop: '10px',
+                            fontWeight: 600,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Too many requests. Please wait {retryAfter}s before trying again.
+                        </p>
+                      )}
+                    </div>
+                  </section>
                 </div>
               </div>
 
               {/* Loading Skeleton & Determinate Progress Bar */}
               {loading && (
-                <div className="my-4">
+                <section className="my-4" aria-live="polite" aria-label="Analysis Progress">
                   <ProgressBar progress={analysisProgress} stageLabel={analysisStageLabel} />
                   <AnalysisSkeleton />
-                </div>
+                </section>
               )}
 
               {/* Empty State / How It Works */}
               {score === null && !loading && (
-                <div style={{ paddingBottom: '2rem' }}>
+                <section style={{ paddingBottom: '2rem' }} aria-label="About the Resume Analyzer">
                   <EmptyState />
                   <div className="mt-4">
                     <HowItWorks />
                   </div>
-                </div>
+                </section>
               )}
 
               {/* Results Display Panel */}
               {score !== null && !loading && (
-                <>
+                <section aria-label="Analysis Results">
                   {analysisSource === 'sample' && (
                     <div
                       className="sample-notice-banner mb-4"
@@ -1227,7 +1287,11 @@ function App() {
                   )}
 
                   <div id="ats-score">
-                    <AtsScore score={score} />
+                    <AtsScore
+                      score={score}
+                      
+                      readabilityLabel={readabilityLabel}
+                    />
                   </div>
 
                   <ResumePreview text={resumeText} skills={skills} />
@@ -1248,196 +1312,257 @@ function App() {
                     </p>
                   )}
 
-                  {/* Skills Section */}
-                  <div className="mt-4">
-                    <h4>Skills Found ({skills.length})</h4>
-                    {skills.length === 0 && <p>No skills detected</p>}
-                    <div
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '16px', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('detailed')}
                       style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        justifyContent: 'center',
+                        padding: '8px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: activeTab === 'detailed' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        transition: 'all 0.2s ease',
                       }}
                     >
-                      {(showAllSkills ? skills : skills.slice(0, 15)).map(
-                        (skill: string, i: number) => (
-                          <SkillChip key={i} skill={skill} type="detected" />
-                        )
-                      )}
-                    </div>
-                    {skills.length > 15 && (
+                      Detailed View
+                    </button>
+                    {trackComparisons && (
                       <button
                         type="button"
-                        className="app-btn app-btn--secondary"
-                        style={{ marginTop: '16px', minHeight: '44px' }}
-                        onClick={() => setShowAllSkills(!showAllSkills)}
+                        onClick={() => setActiveTab('matrix')}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          background: activeTab === 'matrix' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          transition: 'all 0.2s ease',
+                        }}
                       >
-                        {showAllSkills ? (
-                          <>
-                            <ChevronUp size={15} /> Show Less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown size={15} /> Show More ({skills.length - 15} more)
-                          </>
-                        )}
+                        Compare All Tracks
                       </button>
                     )}
                   </div>
 
-                  {/* Word Cloud */}
-                  <SkillWordCloud skills={skills} />
-
-                  {/* Skill Gap Matrix */}
-                  <div
-                    className="mt-4 p-3"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
-                  >
-                    <h4
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap',
-                        textAlign: 'center',
-                        gap: '6px',
+                  {activeTab === 'matrix' && trackComparisons ? (
+                    <TrackMatrix
+                      trackComparisons={trackComparisons}
+                      activeRole={targetRole}
+                      onRowClick={(role) => {
+                        setTargetRole(role)
+                        const comp = trackComparisons[role]
+                        setScore(comp.score)
+                        setMatchedSkills(comp.matched_skills)
+                        setMissingSkills(comp.missing_skills)
+                        setSuggestions(comp.suggestions)
+                        setActiveTab('detailed')
                       }}
-                    >
-                      <Target size={18} /> Skill Gap Matrix ({targetRole})
-                      <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
-                    </h4>
-                    <div
-                      className="skill-gap-layout"
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '20px',
-                        justifyContent: 'space-around',
-                        marginTop: '12px',
-                      }}
-                    >
-                      <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
-                        <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                        {matchedSkills.length === 0 ? (
-                          <p style={{ fontSize: '12px' }}>None</p>
-                        ) : (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              gap: '4px',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {matchedSkills.map((s, i) => (
-                              <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Upgraded Suggestions Section */}
-                  <div
-                    className="mt-5 p-4"
-                    style={{
-                      background: 'rgba(30, 30, 47, 0.4)',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid rgba(255, 255, 255, 0.04)',
-                    }}
-                  >
-                    <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '10px',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '12px',
-                        }}
-                      >
-                        <h4 style={{ margin: 0 }}>💡 Suggestions</h4>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                          {suggestions.length > 0 && (
-                            <button
-                              type="button"
-                              className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                              onClick={copySuggestionsToClipboard}
-                              style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
-                            >
-                              {copied ? '✅ Copied!' : '📋 Copy All'}
-                            </button>
+                    />
+                  ) : (
+                    <>
+                      {/* Skills Section */}
+                      <section className="mt-4" aria-labelledby="skills-found-heading">
+                        <h4 id="skills-found-heading">Skills Found ({skills.length})</h4>
+                        {skills.length === 0 && <p>No skills detected</p>}
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {(showAllSkills ? skills : skills.slice(0, 15)).map(
+                            (skill: string, i: number) => (
+                              <SkillChip key={i} skill={skill} type="detected" />
+                            )
                           )}
+                        </div>
+                        {skills.length > 15 && (
+                          <button
+                            type="button"
+                            className="app-btn app-btn--secondary"
+                            style={{ marginTop: '16px', minHeight: '44px' }}
+                            onClick={() => setShowAllSkills(!showAllSkills)}
+                          >
+                            {showAllSkills ? (
+                              <>
+                                <ChevronUp size={15} /> Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={15} /> Show More ({skills.length - 15} more)
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </section>
 
-                          <div style={{ position: 'relative', display: 'inline-block' }}>
-                            <button
-                              type="button"
-                              className="app-btn app-btn--secondary"
-                              onClick={() => setShowExportDropdown(!showExportDropdown)}
-                              style={{ minHeight: '44px' }}
-                            >
-                              Export ▼
-                            </button>
-                            {showExportDropdown && (
+                      {/* Word Cloud */}
+                      <SkillWordCloud skills={skills} />
+
+                      {/* Skill Gap Matrix */}
+                      <section
+                        className="mt-4 p-3"
+                        style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
+                        aria-labelledby="skill-gap-heading"
+                      >
+                        <h4
+                          id="skill-gap-heading"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            textAlign: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Target size={18} /> Skill Gap Matrix ({targetRole})
+                          <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
+                        </h4>
+                        <div
+                          className="skill-gap-layout"
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '20px',
+                            justifyContent: 'space-around',
+                            marginTop: '12px',
+                          }}
+                        >
+                          <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
+                            <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
+                            {matchedSkills.length === 0 ? (
+                              <p style={{ fontSize: '12px' }}>None</p>
+                            ) : (
                               <div
                                 style={{
-                                  position: 'absolute',
-                                  top: '100%',
-                                  right: 0,
-                                  marginTop: '4px',
-                                  backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
-                                  border: `1px solid ${theme === 'dark' ? '#374151' : '#e5e7eb'}`,
-                                  borderRadius: '6px',
-                                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                  zIndex: 10,
                                   display: 'flex',
-                                  flexDirection: 'column',
-                                  minWidth: '120px',
-                                  overflow: 'hidden',
+                                  flexWrap: 'wrap',
+                                  gap: '4px',
+                                  justifyContent: 'center',
                                 }}
                               >
-                                <button
-                                  type="button"
-                                  onClick={exportJSON}
-                                  style={{
-                                    padding: '8px 12px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: theme === 'dark' ? '#f3f4f6' : '#111827',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    borderBottom: `1px solid ${theme === 'dark' ? '#374151' : '#e5e7eb'}`,
-                                  }}
-                                >
-                                  Export JSON
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={exportCSV}
-                                  style={{
-                                    padding: '8px 12px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: theme === 'dark' ? '#f3f4f6' : '#111827',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Export CSV
-                                </button>
+                                {matchedSkills.map((s, i) => (
+                                  <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
+                                ))}
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </section>
+
+                      {/* Upgraded Suggestions Section */}
+                      <section
+                        className="mt-5 p-4"
+                        style={{
+                          background: 'rgba(30, 30, 47, 0.4)',
+                          borderRadius: 'var(--radius-lg)',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                        }}
+                      >
+                        {shareId && <ShareResult shareId={shareId} />}
+
+                        <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '10px',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '12px',
+                            }}
+                          >
+                            <h4 id="suggestions-heading" style={{ margin: 0 }}>
+                              💡 Suggestions
+                            </h4>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                              {suggestions.length > 0 && (
+                                <button
+                                  type="button"
+                                  className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                                  onClick={copySuggestionsToClipboard}
+                                  style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
+                                >
+                                  {copied ? '✅ Copied!' : '📋 Copy All'}
+                                </button>
+                              )}
+
+                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <button
+                                  type="button"
+                                  className="app-btn app-btn--secondary"
+                                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                  style={{ minHeight: '44px' }}
+                                >
+                                  Export ▼
+                                </button>
+                                {showExportDropdown && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: 0,
+                                      marginTop: '4px',
+                                      backgroundColor: 'var(--card-bg)',
+                                      border: '1px solid var(--surface-border)',
+                                      borderRadius: '6px',
+                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                      zIndex: 10,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      minWidth: '120px',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={exportJSON}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
+                                      }}
+                                    >
+                                      Export JSON
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={exportCSV}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Export CSV
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
 
                       {suggestions.length === 0 ? (
                         <p
                           style={{
-                          color: 'var(--text-readable)',
+                            color: '#64748b',
                             fontStyle: 'italic',
                             fontSize: 'var(--font-size-sm)',
                             textAlign: 'left',
@@ -1460,19 +1585,21 @@ function App() {
                         </div>
                       )}
 
-                      <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="app-btn app-btn--secondary"
-                          onClick={resetAnalysis}
-                          style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
-                        >
-                          <RefreshCw size={15} /> Start New Analysis
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
+                          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="app-btn app-btn--secondary"
+                              onClick={resetAnalysis}
+                              style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
+                            >
+                              <RefreshCw size={15} /> Start New Analysis
+                            </button>
+                          </div>
+                        </div>
+                      </section>
+                    </>
+                  )}
+                </section>
               )}
             </main>
           }
@@ -1482,7 +1609,7 @@ function App() {
       {/* Floating Back to Top Button */}
       <button
         type="button"
-        className={`fab-btn back-to-top${showBackToTop ? " back-to-top--visible" : ""}`}
+        className={`fab-btn back-to-top${showBackToTop ? ' back-to-top--visible' : ''}`}
         onClick={scrollToTop}
         aria-label="Back to top"
         title="Back to top"
@@ -1491,6 +1618,7 @@ function App() {
       </button>
 
       <Footer />
+      <CookieConsentBanner />
 
       {/* Keyboard Shortcuts Help Button & Overlay */}
       <button
@@ -1518,17 +1646,17 @@ function App() {
           </h5>
 
           <div className="shortcut-row">
-            <span style={{ color: "var(--text-readable-inverse)" }}>Upload Resume</span>
+            <span style={{ color: "#94a3b8" }}>Upload Resume</span>
             <span className="shortcut-key-badge">Alt + U</span>
           </div>
 
           <div className="shortcut-row">
-            <span style={{ color: "var(--text-readable-inverse)" }}>Reset Analysis</span>
+            <span style={{ color: "#94a3b8" }}>Reset Analysis</span>
             <span className="shortcut-key-badge">Alt + R</span>
           </div>
 
           <div className="shortcut-row">
-            <span style={{ color: "var(--text-readable-inverse)" }}>Close Modals / Sidebar</span>
+            <span style={{ color: "#94a3b8" }}>Close Modals / Sidebar</span>
             <span className="shortcut-key-badge">Esc</span>
           </div>
         </div>

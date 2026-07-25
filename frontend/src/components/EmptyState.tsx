@@ -1,3 +1,5 @@
+import { FileText } from 'lucide-react'
+
 export default function EmptyState() {
   return (
     <div
@@ -5,14 +7,16 @@ export default function EmptyState() {
       style={{
         border: '2px dashed #d1d5db',
         borderRadius: '12px',
-        color: 'var(--text-readable)',
+        color: '#6b7280',
       }}
     >
       <div style={{ fontSize: '48px' }}>📄</div>
 
       <h3 className="mt-3">No resume uploaded yet</h3>
 
-      <p>Upload a resume to see your ATS score, skills analysis, and personalized suggestions.</p>
+      <p className="empty-state-description">
+        Upload a resume to see your ATS score, skills analysis, and personalized suggestions.
+      </p>
     </div>
   )
 }

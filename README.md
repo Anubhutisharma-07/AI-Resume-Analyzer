@@ -224,16 +224,17 @@ The API server starts on: `http://127.0.0.1:8000/`
 
 ### Client Setup (React)
 
+Create your environment variables by copying the provided examples:
+
 ```bash
-# Open a new terminal instance and navigate to client directory
-cd client
+cd frontend
+cp .env.development.example .env.development
+cp .env.production.example .env.production
+```
 
-# Create local environment configuration from the example
-# Windows:
-copy .env.example .env
-# macOS/Linux:
-cp .env.example .env
+Then install dependencies and start the app:
 
+```bash
 # Install packages
 npm install
 
@@ -344,6 +345,28 @@ When the limit is exceeded, the API returns:
 // Retry-After: <seconds>
 { "detail": "Request was throttled. Expected available in <N> seconds." }
 ```
+
+---
+
+## Security Configuration & Headers
+
+Standard security headers are configured for both the frontend (client) and backend (server) environments to mitigate common vulnerabilities:
+
+### Configured Headers
+
+1. **Content-Security-Policy (CSP):** Limits the resources (scripts, styles, connections) the browser is allowed to load.
+   - *Client:* Allows `'self'` resources, inline scripts/styles for React/Bootstrap, and local/production backend API connections.
+   - *Server (API):* Uses a strict `default-src 'none';` for JSON API responses, and standard self-hosting for Django admin.
+2. **X-Frame-Options (`DENY`):** Prevents the app from being embedded in `<iframe>` tags, mitigating Clickjacking attacks.
+3. **X-Content-Type-Options (`nosniff`):** Disables MIME-type sniffing to prevent MIME-based attacks.
+4. **Referrer-Policy (`strict-origin-when-cross-origin`):** Protects privacy by stripping referrer paths when making cross-origin requests.
+
+### Local Development Parity
+
+To ensure parity between local development and production environments, the headers are applied in both locations:
+- **Production (Vercel):** Configured via [vercel.json](file:///e:/ECSOC-26/AI-Resume-Analyzer/frontend/vercel.json) files in the root and frontend directories.
+- **Local Development (Vite):** Preconfigured in [vite.config.ts](file:///e:/ECSOC-26/AI-Resume-Analyzer/frontend/vite.config.ts) to send headers when running the local dev server (`npm run dev`).
+- **Django Backend:** Applied dynamically in all environments via Django settings and a custom middleware in [middleware.py](file:///e:/ECSOC-26/AI-Resume-Analyzer/backend/resume_analyzer/middleware.py).
 
 ---
 
