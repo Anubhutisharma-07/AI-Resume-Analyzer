@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@babel/parser": "^8.0.4",
     "axios": "^1.13.6",
     "bootstrap": "^5.3.8",
     "d3-cloud": "^1.2.9",

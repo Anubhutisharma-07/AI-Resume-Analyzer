@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { Navbar } from './components/Navbar'
+import { TemplateGallery } from './components/TemplateGallery'
 import EmptyState from './components/EmptyState'
 import { CuratedTips } from './components/CuratedTips'
 import { StepProgress } from './components/StepProgress'
@@ -108,6 +109,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
     </div>
   )
 }
+
 
 interface SuggestionCardProps {
   text: string
@@ -292,6 +294,7 @@ function App() {
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
+  const [showGallery, setShowGallery] = useState(false)
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [shareId, setShareId] = useState<string | null>(null)
@@ -895,6 +898,37 @@ function App() {
                         Land More Interviews.
                       </h1>
 
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", alignItems: "center" }} className="mb-3">
+            <button
+              className="analyze-btn"
+              onClick={uploadResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
+            </button>
+            <button
+              className="app-btn"
+              onClick={() => setShowGallery(true)}
+            >
+              📂 Template Gallery
+            </button>
+            <button
+              className="app-btn app-btn--secondary"
+              onClick={handleSampleResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
+            </button>
+          </div>
+          {showGallery && (
+            <div className="mt-4" style={{ textAlign: "left", background: "var(--card-bg, #fff)", padding: "20px", borderRadius: "8px" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
+                <button onClick={() => setShowGallery(false)} style={{ cursor: 'pointer', background: 'transparent', border: 'none', fontSize: '16px' }}>❌</button>
+              </div>
+              <TemplateGallery />
+            </div>
+          )}
                       <p
                         className="hero-description"
                         style={{
