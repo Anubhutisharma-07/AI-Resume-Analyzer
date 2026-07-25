@@ -274,7 +274,7 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [readabilityScore, setReadabilityScore] = useState<number | null>(null)
+ 
   const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
@@ -606,7 +606,7 @@ function App() {
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
-      setReadabilityScore(res.data.readability_score ?? null)
+ 
       setReadabilityLabel(res.data.readability_label ?? null)
       if (res.data.share_id) setShareId(res.data.share_id)
       setTrackComparisons(res.data.track_comparisons || null)
@@ -1324,7 +1324,7 @@ function App() {
                   <div id="ats-score">
                     <AtsScore
                       score={score}
-                      readabilityScore={readabilityScore}
+                      
                       readabilityLabel={readabilityLabel}
                     />
                   </div>
