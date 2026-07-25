@@ -3,11 +3,10 @@ import { InfoTooltip } from './components/InfoTooltip'
 
 interface AtsScoreProps {
   score: number
-  readabilityScore? : number | null
-  readabilityLabel? : string | null
+  readabilityLabel?: string | null
 }
 
-export const AtsScore: React.FC<AtsScoreProps> = ({ score ,readabilityScore,
+export const AtsScore: React.FC<AtsScoreProps> = ({ score ,
   readabilityLabel}) => {
   return (
     <div className="score-section mt-4">
