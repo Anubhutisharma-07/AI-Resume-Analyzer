@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { Navbar } from './components/Navbar'
+import { TemplateGallery } from './components/TemplateGallery'
 import EmptyState from './components/EmptyState'
 import { CuratedTips } from './components/CuratedTips'
 import { StepProgress } from './components/StepProgress'
@@ -44,6 +45,7 @@ import { UndoToast } from './components/UndoToast/UndoToast'
 import { FilePreview } from './components/FilePreview/FilePreview'
 import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
+import CookieConsentBanner from './components/CookieConsentBanner'
 type Theme = 'light' | 'dark'
 
 interface UndoState {
@@ -51,7 +53,7 @@ interface UndoState {
   score: number | null
   skills: string[]
   suggestions: string[]
-  matchedSkills: string[]   
+  matchedSkills: string[]
   missingSkills: string[]
   resumeText: string
   analysisSource: 'sample' | 'upload' | null
@@ -107,6 +109,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
     </div>
   )
 }
+
 
 interface SuggestionCardProps {
   text: string
@@ -274,6 +277,8 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
+ 
+  const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
 
@@ -289,6 +294,7 @@ function App() {
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
+  const [showGallery, setShowGallery] = useState(false)
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [shareId, setShareId] = useState<string | null>(null)
@@ -604,6 +610,8 @@ function App() {
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
+ 
+      setReadabilityLabel(res.data.readability_label ?? null)
       if (res.data.share_id) setShareId(res.data.share_id)
       setTrackComparisons(res.data.track_comparisons || null)
       setActiveTab('detailed')
@@ -890,6 +898,37 @@ function App() {
                         Land More Interviews.
                       </h1>
 
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", alignItems: "center" }} className="mb-3">
+            <button
+              className="analyze-btn"
+              onClick={uploadResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
+            </button>
+            <button
+              className="app-btn"
+              onClick={() => setShowGallery(true)}
+            >
+              📂 Template Gallery
+            </button>
+            <button
+              className="app-btn app-btn--secondary"
+              onClick={handleSampleResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
+            </button>
+          </div>
+          {showGallery && (
+            <div className="mt-4" style={{ textAlign: "left", background: "var(--card-bg, #fff)", padding: "20px", borderRadius: "8px" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
+                <button onClick={() => setShowGallery(false)} style={{ cursor: 'pointer', background: 'transparent', border: 'none', fontSize: '16px' }}>❌</button>
+              </div>
+              <TemplateGallery />
+            </div>
+          )}
                       <p
                         className="hero-description"
                         style={{
@@ -1016,7 +1055,7 @@ function App() {
                             setFileError(null)
                           }}
                           style={{
-                             padding: '8px 16px',
+                            padding: '8px 16px',
                             borderRadius: 'var(--radius-md)',
                             fontSize: '0.85rem',
                             fontWeight: '600',
@@ -1192,7 +1231,7 @@ function App() {
                             fontWeight: '600',
                             display: 'block',
                             marginBottom: '8px',
-                            
+
                           }}
                         >
                           Job Description (Optional)
@@ -1318,7 +1357,11 @@ function App() {
                   )}
 
                   <div id="ats-score">
-                    <AtsScore score={score} />
+                    <AtsScore
+                      score={score}
+                      
+                      readabilityLabel={readabilityLabel}
+                    />
                   </div>
 
                   <ResumePreview text={resumeText} skills={skills} />
@@ -1379,7 +1422,7 @@ function App() {
                   </div>
 
                   {activeTab === 'matrix' && trackComparisons ? (
-                    <TrackMatrix 
+                    <TrackMatrix
                       trackComparisons={trackComparisons}
                       activeRole={targetRole}
                       onRowClick={(role) => {
@@ -1395,237 +1438,237 @@ function App() {
                   ) : (
                     <>
                       {/* Skills Section */}
-                  <section className="mt-4" aria-labelledby="skills-found-heading">
-                    <h4 id="skills-found-heading">Skills Found ({skills.length})</h4>
-                    {skills.length === 0 && <p>No skills detected</p>}
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {(showAllSkills ? skills : skills.slice(0, 15)).map(
-                        (skill: string, i: number) => (
-                          <SkillChip key={i} skill={skill} type="detected" />
-                        )
-                      )}
-                    </div>
-                    {skills.length > 15 && (
-                      <button
-                        type="button"
-                        className="app-btn app-btn--secondary"
-                        style={{ marginTop: '16px', minHeight: '44px' }}
-                        onClick={() => setShowAllSkills(!showAllSkills)}
-                      >
-                        {showAllSkills ? (
-                          <>
-                            <ChevronUp size={15} /> Show Less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown size={15} /> Show More ({skills.length - 15} more)
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </section>
-
-                  {/* Word Cloud */}
-                  <SkillWordCloud skills={skills} />
-
-                  {/* Skill Gap Matrix */}
-                  <section
-                    className="mt-4 p-3"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
-                    aria-labelledby="skill-gap-heading"
-                  >
-                    <h4
-                      id="skill-gap-heading"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexWrap: 'wrap',
-                        textAlign: 'center',
-                        gap: '6px',
-                      }}
-                    >
-                      <Target size={18} /> Skill Gap Matrix ({targetRole})
-                      <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
-                    </h4>
-                    <div
-                      className="skill-gap-layout"
-                      style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '20px',
-                        justifyContent: 'space-around',
-                        marginTop: '12px',
-                      }}
-                    >
-                      <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
-                        <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                        {matchedSkills.length === 0 ? (
-                          <p style={{ fontSize: '12px' }}>None</p>
-                        ) : (
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexWrap: 'wrap',
-                              gap: '4px',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {matchedSkills.map((s, i) => (
-                              <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Upgraded Suggestions Section */}
-                  <section
-                    className="mt-5 p-4"
-                    style={{
-                      background: 'rgba(30, 30, 47, 0.4)',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid rgba(255, 255, 255, 0.04)',
-                    }}
-                  >
-                    {shareId && <ShareResult shareId={shareId} />}
-
-                    <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '10px',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '12px',
-                        }}
-                      >
-                        <h4 id="suggestions-heading" style={{ margin: 0 }}>
-                          💡 Suggestions
-                        </h4>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                          {suggestions.length > 0 && (
-                            <button
-                              type="button"
-                              className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                              onClick={copySuggestionsToClipboard}
-                              style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
-                            >
-                              {copied ? '✅ Copied!' : '📋 Copy All'}
-                            </button>
+                      <section className="mt-4" aria-labelledby="skills-found-heading">
+                        <h4 id="skills-found-heading">Skills Found ({skills.length})</h4>
+                        {skills.length === 0 && <p>No skills detected</p>}
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {(showAllSkills ? skills : skills.slice(0, 15)).map(
+                            (skill: string, i: number) => (
+                              <SkillChip key={i} skill={skill} type="detected" />
+                            )
                           )}
+                        </div>
+                        {skills.length > 15 && (
+                          <button
+                            type="button"
+                            className="app-btn app-btn--secondary"
+                            style={{ marginTop: '16px', minHeight: '44px' }}
+                            onClick={() => setShowAllSkills(!showAllSkills)}
+                          >
+                            {showAllSkills ? (
+                              <>
+                                <ChevronUp size={15} /> Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={15} /> Show More ({skills.length - 15} more)
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </section>
 
-                          <div style={{ position: 'relative', display: 'inline-block' }}>
-                            <button
-                              type="button"
-                              className="app-btn app-btn--secondary"
-                              onClick={() => setShowExportDropdown(!showExportDropdown)}
-                              style={{ minHeight: '44px' }}
-                            >
-                              Export ▼
-                            </button>
-                            {showExportDropdown && (
+                      {/* Word Cloud */}
+                      <SkillWordCloud skills={skills} />
+
+                      {/* Skill Gap Matrix */}
+                      <section
+                        className="mt-4 p-3"
+                        style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
+                        aria-labelledby="skill-gap-heading"
+                      >
+                        <h4
+                          id="skill-gap-heading"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            textAlign: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Target size={18} /> Skill Gap Matrix ({targetRole})
+                          <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
+                        </h4>
+                        <div
+                          className="skill-gap-layout"
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '20px',
+                            justifyContent: 'space-around',
+                            marginTop: '12px',
+                          }}
+                        >
+                          <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
+                            <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
+                            {matchedSkills.length === 0 ? (
+                              <p style={{ fontSize: '12px' }}>None</p>
+                            ) : (
                               <div
                                 style={{
-                                  position: 'absolute',
-                                  top: '100%',
-                                  right: 0,
-                                  marginTop: '4px',
-                                  backgroundColor: 'var(--card-bg)',
-                                  border: '1px solid var(--surface-border)',
-                                  borderRadius: '6px',
-                                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                  zIndex: 10,
                                   display: 'flex',
-                                  flexDirection: 'column',
-                                  minWidth: '120px',
-                                  overflow: 'hidden',
+                                  flexWrap: 'wrap',
+                                  gap: '4px',
+                                  justifyContent: 'center',
                                 }}
                               >
-                                <button
-                                  type="button"
-                                  onClick={exportJSON}
-                                  style={{
-                                    padding: '8px 12px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--body-text)',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid var(--surface-border)',
-                                  }}
-                                >
-                                  Export JSON
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={exportCSV}
-                                  style={{
-                                    padding: '8px 12px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--body-text)',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Export CSV
-                                </button>
+                                {matchedSkills.map((s, i) => (
+                                  <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
+                                ))}
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </section>
 
-                      {suggestions.length === 0 ? (
-                        <p
-                          style={{
-                            color: '#64748b',
-                            fontStyle: 'italic',
-                            fontSize: 'var(--font-size-sm)',
-                            textAlign: 'left',
-                            margin: '16px 0 0 0',
-                          }}
-                        >
-                          No actionable layout suggestions generated for the current profile
-                          structure matrix.
-                        </p>
-                      ) : (
-                        <div className="suggestions-grid">
-                          {suggestions.map((suggestion, index) => (
-                            <SuggestionCard
-                              key={index}
-                              text={suggestion}
-                              index={index}
-                              backendUrl={backendUrl}
-                            />
-                          ))}
+                      {/* Upgraded Suggestions Section */}
+                      <section
+                        className="mt-5 p-4"
+                        style={{
+                          background: 'rgba(30, 30, 47, 0.4)',
+                          borderRadius: 'var(--radius-lg)',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                        }}
+                      >
+                        {shareId && <ShareResult shareId={shareId} />}
+
+                        <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '10px',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '12px',
+                            }}
+                          >
+                            <h4 id="suggestions-heading" style={{ margin: 0 }}>
+                              💡 Suggestions
+                            </h4>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                              {suggestions.length > 0 && (
+                                <button
+                                  type="button"
+                                  className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                                  onClick={copySuggestionsToClipboard}
+                                  style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
+                                >
+                                  {copied ? '✅ Copied!' : '📋 Copy All'}
+                                </button>
+                              )}
+
+                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <button
+                                  type="button"
+                                  className="app-btn app-btn--secondary"
+                                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                  style={{ minHeight: '44px' }}
+                                >
+                                  Export ▼
+                                </button>
+                                {showExportDropdown && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: 0,
+                                      marginTop: '4px',
+                                      backgroundColor: 'var(--card-bg)',
+                                      border: '1px solid var(--surface-border)',
+                                      borderRadius: '6px',
+                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                      zIndex: 10,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      minWidth: '120px',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={exportJSON}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
+                                      }}
+                                    >
+                                      Export JSON
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={exportCSV}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Export CSV
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {suggestions.length === 0 ? (
+                            <p
+                              style={{
+                                color: '#64748b',
+                                fontStyle: 'italic',
+                                fontSize: 'var(--font-size-sm)',
+                                textAlign: 'left',
+                                margin: '16px 0 0 0',
+                              }}
+                            >
+                              No actionable layout suggestions generated for the current profile
+                              structure matrix.
+                            </p>
+                          ) : (
+                            <div className="suggestions-grid">
+                              {suggestions.map((suggestion, index) => (
+                                <SuggestionCard
+                                  key={index}
+                                  text={suggestion}
+                                  index={index}
+                                  backendUrl={backendUrl}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          <CuratedTips targetRole={targetRole} />
+
+                          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="app-btn app-btn--secondary"
+                              onClick={resetAnalysis}
+                              style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
+                            >
+                              <RefreshCw size={15} /> Start New Analysis
+                            </button>
+                          </div>
                         </div>
-                      )}
-
-                      <CuratedTips targetRole={targetRole} />
-
-                      <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="app-btn app-btn--secondary"
-                          onClick={resetAnalysis}
-                          style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
-                        >
-                          <RefreshCw size={15} /> Start New Analysis
-                        </button>
-                      </div>
-                    </div>
-                  </section>
+                      </section>
                     </>
                   )}
                 </section>
@@ -1647,6 +1690,7 @@ function App() {
       </button>
 
       <Footer />
+      <CookieConsentBanner />
 
       {/* Keyboard Shortcuts Help Button & Overlay */}
       <button
