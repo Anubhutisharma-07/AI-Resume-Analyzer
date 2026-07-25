@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react'
 import { Navbar } from './components/Navbar'
+import { TemplateGallery } from './components/TemplateGallery'
 import EmptyState from './components/EmptyState'
 import { CuratedTips } from './components/CuratedTips'
 import { StepProgress } from './components/StepProgress'
@@ -108,36 +109,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
   )
 }
 
-function App() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [loading, setLoading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [score, setScore] = useState<number | null>(null);
-  const [skills, setSkills] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Component States
-  const [targetRole, setTargetRole] = useState("Frontend Developer");
-  const [matchedSkills, setMatchedSkills] = useState<string[]>([]);
-  const [missingSkills, setMissingSkills] = useState<string[]>([]);
-  const [showAllSkills, setShowAllSkills] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [analysisSource, setAnalysisSource] = useState<"sample" | "upload" | null>(null);
-  const [resumeText, setResumeText] = useState<string>("");
-
-  // Auth
-  const { user, signup, login, logout } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // History
-  const { entries, deleteEntry, clearHistory, setEntries } = useAnalysisHistory();
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [activeFileName, setActiveFileName] = useState("");
-
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000";
-
-  const fetchDbHistory = useCallback(async (token: string) => {
 interface SuggestionCardProps {
   text: string
   index: number
@@ -319,6 +291,7 @@ function App() {
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
+  const [showGallery, setShowGallery] = useState(false)
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [shareId, setShareId] = useState<string | null>(null)
@@ -934,9 +907,23 @@ function App() {
             >
               📂 Template Gallery
             </button>
+            <button
+              className="app-btn app-btn--secondary"
+              onClick={handleSampleResume}
+              disabled={loading}
+            >
               {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
             </button>
           </div>
+          {showGallery && (
+            <div className="mt-4" style={{ textAlign: "left", background: "var(--card-bg, #fff)", padding: "20px", borderRadius: "8px" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
+                <button onClick={() => setShowGallery(false)} style={{ cursor: 'pointer', background: 'transparent', border: 'none', fontSize: '16px' }}>❌</button>
+              </div>
+              <TemplateGallery />
+            </div>
+          )}
                       <p
                         className="hero-description"
                         style={{
