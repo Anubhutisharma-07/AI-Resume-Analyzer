@@ -1324,7 +1324,7 @@ function App() {
                   <div id="ats-score">
                     <AtsScore
                       score={score}
-                      readabilityScore={readabilityScore}
+                      
                       readabilityLabel={readabilityLabel}
                     />
                   </div>
