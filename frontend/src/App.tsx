@@ -67,6 +67,7 @@ function App() {
   const [matchedSkills, setMatchedSkills] = useState<string[]>([]);
   const [missingSkills, setMissingSkills] = useState<string[]>([]);
   const [showAllSkills, setShowAllSkills] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [copied, setCopied] = useState(false);
   const [analysisSource, setAnalysisSource] = useState<"sample" | "upload" | null>(null);
   const [resumeText, setResumeText] = useState<string>("");
@@ -332,11 +333,11 @@ function App() {
               {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
             </button>
             <button
-              className="secondary-btn"
-              onClick={handleSampleResume}
-              disabled={loading}
-              type="button"
+              className="app-btn"
+              onClick={() => setShowGallery(true)}
             >
+              📂 Template Gallery
+            </button>
               {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
             </button>
           </div>
