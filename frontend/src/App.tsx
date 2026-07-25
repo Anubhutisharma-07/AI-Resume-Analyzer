@@ -44,6 +44,7 @@ import { UndoToast } from './components/UndoToast/UndoToast'
 import { FilePreview } from './components/FilePreview/FilePreview'
 import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
+import CookieConsentBanner from './components/CookieConsentBanner'
 type Theme = 'light' | 'dark'
 
 interface UndoState {
@@ -1655,6 +1656,7 @@ function App() {
       </button>
 
       <Footer />
+      <CookieConsentBanner />
 
       {/* Keyboard Shortcuts Help Button & Overlay */}
       <button
