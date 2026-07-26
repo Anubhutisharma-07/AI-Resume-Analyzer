@@ -1,5 +1,5 @@
 import React from 'react'
-import { FiUploadCloud, FiCpu, FiCheckCircle } from 'react-icons/fi'
+import { UploadCloud, Cpu, CheckCircle } from 'lucide-react'
 
 const steps = [
   
@@ -10,12 +10,12 @@ const steps = [
     description: 'Upload your resume in PDF format.',
   },
   {
-    icon: <FiCpu size={36} />,
+    icon: <Cpu size={36} />,
     title: '2. We analyze',
     description: 'Our system scans your skills against your target role.',
   },
   {
-    icon: <FiCheckCircle size={36} />,
+    icon: <CheckCircle size={36} />,
     title: '3. Get suggestions',
     description: 'Receive actionable insights to improve your score.',
   },
