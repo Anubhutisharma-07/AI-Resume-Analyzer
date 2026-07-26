@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, GitCompare, TrendingUp, TrendingDown, Minus, Download, Loader2, UploadCloud } from 'lucide-react'
+import { X, GitCompare, TrendingUp, TrendingDown, Minus, Download, Loader2 } from 'lucide-react'
 import axios from 'axios'
 import { exportComparisonPdf } from '../../utils/exportComparisonPdf'
 import type { VersionComparison } from '../../hooks/useCompareVersions'
