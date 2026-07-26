@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import type { AuthUser } from '../hooks/useAuth'
+import { Link } from 'react-router-dom'
 
 interface NavbarProps {
   theme: 'light' | 'dark'
@@ -22,7 +23,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <nav className="navbar">
-      <div className="navbar-brand">🚀 AI Resume Analyzer</div>
+      <Link to="/" className="navbar-brand" style={{ textDecoration: 'none', color: 'inherit' }}>
+        🚀 AI Resume Analyzer
+      </Link>
 
       <button
         className="navbar-toggle"
@@ -36,26 +39,25 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       <div id="navbar-menu" className={`navbar-menu ${mobileOpen ? 'mobile-open' : ''}`}>
         <div className="navbar-links">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault()
-              window.scrollTo({ top: 0, behavior: 'smooth' })
-              setMobileOpen(false)
-            }}
-          >
+          <Link to="/" onClick={() => setMobileOpen(false)}>
             Home
-          </a>
+          </Link>
+          <Link to="/analyze" onClick={() => setMobileOpen(false)}>
+            Analyze Resume
+          </Link>
           <a
             href="#ats-score"
             onClick={(e) => {
               e.preventDefault()
-              // Scroll down slightly or just let user know
-              const atsSection = document.getElementById('ats-score')
-              if (atsSection) {
-                atsSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              if (window.location.pathname !== '/analyze') {
+                window.location.href = '/analyze#ats-score'
               } else {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                const atsSection = document.getElementById('ats-score')
+                if (atsSection) {
+                  atsSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                } else {
+                  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                }
               }
               setMobileOpen(false)
             }}
