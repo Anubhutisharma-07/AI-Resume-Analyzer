@@ -276,3 +276,32 @@ class PasswordResetConfirmView(APIView):
                 {"error": "Invalid or expired token."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+from collections import Counter
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def admin_stats_view(request):
+    if not request.user.is_staff and not request.user.is_superuser:
+        return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        
+    total_analyses = ResumeAnalysis.objects.count()
+    
+    # Most popular career tracks
+    roles = ResumeAnalysis.objects.values_list('target_role', flat=True)
+    popular_roles = Counter(roles).most_common(5)
+    
+    # Most commonly missing skills
+    all_missing_skills = ResumeAnalysis.objects.values_list('missing_skills', flat=True)
+    missing_skills_counter = Counter()
+    for skills_list in all_missing_skills:
+        if isinstance(skills_list, list):
+            missing_skills_counter.update(skills_list)
+            
+    top_missing_skills = missing_skills_counter.most_common(10)
+    
+    return Response({
+        "total_analyses": total_analyses,
+        "popular_roles": [{"role": r[0], "count": r[1]} for r in popular_roles if r[0]],
+        "top_missing_skills": [{"skill": s[0], "count": s[1]} for s in top_missing_skills if s[0]]
+    })

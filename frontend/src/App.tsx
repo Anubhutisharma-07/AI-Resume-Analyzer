@@ -46,6 +46,8 @@ import { FilePreview } from './components/FilePreview/FilePreview'
 import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
 import CookieConsentBanner from './components/CookieConsentBanner'
+import AdminDashboard from './components/AdminDashboard'
+
 type Theme = 'light' | 'dark'
 
 interface UndoState {
@@ -863,6 +865,7 @@ function App() {
         onHistoryClick={() => setHistoryOpen(true)}
       />
       <Routes>
+        <Route path="/admin" element={<AdminDashboard user={user} />} />
         <Route path="/shared/:shareId" element={<SharedResultView />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
         <Route

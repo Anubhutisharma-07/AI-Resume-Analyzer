@@ -14,6 +14,7 @@ from .views import (
     compare_versions_view,
     suggestion_feedback,
     get_shared_result,
+    admin_stats_view,
 )
 
 urlpatterns = [
@@ -32,4 +33,5 @@ urlpatterns = [
     path("shared/<uuid:share_id>/", get_shared_result),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path("admin/stats/", admin_stats_view, name="admin_stats"),
 ]
