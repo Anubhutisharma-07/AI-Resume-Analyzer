@@ -329,8 +329,16 @@ function App() {
     e.stopPropagation()
     setIsDragging(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0])
-      setFileError(null)
+      const droppedFile = e.dataTransfer.files[0]
+      const validTypes = ['.pdf', '.docx']
+      const isValid = validTypes.some(ext => droppedFile.name.toLowerCase().endsWith(ext))
+      
+      if (isValid) {
+        setFile(droppedFile)
+        setFileError(null)
+      } else {
+        setFileError('Only PDF and DOCX files are supported.')
+      }
     }
   }
 
@@ -1083,10 +1091,19 @@ function App() {
                             type="file"
                             id="fileUpload"
                             hidden
+                            accept=".pdf,.docx"
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                               if (e.target.files && e.target.files[0]) {
-                                setFile(e.target.files[0])
-                                setFileError(null)
+                                const selectedFile = e.target.files[0]
+                                const validTypes = ['.pdf', '.docx']
+                                const isValid = validTypes.some(ext => selectedFile.name.toLowerCase().endsWith(ext))
+                                
+                                if (isValid) {
+                                  setFile(selectedFile)
+                                  setFileError(null)
+                                } else {
+                                  setFileError('Only PDF and DOCX files are supported.')
+                                }
                               }
                             }}
                           />
