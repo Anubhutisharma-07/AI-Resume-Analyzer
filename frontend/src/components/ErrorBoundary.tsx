@@ -45,7 +45,7 @@ class ErrorBoundary extends Component<Props, State> {
               Refresh Page
             </button>
             {/* Show error details during development */}
-            {import.meta.env.DEV && this.state.error && (
+            {process.env.NODE_ENV === 'development' && this.state.error && (
               <div
                 className="mt-4 text-start bg-light p-3 rounded overflow-auto border"
                 style={{ maxHeight: '200px' }}

@@ -1,3 +1,5 @@
+import {} from 'lucide-react'
+
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
 
@@ -10,7 +12,7 @@ export const Footer: React.FC = () => {
       style={{
         marginTop: '80px',
         borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-        background: 'rgba(30, 30, 47, 0.4)',
+        background: 'rgba(30, 30, 47, 0.8)',
         padding: '40px 20px 20px',
       }}
     >
@@ -42,13 +44,12 @@ export const Footer: React.FC = () => {
           <p
             style={{
               fontSize: 'var(--font-size-sm)',
-              color: '#94a3b8',
+              color: 'var(--footer-text)',
               lineHeight: '1.6',
               margin: 0,
             }}
           >
-            Optimizing application structural profiles against automated parsing matrices with fluid
-            data visualization pipelines.
+            Helping you beat ATS filters and land more interviews.
           </p>
         </div>
 
@@ -224,10 +225,10 @@ export const Footer: React.FC = () => {
           gap: '12px',
         }}
       >
-        <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+        <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>
           &copy; {currentYear} AI Resume Analyzer. All architectural systems operational.
         </p>
-        <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+        <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>
           Built with React & TypeScript
         </p>
       </div>

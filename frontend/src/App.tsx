@@ -12,6 +12,9 @@ import { Footer } from './Footer'
 import AnalysisSkeleton from './components/AnalysisSkeleton/AnalysisSkeleton'
 import { InfoTooltip } from './components/InfoTooltip'
 import { SkillWordCloud } from './components/SkillWordCloud'
+import { TrackMatrix } from './components/TrackMatrix'
+import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
+import type { TrackComparisons } from './components/TrackMatrix'
 import {
   FileText,
   Loader2,
@@ -21,11 +24,14 @@ import {
   RefreshCw,
   Target,
   Info,
+  HelpCircle,
+  X,
 } from 'lucide-react'
 import { Navbar } from './components/Navbar'
+import { TemplateGallery } from './components/TemplateGallery'
 import EmptyState from './components/EmptyState'
+import { CuratedTips } from './components/CuratedTips'
 import { StepProgress } from './components/StepProgress'
-import resultScreenshot from './assets/screenshots/result.png'
 import { OnboardingTour } from './components/OnboardingTour'
 import { HowItWorks } from './components/HowItWorks'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
@@ -36,13 +42,11 @@ import {
 } from './utils/notification'
 import { ProgressBar } from './components/ProgressBar/ProgressBar'
 import { UndoToast } from './components/UndoToast/UndoToast'
-
-import { LandingPage } from './pages/LandingPage'
-
+import { FilePreview } from './components/FilePreview/FilePreview'
+import { ShareResult } from './components/ShareResult'
+import { SharedResultView } from './SharedResultView'
+import CookieConsentBanner from './components/CookieConsentBanner'
 type Theme = 'light' | 'dark'
-
-const DEFAULT_TITLE = 'AI Resume Analyzer'
-const READY_TITLE = '✅ Analysis Ready — AI Resume Analyzer'
 
 interface UndoState {
   file: File | null
@@ -56,6 +60,9 @@ interface UndoState {
   activeFileName: string
   targetRole: string
 }
+
+const DEFAULT_TITLE = 'AI Resume Analyzer'
+const READY_TITLE = '✅ Analysis Ready — AI Resume Analyzer'
 
 function getInitialTheme(): Theme {
   try {
@@ -103,6 +110,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
   )
 }
 
+
 interface SuggestionCardProps {
   text: string
   index: number
@@ -130,7 +138,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
         index,
       })
       setVoted(vote)
-    } catch (err: unknown) {
+    } catch (err) {
       console.error('Failed to send suggestion feedback:', err)
       setVoted(vote)
     } finally {
@@ -147,7 +155,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
             style={{
               fontSize: '12px',
               fontWeight: '700',
-              color: '#a5b4fc',
+              color: 'var(--color-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
@@ -159,7 +167,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
           style={{
             margin: 0,
             fontSize: 'var(--font-size-sm)',
-            color: '#e2e8f0',
+            color: 'var(--body-text)',
             lineHeight: '1.6',
           }}
         >
@@ -174,7 +182,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
           justifyContent: 'space-between',
           marginTop: '16px',
           paddingTop: '12px',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          borderTop: '1px solid var(--surface-border)',
           gap: '8px',
           flexWrap: 'wrap',
         }}
@@ -186,7 +194,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
               <span
                 style={{
                   fontSize: '0.78rem',
-                  color: 'rgba(255, 255, 255, 0.6)',
+                  color: 'var(--muted-text)',
                   fontWeight: '500',
                 }}
               >
@@ -199,12 +207,12 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
                 title="Helpful"
                 aria-label="Vote helpful"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'var(--surface-soft-bg)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '4px 8px',
                   cursor: 'pointer',
-                  color: '#fff',
+                  color: 'var(--body-text)',
                   fontSize: '0.85rem',
                   transition: 'all 0.2s ease',
                 }}
@@ -218,12 +226,12 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
                 title="Not helpful"
                 aria-label="Vote not helpful"
                 style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'var(--surface-soft-bg)',
+                  border: '1px solid var(--surface-border)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '4px 8px',
                   cursor: 'pointer',
-                  color: '#fff',
+                  color: 'var(--body-text)',
                   fontSize: '0.85rem',
                   transition: 'all 0.2s ease',
                 }}
@@ -269,6 +277,8 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
+ 
+  const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
 
@@ -284,8 +294,10 @@ function App() {
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
+  const [showGallery, setShowGallery] = useState(false)
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
+  const [shareId, setShareId] = useState<string | null>(null)
   const [jobDesc, setJobDesc] = useState('')
   const [resumeText, setResumeText] = useState<string>('')
   const [activeFileName, setActiveFileName] = useState('')
@@ -294,8 +306,33 @@ function App() {
   const [analysisProgress, setAnalysisProgress] = useState<number>(0)
   const [analysisStageLabel, setAnalysisStageLabel] = useState<string>('')
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
+  const [trackComparisons, setTrackComparisons] = useState<TrackComparisons | null>(null)
+  const [activeTab, setActiveTab] = useState<'detailed' | 'matrix'>('detailed')
   const [resumeUrl, setResumeUrl] = useState<string>('')
   const [urlError, setUrlError] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0])
+      setFileError(null)
+    }
+  }
 
   let currentStep: 1 | 2 | 3 = 1
   if (loading) {
@@ -307,7 +344,16 @@ function App() {
   const { user, signup, login, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
 
-  const { entries, addEntry, deleteEntry, clearHistory, setEntries } = useAnalysisHistory()
+  const {
+    entries,
+    unreadCount,
+    lastViewedTimestamp,
+    markAllAsViewed,
+    addEntry,
+    deleteEntry,
+    clearHistory,
+    setEntries,
+  } = useAnalysisHistory()
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -347,18 +393,29 @@ function App() {
         const res = await axios.get(`${backendUrl}/api/history/`, {
           headers: { Authorization: `Bearer ${token}` },
         })
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const dbEntries: AnalysisEntry[] = res.data.map((item: any) => ({
-          id: String(item.id),
-          timestamp: new Date(item.created_at).getTime(),
-          score: item.score,
-          skills: item.skills_found,
-          suggestions: item.suggestions,
-          matchedSkills: item.matched_skills,
-          missingSkills: item.missing_skills,
-          targetRole: item.target_role,
-          fileName: item.file_name,
-        }))
+        const dbEntries: AnalysisEntry[] = res.data.map(
+          (item: {
+            id: string | number
+            created_at: string | number
+            score: number
+            skills_found: string[]
+            suggestions: string[]
+            matched_skills: string[]
+            missing_skills: string[]
+            target_role: string
+            file_name: string
+          }) => ({
+            id: String(item.id),
+            timestamp: new Date(item.created_at).getTime(),
+            score: item.score,
+            skills: item.skills_found,
+            suggestions: item.suggestions,
+            matchedSkills: item.matched_skills,
+            missingSkills: item.missing_skills,
+            targetRole: item.target_role,
+            fileName: item.file_name,
+          })
+        )
         const uniqueDbEntries = dbEntries.filter(
           (entry, index, self) =>
             index ===
@@ -381,7 +438,7 @@ function App() {
     try {
       localStorage.setItem('theme', theme)
     } catch {
-      /* empty */
+      // Ignore localStorage access restrictions in private browsing modes
     }
   }, [theme])
 
@@ -426,6 +483,7 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setAnalysisSource(null)
+    setShareId(null)
     setActiveFileName('')
     setShowExportDropdown(false)
     setFileError(null)
@@ -552,6 +610,11 @@ function App() {
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
+ 
+      setReadabilityLabel(res.data.readability_label ?? null)
+      if (res.data.share_id) setShareId(res.data.share_id)
+      setTrackComparisons(res.data.track_comparisons || null)
+      setActiveTab('detailed')
       const fileName = fileToAnalyze ? fileToAnalyze.name : url ? 'Imported Resume' : 'Resume'
       setActiveFileName(fileName)
 
@@ -610,9 +673,20 @@ function App() {
         }
       }
       if (!(axios.isAxiosError(error) && error.response?.status === 429)) {
-        alert(
-          source === 'sample' ? `Sample analysis failed: ${errorMsg}` : `Upload failed: ${errorMsg}`
-        )
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 400 &&
+          uploadMode === 'url' &&
+          source === 'upload'
+        ) {
+          setUrlError(errorMsg)
+        } else {
+          alert(
+            source === 'sample'
+              ? `Sample analysis failed: ${errorMsg}`
+              : `Upload failed: ${errorMsg}`
+          )
+        }
       }
 
       setLoading(false)
@@ -647,7 +721,13 @@ function App() {
         setUrlError('URL must start with http:// or https://')
         hasError = true
       } else {
-        setUrlError(null)
+        try {
+          new URL(resumeUrl.trim())
+          setUrlError(null)
+        } catch {
+          setUrlError('Please enter a valid URL.')
+          hasError = true
+        }
       }
     }
 
@@ -748,9 +828,15 @@ function App() {
 
   return (
     <>
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
       <OnboardingTour />
       <HistorySidebar
         entries={entries}
+        unreadCount={unreadCount}
+        lastViewedTimestamp={lastViewedTimestamp}
+        onMarkAllAsViewed={markAllAsViewed}
         activeFileName={activeFileName}
         onSelect={selectHistoryEntry}
         onDelete={handleDeleteEntry}
@@ -777,42 +863,107 @@ function App() {
         onHistoryClick={() => setHistoryOpen(true)}
       />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/shared/:shareId" element={<SharedResultView />} />
+        <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
         <Route
-          path="/analyze"
+          path="/"
           element={
-            <div className="container mt-5 px-3">
-              <div
-                className="main-card text-center mx-auto"
-                style={{ width: '100%', maxWidth: score === null && !loading ? '1100px' : '600px' }}
-              >
-                {showAuthModal && (
-                  <AuthModal
-                    onSignup={signup}
-                    onLogin={login}
-                    onClose={() => setShowAuthModal(false)}
-                  />
-                )}
+            <main id="main-content" className="landing-page">
+              {showAuthModal && (
+                <AuthModal
+                  onSignup={signup}
+                  onLogin={login}
+                  onClose={() => setShowAuthModal(false)}
+                />
+              )}
 
-                <div className={score === null && !loading ? 'hero-container' : ''}>
-                  <div className={score === null && !loading ? 'hero-left' : ''}>
-                    <h1
-                      className="mb-4 app-main-title"
-                      style={{ fontSize: 'calc(1.5rem + 1.5vw)', wordBreak: 'break-word' }}
-                    >
-                      🚀 AI Resume Analyzer
-                    </h1>
+              <div className={score === null && !loading ? 'hero-container' : ''}>
+                <div className={score === null && !loading ? 'hero-left' : ''}>
+                  {score === null && !loading && (
+                    <section className="hero-intro" aria-label="Introduction">
+                      <span className="hero-badge">⭐ AI Powered Resume Optimization</span>
 
-                    {score === null && !loading && (
-                      <p className="hero-description">
-                        Optimize your resume for Applicant Tracking Systems. Get instant scoring,
-                        identify missing skills, and receive actionable recommendations to land your
-                        dream job.
+                      <h1
+                        className="app-main-title"
+                        style={{
+                          fontSize: 'clamp(2.8rem, 6vw, 4.8rem)',
+                          lineHeight: '1.1',
+                          fontWeight: 800,
+                          marginTop: '18px',
+                          marginBottom: '24px',
+                        }}
+                      >
+                        Beat ATS Filters.
+                        <br />
+                        Land More Interviews.
+                      </h1>
+
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", alignItems: "center" }} className="mb-3">
+            <button
+              className="analyze-btn"
+              onClick={uploadResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
+            </button>
+            <button
+              className="app-btn"
+              onClick={() => setShowGallery(true)}
+            >
+              📂 Template Gallery
+            </button>
+            <button
+              className="app-btn app-btn--secondary"
+              onClick={handleSampleResume}
+              disabled={loading}
+            >
+              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
+            </button>
+          </div>
+          {showGallery && (
+            <div className="mt-4" style={{ textAlign: "left", background: "var(--card-bg, #fff)", padding: "20px", borderRadius: "8px" }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
+                <button onClick={() => setShowGallery(false)} style={{ cursor: 'pointer', background: 'transparent', border: 'none', fontSize: '16px' }}>❌</button>
+              </div>
+              <TemplateGallery />
+            </div>
+          )}
+                      <p
+                        className="hero-description"
+                        style={{
+                          maxWidth: '760px',
+                          margin: '0 auto 30px',
+                          fontSize: '1.15rem',
+                          textAlign: 'center',
+                        }}
+                      >
+                        Analyze your resume with AI, discover missing skills, improve ATS
+                        compatibility and receive personalized recommendations in seconds.
                       </p>
-                    )}
 
-                    <StepProgress currentStep={currentStep} />
+                      <div className="hero-stats" style={{ color: theme === 'light' ? '#000000' : '#ffffff' }}>
+                        <div>
+                          <h2>50K+</h2>
+                          <span>Resumes Reviewed</span>
+                        </div>
 
+                        <div>
+                          <h2>95%</h2>
+                          <span>ATS Accuracy</span>
+                        </div>
+
+                        <div>
+                          <h2>24/7</h2>
+                          <span>AI Available</span>
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {(loading || score !== null) && <StepProgress currentStep={currentStep} />}
+
+                  <section className="analyzer-form-section" aria-label="Resume Analyzer Form">
                     {/* STEP 1: Target Career Track */}
                     <div
                       className="mb-4 p-4 role-selector-container"
@@ -825,10 +976,11 @@ function App() {
                       <label
                         htmlFor="roleSelect"
                         style={{
+                          color: theme === 'light' ? '#000000' : '#ffffff',
                           display: 'block',
                           marginBottom: '12px',
                           fontWeight: '600',
-                          color: '#e2e8f0',
+                          textAlign: 'center',
                           fontSize: 'var(--font-size-sm)',
                         }}
                       >
@@ -909,7 +1061,7 @@ function App() {
                             fontWeight: '600',
                             cursor: 'pointer',
                             background:
-                              uploadMode === 'url' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                              uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
                             color: '#fff',
                             border: '1px solid rgba(255, 255, 255, 0.15)',
                             transition: 'all 0.2s ease',
@@ -921,8 +1073,11 @@ function App() {
 
                       {uploadMode === 'file' ? (
                         <div
-                          className="upload-box mb-3"
-                          style={{ width: '100%', maxWidth: '100%', padding: '32px 20px' }}
+                          className={`upload-box mb-3 ${isDragging ? 'dragging' : ''}`}
+                          style={{ width: '100%', maxWidth: '100%' }}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
                         >
                           <input
                             type="file"
@@ -935,22 +1090,55 @@ function App() {
                               }
                             }}
                           />
-                          <label
-                            htmlFor="fileUpload"
-                            className="upload-label"
-                            style={{
-                              cursor: 'pointer',
-                              display: 'block',
-                              wordBreak: 'break-all',
-                              fontSize: 'var(--font-size-base)',
-                            }}
-                          >
-                            📄{' '}
-                            {file ? (
-                              <strong style={{ color: '#a5b4fc' }}>{file.name}</strong>
-                            ) : (
-                              'Drag & Drop Resume or Click to Browse'
-                            )}
+                          <label htmlFor="fileUpload" className="upload-label">
+                            <div className="upload-icon-wrapper" aria-hidden="true">
+                              {file ? (
+                                <svg
+                                  width="28"
+                                  height="28"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <path d="M9 15l2 2 4-4" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  width="28"
+                                  height="28"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                  <polyline points="17 8 12 3 7 8" />
+                                  <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                              )}
+                            </div>
+                            <div style={{ textAlign: 'center' }}>
+                              {file ? (
+                                <strong className="upload-file-name">{file.name}</strong>
+                              ) : (
+                                <>
+                                  <span className="upload-text-primary">
+                                    Drag &amp; Drop Resume or{' '}
+                                    <span className="upload-text-browse">Click to Browse</span>
+                                  </span>
+                                  <span className="upload-text-secondary">
+                                    Supports PDF, DOCX, TXT up to 10MB
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </label>
                         </div>
                       ) : (
@@ -999,7 +1187,11 @@ function App() {
                           </span>
                         </div>
                       )}
-
+                      {file && uploadMode === 'file' && (
+                        <div className="mb-3">
+                          <FilePreview file={file} />
+                        </div>
+                      )}
                       {fileError && uploadMode === 'file' && (
                         <div
                           style={{
@@ -1035,10 +1227,11 @@ function App() {
                         <label
                           htmlFor="jobDescription"
                           style={{
+                            color: 'var(--text-primary)',
                             fontWeight: '600',
                             display: 'block',
                             marginBottom: '8px',
-                            color: '#e2e8f0',
+
                           }}
                         >
                           Job Description (Optional)
@@ -1124,305 +1317,363 @@ function App() {
                         </p>
                       )}
                     </div>
-                  </div>
+                  </section>
+                </div>
+              </div>
 
-                  {score === null && !loading && (
-                    <div className="hero-right">
-                      <img src={resultScreenshot} alt="App Preview" className="hero-screenshot" />
+              {/* Loading Skeleton & Determinate Progress Bar */}
+              {loading && (
+                <section className="my-4" aria-live="polite" aria-label="Analysis Progress">
+                  <ProgressBar progress={analysisProgress} stageLabel={analysisStageLabel} />
+                  <AnalysisSkeleton />
+                </section>
+              )}
+
+              {/* Empty State / How It Works */}
+              {score === null && !loading && (
+                <section style={{ paddingBottom: '2rem' }} aria-label="About the Resume Analyzer">
+                  <EmptyState />
+                  <div className="mt-4">
+                    <HowItWorks />
+                  </div>
+                </section>
+              )}
+
+              {/* Results Display Panel */}
+              {score !== null && !loading && (
+                <section aria-label="Analysis Results">
+                  {analysisSource === 'sample' && (
+                    <div
+                      className="sample-notice-banner mb-4"
+                      style={{ padding: '10px', wordBreak: 'break-word' }}
+                    >
+                      <span>
+                        <Info size={15} /> Viewing Sample Resume Analysis
+                      </span>
+                      <span style={{ fontWeight: 'normal', fontSize: '13px', display: 'block' }}>
+                        — This analysis is based on a bundled sample resume.
+                      </span>
                     </div>
                   )}
-                </div>
 
-                {/* Loading Skeleton & Determinate Progress Bar */}
-                {loading && (
-                  <div className="my-4">
-                    <ProgressBar progress={analysisProgress} stageLabel={analysisStageLabel} />
-                    <AnalysisSkeleton />
+                  <div id="ats-score">
+                    <AtsScore
+                      score={score}
+                      
+                      readabilityLabel={readabilityLabel}
+                    />
                   </div>
-                )}
 
-                {/* Empty State / How It Works */}
-                {score === null && !loading && (
-                  <div style={{ paddingBottom: '2rem' }}>
-                    <EmptyState />
-                    <div className="mt-4">
-                      <HowItWorks />
-                    </div>
-                  </div>
-                )}
+                  <ResumePreview text={resumeText} skills={skills} />
 
-                {/* Results Display Panel */}
-                {score !== null && !loading && (
-                  <>
-                    {analysisSource === 'sample' && (
-                      <div
-                        className="sample-notice-banner mb-4"
-                        style={{ padding: '10px', wordBreak: 'break-word' }}
-                      >
-                        <span>
-                          <Info size={15} /> Viewing Sample Resume Analysis
-                        </span>
-                        <span style={{ fontWeight: 'normal', fontSize: '13px', display: 'block' }}>
-                          — This analysis is based on a bundled sample resume.
-                        </span>
-                      </div>
-                    )}
-
-                    <div id="ats-score">
-                      <AtsScore score={score} />
-                    </div>
-
-                    <ResumePreview text={resumeText} skills={skills} />
-
-                    <h5 className="analysis-done mt-3">
-                      <CheckCircle size={18} /> Resume Analysis Complete
-                    </h5>
-                    {activeFileName && (
-                      <p
-                        style={{
-                          fontSize: '13px',
-                          opacity: 0.7,
-                          marginTop: '-8px',
-                          wordBreak: 'break-all',
-                        }}
-                      >
-                        <FileText size={13} /> {activeFileName}
-                      </p>
-                    )}
-
-                    {/* Skills Section */}
-                    <div className="mt-4">
-                      <h4>Skills Found ({skills.length})</h4>
-                      {skills.length === 0 && <p>No skills detected</p>}
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '8px',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {(showAllSkills ? skills : skills.slice(0, 15)).map(
-                          (skill: string, i: number) => (
-                            <SkillChip key={i} skill={skill} type="detected" />
-                          )
-                        )}
-                      </div>
-                      {skills.length > 15 && (
-                        <button
-                          type="button"
-                          className="app-btn app-btn--secondary"
-                          style={{ marginTop: '16px', minHeight: '44px' }}
-                          onClick={() => setShowAllSkills(!showAllSkills)}
-                        >
-                          {showAllSkills ? (
-                            <>
-                              <ChevronUp size={15} /> Show Less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown size={15} /> Show More ({skills.length - 15} more)
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Word Cloud */}
-                    <SkillWordCloud skills={skills} />
-
-                    {/* Skill Gap Matrix */}
-                    <div
-                      className="mt-4 p-3"
-                      style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
-                    >
-                      <h4
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexWrap: 'wrap',
-                          textAlign: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        <Target size={18} /> Skill Gap Matrix ({targetRole})
-                        <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
-                      </h4>
-                      <div
-                        className="skill-gap-layout"
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '20px',
-                          justifyContent: 'space-around',
-                          marginTop: '12px',
-                        }}
-                      >
-                        <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
-                          <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                          {matchedSkills.length === 0 ? (
-                            <p style={{ fontSize: '12px' }}>None</p>
-                          ) : (
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexWrap: 'wrap',
-                                gap: '4px',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              {matchedSkills.map((s, i) => (
-                                <SkillChip
-                                  key={i}
-                                  skill={s}
-                                  type="matched"
-                                  targetRole={targetRole}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Upgraded Suggestions Section */}
-                    <div
-                      className="mt-5 p-4"
+                  <h5 className="analysis-done mt-3">
+                    <CheckCircle size={18} /> Resume Analysis Complete
+                  </h5>
+                  {activeFileName && (
+                    <p
                       style={{
-                        background: 'rgba(30, 30, 47, 0.4)',
-                        borderRadius: 'var(--radius-lg)',
-                        border: '1px solid rgba(255, 255, 255, 0.04)',
+                        fontSize: '13px',
+                        opacity: 0.7,
+                        marginTop: '-8px',
+                        wordBreak: 'break-all',
                       }}
                     >
-                      <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
+                      <FileText size={13} /> {activeFileName}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '16px', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('detailed')}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: activeTab === 'detailed' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                        color: '#fff',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      Detailed View
+                    </button>
+                    {trackComparisons && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('matrix')}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          background: activeTab === 'matrix' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        Compare All Tracks
+                      </button>
+                    )}
+                  </div>
+
+                  {activeTab === 'matrix' && trackComparisons ? (
+                    <TrackMatrix
+                      trackComparisons={trackComparisons}
+                      activeRole={targetRole}
+                      onRowClick={(role) => {
+                        setTargetRole(role)
+                        const comp = trackComparisons[role]
+                        setScore(comp.score)
+                        setMatchedSkills(comp.matched_skills)
+                        setMissingSkills(comp.missing_skills)
+                        setSuggestions(comp.suggestions)
+                        setActiveTab('detailed')
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {/* Skills Section */}
+                      <section className="mt-4" aria-labelledby="skills-found-heading">
+                        <h4 id="skills-found-heading">Skills Found ({skills.length})</h4>
+                        {skills.length === 0 && <p>No skills detected</p>}
                         <div
                           style={{
                             display: 'flex',
                             flexWrap: 'wrap',
-                            gap: '10px',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '12px',
+                            gap: '8px',
+                            justifyContent: 'center',
                           }}
                         >
-                          <h4 style={{ margin: 0 }}>💡 Suggestions</h4>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                            {suggestions.length > 0 && (
-                              <button
-                                type="button"
-                                className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                                onClick={copySuggestionsToClipboard}
-                                style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
-                              >
-                                {copied ? '✅ Copied!' : '📋 Copy All'}
-                              </button>
-                            )}
-
-                            <div style={{ position: 'relative', display: 'inline-block' }}>
-                              <button
-                                type="button"
-                                className="app-btn app-btn--secondary"
-                                onClick={() => setShowExportDropdown(!showExportDropdown)}
-                                style={{ minHeight: '44px' }}
-                              >
-                                Export ▼
-                              </button>
-                              {showExportDropdown && (
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    right: 0,
-                                    marginTop: '4px',
-                                    backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
-                                    border: `1px solid ${theme === 'dark' ? '#374151' : '#e5e7eb'}`,
-                                    borderRadius: '6px',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                    zIndex: 10,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    minWidth: '120px',
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={exportJSON}
-                                    style={{
-                                      padding: '8px 12px',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      color: theme === 'dark' ? '#f3f4f6' : '#111827',
-                                      textAlign: 'left',
-                                      cursor: 'pointer',
-                                      borderBottom: `1px solid ${theme === 'dark' ? '#374151' : '#e5e7eb'}`,
-                                    }}
-                                  >
-                                    Export JSON
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={exportCSV}
-                                    style={{
-                                      padding: '8px 12px',
-                                      background: 'transparent',
-                                      border: 'none',
-                                      color: theme === 'dark' ? '#f3f4f6' : '#111827',
-                                      textAlign: 'left',
-                                      cursor: 'pointer',
-                                    }}
-                                  >
-                                    Export CSV
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          {(showAllSkills ? skills : skills.slice(0, 15)).map(
+                            (skill: string, i: number) => (
+                              <SkillChip key={i} skill={skill} type="detected" />
+                            )
+                          )}
                         </div>
-
-                        {suggestions.length === 0 ? (
-                          <p
-                            style={{
-                              color: '#64748b',
-                              fontStyle: 'italic',
-                              fontSize: 'var(--font-size-sm)',
-                              textAlign: 'left',
-                              margin: '16px 0 0 0',
-                            }}
-                          >
-                            No actionable layout suggestions generated for the current profile
-                            structure matrix.
-                          </p>
-                        ) : (
-                          <div className="suggestions-grid">
-                            {suggestions.map((suggestion, index) => (
-                              <SuggestionCard
-                                key={index}
-                                text={suggestion}
-                                index={index}
-                                backendUrl={backendUrl}
-                              />
-                            ))}
-                          </div>
-                        )}
-
-                        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                        {skills.length > 15 && (
                           <button
                             type="button"
                             className="app-btn app-btn--secondary"
-                            onClick={resetAnalysis}
-                            style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
+                            style={{ marginTop: '16px', minHeight: '44px' }}
+                            onClick={() => setShowAllSkills(!showAllSkills)}
                           >
-                            <RefreshCw size={15} /> Start New Analysis
+                            {showAllSkills ? (
+                              <>
+                                <ChevronUp size={15} /> Show Less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={15} /> Show More ({skills.length - 15} more)
+                              </>
+                            )}
                           </button>
+                        )}
+                      </section>
+
+                      {/* Word Cloud */}
+                      <SkillWordCloud skills={skills} />
+
+                      {/* Skill Gap Matrix */}
+                      <section
+                        className="mt-4 p-3"
+                        style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
+                        aria-labelledby="skill-gap-heading"
+                      >
+                        <h4
+                          id="skill-gap-heading"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexWrap: 'wrap',
+                            textAlign: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <Target size={18} /> Skill Gap Matrix ({targetRole})
+                          <InfoTooltip content="Shows which required skills are already in your resume and which important skills are missing." />
+                        </h4>
+                        <div
+                          className="skill-gap-layout"
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '20px',
+                            justifyContent: 'space-around',
+                            marginTop: '12px',
+                          }}
+                        >
+                          <div style={{ flex: '1 1 140px', minWidth: '140px' }}>
+                            <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
+                            {matchedSkills.length === 0 ? (
+                              <p style={{ fontSize: '12px' }}>None</p>
+                            ) : (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '4px',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                {matchedSkills.map((s, i) => (
+                                  <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                      </section>
+
+                      {/* Upgraded Suggestions Section */}
+                      <section
+                        className="mt-5 p-4"
+                        style={{
+                          background: 'rgba(30, 30, 47, 0.4)',
+                          borderRadius: 'var(--radius-lg)',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                        }}
+                      >
+                        {shareId && <ShareResult shareId={shareId} />}
+
+                        <div className="suggestion-box mt-4" style={{ padding: '15px' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexWrap: 'wrap',
+                              gap: '10px',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '12px',
+                            }}
+                          >
+                            <h4 id="suggestions-heading" style={{ margin: 0 }}>
+                              💡 Suggestions
+                            </h4>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                              {suggestions.length > 0 && (
+                                <button
+                                  type="button"
+                                  className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                                  onClick={copySuggestionsToClipboard}
+                                  style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
+                                >
+                                  {copied ? '✅ Copied!' : '📋 Copy All'}
+                                </button>
+                              )}
+
+                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <button
+                                  type="button"
+                                  className="app-btn app-btn--secondary"
+                                  onClick={() => setShowExportDropdown(!showExportDropdown)}
+                                  style={{ minHeight: '44px' }}
+                                >
+                                  Export ▼
+                                </button>
+                                {showExportDropdown && (
+                                  <div
+                                    style={{
+                                      position: 'absolute',
+                                      top: '100%',
+                                      right: 0,
+                                      marginTop: '4px',
+                                      backgroundColor: 'var(--card-bg)',
+                                      border: '1px solid var(--surface-border)',
+                                      borderRadius: '6px',
+                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                      zIndex: 10,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      minWidth: '120px',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={exportJSON}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
+                                      }}
+                                    >
+                                      Export JSON
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={exportCSV}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Export CSV
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {suggestions.length === 0 ? (
+                            <p
+                              style={{
+                                color: '#64748b',
+                                fontStyle: 'italic',
+                                fontSize: 'var(--font-size-sm)',
+                                textAlign: 'left',
+                                margin: '16px 0 0 0',
+                              }}
+                            >
+                              No actionable layout suggestions generated for the current profile
+                              structure matrix.
+                            </p>
+                          ) : (
+                            <div className="suggestions-grid">
+                              {suggestions.map((suggestion, index) => (
+                                <SuggestionCard
+                                  key={index}
+                                  text={suggestion}
+                                  index={index}
+                                  backendUrl={backendUrl}
+                                />
+                              ))}
+                            </div>
+                          )}
+
+                          <CuratedTips targetRole={targetRole} />
+
+                          <div style={{ marginTop: '24px', textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="app-btn app-btn--secondary"
+                              onClick={resetAnalysis}
+                              style={{ minHeight: '44px', width: '100%', maxWidth: '250px' }}
+                            >
+                              <RefreshCw size={15} /> Start New Analysis
+                            </button>
+                          </div>
+                        </div>
+                      </section>
+                    </>
+                  )}
+                </section>
+              )}
+            </main>
           }
         />
         <Route path="*" element={<NotFound />} />
@@ -1430,7 +1681,7 @@ function App() {
       {/* Floating Back to Top Button */}
       <button
         type="button"
-        className={`back-to-top${showBackToTop ? ' back-to-top--visible' : ''}`}
+        className={`fab-btn back-to-top${showBackToTop ? ' back-to-top--visible' : ''}`}
         onClick={scrollToTop}
         aria-label="Back to top"
         title="Back to top"
@@ -1439,15 +1690,17 @@ function App() {
       </button>
 
       <Footer />
+      <CookieConsentBanner />
 
       {/* Keyboard Shortcuts Help Button & Overlay */}
       <button
-        className="shortcut-help-trigger"
+        className="fab-btn shortcut-help-trigger"
         onClick={() => setShowShortcutHelp(!showShortcutHelp)}
         title="Toggle Keyboard Shortcuts Help"
-        aria-label="Toggle keyboard shortcuts menu"
+        aria-label="Toggle keyboard shortcuts help menu"
+        aria-expanded={showShortcutHelp}
       >
-        ?
+        {showShortcutHelp ? <X size={20} /> : <HelpCircle size={20} />}
       </button>
 
       {showShortcutHelp && (

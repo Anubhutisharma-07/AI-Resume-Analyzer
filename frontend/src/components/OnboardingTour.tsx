@@ -66,9 +66,8 @@ export const OnboardingTour: React.FC = () => {
   }, [currentStep, isVisible])
 
   useEffect(() => {
-    setTimeout(() => {
-      updateTargetRect()
-    }, 0)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    updateTargetRect()
 
     const handleResize = () => {
       setWindowSize({ width: window.innerWidth, height: window.innerHeight })
@@ -88,10 +87,10 @@ export const OnboardingTour: React.FC = () => {
     }
   }, [updateTargetRect])
 
-  const finishTour = useCallback(() => {
+  const finishTour = () => {
     localStorage.setItem('hasSeenOnboarding', 'true')
     setIsVisible(false)
-  }, [])
+  }
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {

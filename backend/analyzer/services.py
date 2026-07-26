@@ -1,5 +1,6 @@
 import os
 import pdfplumber
+import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
 from .skill_matcher import extract_skills
@@ -31,6 +32,15 @@ PIPELINE_STAGES = [
     {"stage": "done", "label": "Analysis complete", "percent": 100},
 ]
 
+def calculate_readability(text):
+    score = textstat.flesch_reading_ease(text)
+    if score >= 60:
+        label = "easy"
+    elif score >= 30:
+        label = "moderate"
+    else:
+        label = "dense"
+    return round(score , 1), label
 
 def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,job_description=None):
 
@@ -48,6 +58,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
             os.remove(file_path)
 
     raw_text = text
+    readability_score, readability_label = calculate_readability(raw_text)
     detected = extract_skills(text)
 
     matched = []
@@ -106,9 +117,29 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
         "stages": PIPELINE_STAGES,
     }
 
+    track_comparisons = {}
+    for role, req_skills in ROLE_SKILLS.items():
+        role_matched = [s for s in req_skills if s in detected]
+        role_missing = [s for s in req_skills if s not in detected]
+        role_score = (
+            int(len(role_matched) / len(req_skills) * 100)
+            if req_skills
+            else min(len(detected) * 10, 100)
+        )
+        role_suggestions = [f"Add projects or experience with {s.title()}" for s in role_missing]
+        
+        track_comparisons[role] = {
+            "score": role_score,
+            "matched_skills": role_matched,
+            "missing_skills": role_missing,
+            "suggestions": role_suggestions,
+        }
+
     return {
         "id": analysis_id,
         "score": score,
+        "readability_score": readability_score,
+        "readability_label": readability_label,
         "skills_found": detected,
         "suggestions": suggestions,
         "matched_skills": matched,
@@ -117,4 +148,5 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
         "resume_text": raw_text,
         "progress": progress_info,
         "pipeline_stages": PIPELINE_STAGES,
+        "track_comparisons": track_comparisons,
     }
