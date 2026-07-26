@@ -4,6 +4,7 @@ import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
 from .skill_matcher import extract_skills
+from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
 
@@ -135,6 +136,8 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
             "suggestions": role_suggestions,
         }
 
+    quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
+
     return {
         "id": analysis_id,
         "score": score,
@@ -142,6 +145,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
         "readability_label": readability_label,
         "skills_found": detected,
         "suggestions": suggestions,
+        "quantify_nudges": quantify_nudges,
         "matched_skills": matched,
         "missing_skills": missing,
         "target_role": target_role,

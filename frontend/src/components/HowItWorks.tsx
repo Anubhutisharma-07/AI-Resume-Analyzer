@@ -4,7 +4,7 @@ import { UploadCloud, Cpu, CheckCircle } from 'lucide-react'
 const steps = [
   
   {
-    icon: <FiUploadCloud size={36} />,
+    icon: <UploadCloud size={36} />,
     color: '#eeeff5',
     title: '1. Upload',
     description: 'Upload your resume in PDF format.',

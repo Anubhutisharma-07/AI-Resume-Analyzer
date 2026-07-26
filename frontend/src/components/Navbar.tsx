@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
           >
             Home
-          </Link>
+          </a>
           <Link to="/analyze" onClick={() => setMobileOpen(false)}>
             Analyze Resume
           </Link>
