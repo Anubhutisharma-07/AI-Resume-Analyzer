@@ -25,6 +25,7 @@ import {
   Target,
   Info,
   HelpCircle,
+  GitCompare,
   X,
 } from 'lucide-react'
 import { Navbar } from './components/Navbar'
