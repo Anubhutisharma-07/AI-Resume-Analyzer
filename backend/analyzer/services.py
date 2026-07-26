@@ -64,7 +64,10 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf",user_id=None,j
     matched = []
     missing = []
 
-    required = ROLE_SKILLS.get(target_role, [])
+    if job_description and job_description.strip():
+        required = extract_skills(job_description)
+    else:
+        required = ROLE_SKILLS.get(target_role, [])
 
     for skill in required:
         if skill in detected:
