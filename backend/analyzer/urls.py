@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
 
 from .views import (
     upload_resume,
+    compare_uploads,
     signup,
     analysis_history,
     delete_single_history,
@@ -19,6 +20,7 @@ from .views import (
 
 urlpatterns = [
     path("upload/", upload_resume),
+    path("compare-uploads/", compare_uploads),
 
     path("auth/signup/", signup),
     path("auth/login/", TokenObtainPairView.as_view()),

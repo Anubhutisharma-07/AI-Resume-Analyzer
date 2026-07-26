@@ -35,6 +35,7 @@ import { StepProgress } from './components/StepProgress'
 import { OnboardingTour } from './components/OnboardingTour'
 import { HowItWorks } from './components/HowItWorks'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
+import { CompareUploads } from './components/CompareVersions/CompareUploads'
 import { SkillChip } from './components/SkillChip'
 import {
   requestNotificationPermission,
@@ -305,6 +306,7 @@ function App() {
   const [activeFileName, setActiveFileName] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
+  const [compareUploadsOpen, setCompareUploadsOpen] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<number>(0)
   const [analysisStageLabel, setAnalysisStageLabel] = useState<string>('')
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
@@ -864,6 +866,14 @@ function App() {
         />
       )}
 
+      {compareUploadsOpen && (
+        <CompareUploads
+          targetRole={targetRole}
+          jobDesc={jobDesc}
+          onClose={() => setCompareUploadsOpen(false)}
+        />
+      )}
+
       <Navbar
         theme={theme}
         toggleTheme={toggleTheme}
@@ -923,12 +933,17 @@ function App() {
             >
               📂 Template Gallery
             </button>
+                    <button
+                      className="app-btn app-btn--secondary"
+                      onClick={() => setCompareUploadsOpen(true)}
+                    >
+                      <GitCompare size={15} /> Compare 2 Resumes
+                    </button>
             <button
               className="app-btn app-btn--secondary"
               onClick={handleSampleResume}
               disabled={loading}
-            >
-              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
+            >         {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
             </button>
           </div>
           {showGallery && (
