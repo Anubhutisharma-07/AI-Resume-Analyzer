@@ -97,6 +97,18 @@ def upload_resume(request):
             saved_name = storage.save(unique_name, file)
             file_path = storage.path(saved_name)
 
+        cover_letter = request.FILES.get("cover_letter")
+        cover_letter_path = None
+        cover_letter_name = None
+        if cover_letter:
+            cover_letter_name = cover_letter.name
+            temp_dir = os.path.join(settings.BASE_DIR, "tmp")
+            os.makedirs(temp_dir, exist_ok=True)
+            storage = FileSystemStorage(location=temp_dir)
+            cl_unique_name = f"{uuid.uuid4()}_{cover_letter.name}"
+            cl_saved_name = storage.save(cl_unique_name, cover_letter)
+            cover_letter_path = storage.path(cl_saved_name)
+
         user_id = (
             request.user.id
             if request.user.is_authenticated
@@ -109,6 +121,8 @@ def upload_resume(request):
             file_name=file_name,
             user_id=user_id,
             job_description=job_desc,
+            cover_letter_path=cover_letter_path,
+            cover_letter_name=cover_letter_name,
         )
 
         return Response(result)
