@@ -1882,7 +1882,6 @@ function App() {
                                           suggestions,
                                           missingSkills,
                                           readabilityLabel,
-                                          readabilityScore,
                                           coverLetterFeedback,
                                           fileName: activeFileName,
                                         })
@@ -1910,7 +1909,6 @@ function App() {
                                           suggestions,
                                           missingSkills,
                                           readabilityLabel,
-                                          readabilityScore,
                                           coverLetterFeedback,
                                           fileName: activeFileName,
                                         })
@@ -1940,7 +1938,6 @@ function App() {
                             suggestions={suggestions}
                             missingSkills={missingSkills}
                             readabilityLabel={readabilityLabel}
-                            readabilityScore={readabilityScore}
                             coverLetterFeedback={coverLetterFeedback}
                             fileName={activeFileName}
                           />

@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { Navbar } from './Navbar'
 
 describe('Navbar Component (#241)', () => {
@@ -15,14 +16,22 @@ describe('Navbar Component (#241)', () => {
   }
 
   it('renders the header brand with emoji and "AI Resume Analyzer" title text', () => {
-    render(<Navbar {...defaultProps} />)
+    render(
+      <MemoryRouter>
+        <Navbar {...defaultProps} />
+      </MemoryRouter>
+    )
     const brandElement = screen.getByText(/AI Resume Analyzer/i)
     expect(brandElement).toBeInTheDocument()
     expect(brandElement.textContent).toContain('🚀')
   })
 
   it('renders correctly in light mode', () => {
-    render(<Navbar {...defaultProps} theme="light" />)
+    render(
+      <MemoryRouter>
+        <Navbar {...defaultProps} theme="light" />
+      </MemoryRouter>
+    )
     expect(screen.getByText(/AI Resume Analyzer/i)).toBeInTheDocument()
   })
 })
@@ -30,14 +39,16 @@ describe('Navbar Component (#241)', () => {
 describe('Navbar Component right-side cluster (#244)', () => {
   it('renders all right-side cluster elements without clipping issues', () => {
     render(
-      <Navbar
-        theme="light"
-        toggleTheme={() => {}}
-        user={null}
-        onLogin={() => {}}
-        onLogout={() => {}}
-        onHistoryClick={() => {}}
-      />
+      <MemoryRouter>
+        <Navbar
+          theme="light"
+          toggleTheme={() => {}}
+          user={null}
+          onLogin={() => {}}
+          onLogout={() => {}}
+          onHistoryClick={() => {}}
+        />
+      </MemoryRouter>
     )
 
     const loginBtn = screen.getByRole('button', { name: /login \/ sign up/i })
@@ -52,14 +63,16 @@ describe('Navbar Component right-side cluster (#244)', () => {
   it('renders user profile when user is authenticated', () => {
     const user = { username: 'testuser', token: 'fake-token' }
     render(
-      <Navbar
-        theme="dark"
-        toggleTheme={() => {}}
-        user={user}
-        onLogin={() => {}}
-        onLogout={() => {}}
-        onHistoryClick={() => {}}
-      />
+      <MemoryRouter>
+        <Navbar
+          theme="dark"
+          toggleTheme={() => {}}
+          user={user}
+          onLogin={() => {}}
+          onLogout={() => {}}
+          onHistoryClick={() => {}}
+        />
+      </MemoryRouter>
     )
 
     expect(screen.getByText(/testuser/i)).toBeInTheDocument()
@@ -70,14 +83,16 @@ describe('Navbar Component right-side cluster (#244)', () => {
 describe('Navbar responsive hamburger (#245)', () => {
   it('renders the hamburger toggle button', () => {
     render(
-      <Navbar
-        theme="light"
-        toggleTheme={() => {}}
-        user={null}
-        onLogin={() => {}}
-        onLogout={() => {}}
-        onHistoryClick={() => {}}
-      />
+      <MemoryRouter>
+        <Navbar
+          theme="light"
+          toggleTheme={() => {}}
+          user={null}
+          onLogin={() => {}}
+          onLogout={() => {}}
+          onHistoryClick={() => {}}
+        />
+      </MemoryRouter>
     )
 
     const toggle = screen.getByRole('button', { name: /toggle navigation/i })
@@ -88,14 +103,16 @@ describe('Navbar responsive hamburger (#245)', () => {
 
   it('toggles mobile menu open and closed on click', () => {
     render(
-      <Navbar
-        theme="light"
-        toggleTheme={() => {}}
-        user={null}
-        onLogin={() => {}}
-        onLogout={() => {}}
-        onHistoryClick={() => {}}
-      />
+      <MemoryRouter>
+        <Navbar
+          theme="light"
+          toggleTheme={() => {}}
+          user={null}
+          onLogin={() => {}}
+          onLogout={() => {}}
+          onHistoryClick={() => {}}
+        />
+      </MemoryRouter>
     )
 
     const toggle = screen.getByRole('button', { name: /toggle navigation/i })
@@ -115,14 +132,16 @@ describe('Navbar responsive hamburger (#245)', () => {
   it('closes menu when a nav link is clicked', () => {
     const onHistoryClick = vi.fn()
     render(
-      <Navbar
-        theme="light"
-        toggleTheme={() => {}}
-        user={null}
-        onLogin={() => {}}
-        onLogout={() => {}}
-        onHistoryClick={onHistoryClick}
-      />
+      <MemoryRouter>
+        <Navbar
+          theme="light"
+          toggleTheme={() => {}}
+          user={null}
+          onLogin={() => {}}
+          onLogout={() => {}}
+          onHistoryClick={onHistoryClick}
+        />
+      </MemoryRouter>
     )
 
     const toggle = screen.getByRole('button', { name: /toggle navigation/i })

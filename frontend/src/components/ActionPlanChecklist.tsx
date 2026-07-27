@@ -3,7 +3,7 @@ import {
   generateActionPlan,
   exportActionPlanMarkdown,
   exportActionPlanPdf,
-  ActionPlanParams,
+  type ActionPlanParams,
 } from '../utils/actionPlanUtils'
 import { ListChecks, Download, FileText, CheckCircle2, TrendingUp, Sparkles } from 'lucide-react'
 

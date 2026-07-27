@@ -14,7 +14,7 @@ export interface ActionPlanParams {
   targetRole?: string
   suggestions?: string[]
   missingSkills?: string[]
-  readabilityLabel?: string
+  readabilityLabel?: string | null
   readabilityScore?: number
   coverLetterFeedback?: {
     length?: { status?: string; feedback?: string }

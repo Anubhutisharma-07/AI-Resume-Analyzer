@@ -4,7 +4,7 @@ import {
   formatActionPlanMarkdown,
   exportActionPlanMarkdown,
   exportActionPlanPdf,
-  ActionPlanParams,
+  type ActionPlanParams,
 } from './actionPlanUtils'
 
 // Mock jsPDF
