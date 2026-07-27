@@ -964,7 +964,11 @@ function App() {
                             ? '⏳ Extracting and analyzing resume text...'
                             : '🚀 Analyze Resume'}
                         </button>
-                        <button className="app-btn" onClick={() => setShowGallery(true)}>
+                        <button
+                          className="app-btn"
+                          onClick={() => setShowGallery(true)}
+                          title="Browse ATS-friendly resume templates"
+                        >
                           📂 Template Gallery
                         </button>
                         <button

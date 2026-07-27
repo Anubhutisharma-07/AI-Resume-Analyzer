@@ -6,6 +6,8 @@ interface TemplateCardProps {
   atsNote: string
   fileName: string // e.g., "modern.docx"
   imageSrc: string // public path to preview image
+  careerTrack?: string
+  designStyle?: string
 }
 
 export const TemplateCard: React.FC<TemplateCardProps> = ({
