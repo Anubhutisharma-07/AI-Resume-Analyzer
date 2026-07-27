@@ -20,7 +20,7 @@ function loadUser(): AuthUser | null {
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(loadUser)
 
-    const persist = (u: AuthUser | null, remember: boolean = true) => {
+  const persist = (u: AuthUser | null, remember: boolean = true) => {
     setUser(u)
     try {
       if (u) {
@@ -46,10 +46,13 @@ export function useAuth() {
     persist({ username, token: res.data.access }, true)
   }, [])
 
-  const login = useCallback(async (username: string, password: string, rememberMe: boolean = true) => {
-    const res = await axios.post(`${BACKEND}/api/auth/login/`, { username, password })
-    persist({ username, token: res.data.access }, rememberMe)
-  }, [])
+  const login = useCallback(
+    async (username: string, password: string, rememberMe: boolean = true) => {
+      const res = await axios.post(`${BACKEND}/api/auth/login/`, { username, password })
+      persist({ username, token: res.data.access }, rememberMe)
+    },
+    []
+  )
 
   const logout = useCallback(() => persist(null), [])
   return { user, signup, login, logout }
