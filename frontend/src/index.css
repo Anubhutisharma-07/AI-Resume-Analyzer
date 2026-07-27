@@ -1425,20 +1425,36 @@ input {
     color 0.3s ease;
 }
 
-.navbar-brand [data-theme='light'] {
-  font-size: var(--text-md);
-  font-weight: 700;
+.navbar-brand {
   display: flex;
   align-items: center;
-  color: #000000;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 1.25rem;
+  font-weight: 700;
 }
 
-.navbar-brand [data-theme='dark'] {
-  font-size: var(--text-md);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  color: #ffffff;
+.navbar-brand.light {
+  color: #000;
+}
+
+.navbar-brand.dark {
+  color: #fff;
+}
+
+.navbar-brand:hover {
+  opacity: 0.9;
+}
+
+.navbar-brand:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+@media (max-width: 480px) {
+  .navbar-brand .emoji {
+    display: none;
+  }
 }
 
 .navbar-toggle {
