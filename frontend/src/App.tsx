@@ -1692,10 +1692,10 @@ function App() {
                           Too many requests. Please wait {retryAfter}s before trying again.
                         </p>
                       )}
-                      </>
-                    )}
                     </div>
-                  </section>
+                  </>
+                )}
+              </section>
                 </div>
               </div>
 
