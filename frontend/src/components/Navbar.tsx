@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import type { AuthUser } from '../hooks/useAuth'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 interface NavbarProps {
   theme: 'light' | 'dark'
@@ -14,8 +14,14 @@ const MOBILE_BREAKPOINT = 1024
 
 export const Navbar: React.FC<NavbarProps> = ({ theme, toggleTheme, user, onLogin, onLogout }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const location = useLocation()
+  const [activeSection, setActiveSection] = useState<'home' | 'ats'>('home')
 
   const closeMenu = useCallback(() => setMobileOpen(false), [])
+
+  const isHomeActive = location.pathname === '/' && activeSection === 'home'
+  const isAnalyzeActive = location.pathname === '/analyze'
+  const isAtsActive = location.pathname === '/' && activeSection === 'ats'
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,21 +68,32 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, toggleTheme, user, onLogi
         <div className="navbar-links">
           <a
             href="#"
+            className={isHomeActive ? 'active' : ''}
+            aria-current={isHomeActive ? 'page' : undefined}
             onClick={(e) => {
               e.preventDefault()
+              setActiveSection('home')
               window.scrollTo({ top: 0, behavior: 'smooth' })
               closeMenu()
             }}
           >
             Home
           </a>
-          <Link to="/analyze" onClick={() => setMobileOpen(false)}>
+          <Link
+            to="/analyze"
+            className={isAnalyzeActive ? 'active' : ''}
+            aria-current={isAnalyzeActive ? 'page' : undefined}
+            onClick={() => setMobileOpen(false)}
+          >
             Analyze Resume
           </Link>
           <a
             href="#ats-score"
+            className={isAtsActive ? 'active' : ''}
+            aria-current={isAtsActive ? 'true' : undefined}
             onClick={(e) => {
               e.preventDefault()
+              setActiveSection('ats')
               const atsSection = document.getElementById('ats-score')
               if (atsSection) {
                 atsSection.scrollIntoView({ behavior: 'smooth', block: 'center' })

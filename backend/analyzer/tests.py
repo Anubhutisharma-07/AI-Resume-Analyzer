@@ -387,3 +387,30 @@ class CoverLetterAnalysisTests(TestCase):
             self.assertIsNotNone(result["cover_letter_feedback"])
             self.assertEqual(result["cover_letter_feedback"]["length"]["status"], "Too short")
             self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])
+
+
+class InterviewQuestionTests(TestCase):
+    def test_generate_interview_questions_valid(self):
+        from analyzer.services import generate_interview_questions
+        
+        # Test generation with React skill and Frontend Developer target role
+        questions = generate_interview_questions(["React", "TypeScript"], "Frontend Developer")
+        self.assertTrue(len(questions) >= 5)
+        self.assertTrue(len(questions) <= 8)
+        
+        # At least one question should be from React or TS
+        has_tech = any("React" in q or "TypeScript" in q or "virtual DOM" in q or "generics" in q for q in questions)
+        self.assertTrue(has_tech)
+
+    @patch("analyzer.services.pdfplumber.open")
+    def test_analyze_resume_generates_interview_questions(self, mock_open):
+        mock_open.return_value = _fake_pdf("Expert in Python and SQL.")
+        
+        result = analyze_resume(
+            file_path="dummy_resume.pdf",
+            target_role="Backend Developer",
+            file_name="resume.pdf",
+        )
+        
+        self.assertIn("interview_questions", result)
+        self.assertTrue(len(result["interview_questions"]) >= 5)
