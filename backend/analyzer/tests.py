@@ -387,8 +387,7 @@ class CoverLetterAnalysisTests(TestCase):
             self.assertIsNotNone(result["cover_letter_feedback"])
             self.assertEqual(result["cover_letter_feedback"]["length"]["status"], "Too short")
             self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])
-<<<<<<< Updated upstream
-=======
+
 
 
 class InterviewQuestionTests(TestCase):
@@ -511,4 +510,48 @@ class SkillsLeaderboardTests(TestCase):
         self.assertIsNotNone(css_item)
         self.assertEqual(css_item["percentage"], 100)
         self.assertEqual(css_item["count"], 2)
->>>>>>> Stashed changes
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+class ProfileAvatarTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="avataruser", password="password123")
+        
+    def test_login_returns_avatar_url(self):
+        from rest_framework import status
+        resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNone(resp.data["avatar_url"])
+
+    def test_upload_and_delete_avatar(self):
+        from rest_framework import status
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        token = login_resp.data["access"]
+        auth_headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        
+        txt_file = SimpleUploadedFile("avatar.txt", b"plain text content", content_type="text/plain")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": txt_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
+        
+        large_file = SimpleUploadedFile("avatar.png", b"x" * (2 * 1024 * 1024 + 1), content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": large_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        valid_img = SimpleUploadedFile("avatar.png", b"fake_png_binary_data", content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": valid_img}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNotNone(resp.data["avatar_url"])
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNotNone(login_resp.data["avatar_url"])
+        
+        del_resp = self.client.delete("/api/profile/avatar/", **auth_headers)
+        self.assertEqual(del_resp.status_code, status.HTTP_200_OK)
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNone(login_resp.data["avatar_url"])

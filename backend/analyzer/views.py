@@ -378,14 +378,10 @@ def admin_stats_view(request):
             missing_skills_counter.update(skills_list)
             
     top_missing_skills = missing_skills_counter.most_common(10)
-    
     return Response({
         "total_analyses": total_analyses,
         "popular_roles": [{"role": r[0], "count": r[1]} for r in popular_roles if r[0]],
         "top_missing_skills": [{"skill": s[0], "count": s[1]} for s in top_missing_skills if s[0]]
-<<<<<<< Updated upstream
-    })
-=======
     })
 
 
@@ -501,4 +497,55 @@ def skills_leaderboard_view(request):
     
     cache.set(cache_key, response_data, 300)
     return Response(response_data, status=status.HTTP_200_OK)
->>>>>>> Stashed changes
+
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def profile_avatar_view(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == "POST":
+        file_obj = request.FILES.get("avatar")
+        if not file_obj:
+            return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+            return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        max_size = 2 * 1024 * 1024
+        if file_obj.size > max_size:
+            return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+                
+        profile.avatar = file_obj
+        profile.save()
+        
+        avatar_url = request.build_absolute_uri(profile.avatar.url)
+        return Response({"avatar_url": avatar_url}, status=status.HTTP_200_OK)
+        
+    elif request.method == "DELETE":
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+            profile.avatar = None
+            profile.save()
+            
+        return Response({"message": "Avatar removed successfully."}, status=status.HTTP_200_OK)

@@ -9,6 +9,7 @@ interface NavbarProps {
   onLogin: () => void
   onLogout: () => void
   onHistoryClick: () => void
+  onProfileClick: () => void
 }
 
 const MOBILE_BREAKPOINT = 1024
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogin,
   onLogout,
   onHistoryClick,
+  onProfileClick,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -133,7 +135,49 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {user ? (
             <div className="navbar-user">
-              <span className="auth-username">👤 {user.username}</span>
+              <span
+                className="auth-username"
+                onClick={() => {
+                  onProfileClick()
+                  closeMenu()
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  color: '#fff',
+                }}
+              >
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    background: '#6366f1',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    color: '#fff',
+                    border: '1.5px solid rgba(255,255,255,0.1)'
+                  }}
+                >
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.username}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    user.username.slice(0, 2).toUpperCase()
+                  )}
+                </div>
+                <span>{user.username}</span>
+              </span>
               <button
                 className="auth-bar-btn"
                 onClick={() => {
