@@ -383,9 +383,6 @@ def admin_stats_view(request):
         "total_analyses": total_analyses,
         "popular_roles": [{"role": r[0], "count": r[1]} for r in popular_roles if r[0]],
         "top_missing_skills": [{"skill": s[0], "count": s[1]} for s in top_missing_skills if s[0]]
-<<<<<<< Updated upstream
-    })
-=======
     })
 
 
@@ -501,4 +498,4 @@ def skills_leaderboard_view(request):
     
     cache.set(cache_key, response_data, 300)
     return Response(response_data, status=status.HTTP_200_OK)
->>>>>>> Stashed changes
+

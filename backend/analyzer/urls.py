@@ -16,21 +16,15 @@ from .views import (
     suggestion_feedback,
     get_shared_result,
     admin_stats_view,
-<<<<<<< Updated upstream
-=======
     analyze_jd_view,
     skills_leaderboard_view,
->>>>>>> Stashed changes
 )
 
 urlpatterns = [
     path("upload/", upload_resume),
     path("compare-uploads/", compare_uploads),
-<<<<<<< Updated upstream
-=======
     path("analyze-jd/", analyze_jd_view),
     path("skills-leaderboard/", skills_leaderboard_view),
->>>>>>> Stashed changes
 
     path("auth/signup/", signup),
     path("auth/login/", TokenObtainPairView.as_view()),

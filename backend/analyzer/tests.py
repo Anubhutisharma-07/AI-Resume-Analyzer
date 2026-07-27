@@ -387,3 +387,26 @@ class CoverLetterAnalysisTests(TestCase):
             self.assertIsNotNone(result["cover_letter_feedback"])
             self.assertEqual(result["cover_letter_feedback"]["length"]["status"], "Too short")
             self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])
+
+
+class SkillsLeaderboardTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        self.client = APIClient()
+        self.url = "/api/skills-leaderboard/"
+        cache.clear()
+
+    def test_leaderboard_endpoint(self):
+        from analyzer.models import ResumeAnalysis
+        ResumeAnalysis.objects.create(
+            file_name="res1.pdf",
+            target_role="Frontend Developer",
+            score=80,
+            matched_skills=["react", "javascript", "html"],
+            missing_skills=["css"],
+            suggestions=[]
+        )
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["total_analyses"], 1)
+        self.assertTrue(len(resp.data["matched_skills"]) > 0)
