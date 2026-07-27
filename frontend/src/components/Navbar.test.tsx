@@ -11,7 +11,6 @@ describe('Navbar Component (#241)', () => {
     user: null,
     onLogin: vi.fn(),
     onLogout: vi.fn(),
-    onHistoryClick: vi.fn(),
   }
 
   it('renders the header brand with emoji and "AI Resume Analyzer" title text', () => {
@@ -36,7 +35,6 @@ describe('Navbar Component right-side cluster (#244)', () => {
         user={null}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={() => {}}
       />
     )
 
@@ -58,7 +56,6 @@ describe('Navbar Component right-side cluster (#244)', () => {
         user={user}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={() => {}}
       />
     )
 
@@ -76,7 +73,6 @@ describe('Navbar responsive hamburger (#245)', () => {
         user={null}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={() => {}}
       />
     )
 
@@ -94,7 +90,6 @@ describe('Navbar responsive hamburger (#245)', () => {
         user={null}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={() => {}}
       />
     )
 
@@ -113,7 +108,6 @@ describe('Navbar responsive hamburger (#245)', () => {
   })
 
   it('closes menu when a nav link is clicked', () => {
-    const onHistoryClick = vi.fn()
     render(
       <Navbar
         theme="light"
@@ -121,7 +115,6 @@ describe('Navbar responsive hamburger (#245)', () => {
         user={null}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={onHistoryClick}
       />
     )
 
@@ -131,10 +124,9 @@ describe('Navbar responsive hamburger (#245)', () => {
     fireEvent.click(toggle)
     expect(menu.className).toContain('mobile-open')
 
-    const historyLink = screen.getByText('History')
-    fireEvent.click(historyLink)
+    const atsLink = screen.getByText('ATS Score')
+    fireEvent.click(atsLink)
     expect(menu.className).not.toContain('mobile-open')
-    expect(onHistoryClick).toHaveBeenCalled()
   })
 
   it('renders a backdrop element for dismissing the menu', () => {
@@ -145,7 +137,6 @@ describe('Navbar responsive hamburger (#245)', () => {
         user={null}
         onLogin={() => {}}
         onLogout={() => {}}
-        onHistoryClick={() => {}}
       />
     )
 

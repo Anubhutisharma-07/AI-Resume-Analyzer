@@ -838,7 +838,6 @@ function App() {
         user={user}
         onLogin={() => setShowAuthModal(true)}
         onLogout={handleLogout}
-        onHistoryClick={() => setHistoryOpen(true)}
       />
       <Routes>
         <Route
