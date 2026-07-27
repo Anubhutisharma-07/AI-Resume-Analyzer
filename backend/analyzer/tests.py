@@ -287,3 +287,103 @@ class UrlFetcherTests(TestCase):
             download_and_validate_url("ftp://example.com/file.pdf")
         self.assertIn("valid URL starting with http", str(ctx.exception))
 
+
+class SecurityHeadersTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_security_headers_are_present_on_api_responses(self):
+        # Trigger an API request
+        resp = self.client.get("/api/compare/")
+        
+        # Check that Content-Security-Policy is present and configured for APIs
+        self.assertIn("Content-Security-Policy", resp)
+        self.assertEqual(
+            resp["Content-Security-Policy"],
+            "default-src 'none'; frame-ancestors 'none';"
+        )
+        
+        # Check standard secure headers
+        self.assertIn("X-Frame-Options", resp)
+        self.assertEqual(resp["X-Frame-Options"], "DENY")
+        
+        self.assertIn("X-Content-Type-Options", resp)
+        self.assertEqual(resp["X-Content-Type-Options"], "nosniff")
+        
+        self.assertIn("Referrer-Policy", resp)
+        self.assertEqual(resp["Referrer-Policy"], "strict-origin-when-cross-origin")
+
+    def test_security_headers_are_present_on_html_responses(self):
+        # Trigger an HTML view request
+        resp = self.client.get("/admin/login/")
+        
+        # Check that Content-Security-Policy is configured for HTML/Admin
+        self.assertIn("Content-Security-Policy", resp)
+        self.assertIn("default-src 'self'", resp["Content-Security-Policy"])
+        
+        # Check standard secure headers
+        self.assertIn("X-Frame-Options", resp)
+        self.assertEqual(resp["X-Frame-Options"], "DENY")
+        
+        self.assertIn("X-Content-Type-Options", resp)
+        self.assertEqual(resp["X-Content-Type-Options"], "nosniff")
+        
+        self.assertIn("Referrer-Policy", resp)
+        self.assertEqual(resp["Referrer-Policy"], "strict-origin-when-cross-origin")
+
+
+
+
+
+class CoverLetterAnalysisTests(TestCase):
+    def test_analyze_cover_letter_tone_and_length(self):
+        from analyzer.services import analyze_cover_letter
+        
+        # Test a short cover letter
+        short_text = "I am interested in the Frontend Developer position. I have React skills."
+        res = analyze_cover_letter(short_text, "Frontend Developer")
+        self.assertEqual(res["length"]["status"], "Too short")
+        self.assertTrue(res["relevance"]["references_role"])
+        self.assertFalse(res["relevance"]["references_company"])
+
+        # Test a good length cover letter with active tone and role/company references
+        good_text = (
+            "Dear Hiring Manager,\n\n"
+            "I am excited to apply for the Frontend Developer position at Google. "
+            "Over the past few years, I have designed and implemented several web applications. "
+            "I led a team of developers to create responsive interfaces. I optimized the codebase "
+            "and solved complex engineering challenges. I believe my background aligns perfectly with your team.\n\n"
+            "Sincerely,\nJohn Doe"
+        )
+        res = analyze_cover_letter(good_text, "Frontend Developer")
+        self.assertEqual(res["length"]["status"], "Good")
+        self.assertIn("Confident", res["tone"]["label"])
+        self.assertIn("Enthusiastic", res["tone"]["label"])
+        self.assertTrue(res["relevance"]["references_role"])
+        self.assertTrue(res["relevance"]["references_company"])
+
+    @patch("analyzer.services.pdfplumber.open")
+    def test_analyze_resume_with_cover_letter(self, mock_open):
+        mock_open.return_value = _fake_pdf("Python Django developer")
+        
+        # We patch open to mock text extraction for the cover letter as well.
+        # But analyze_resume calls extract_text_from_file twice. So let's mock extract_text_from_file.
+        with patch("analyzer.services.extract_text_from_file") as mock_extract:
+            mock_extract.side_effect = [
+                "Python Django developer",  # Resume text
+                "I am applying for Backend Developer role. I designed and implemented backend systems.",  # Cover letter text
+            ]
+            
+            result = analyze_resume(
+                file_path="dummy_resume.pdf",
+                target_role="Backend Developer",
+                file_name="resume.pdf",
+                cover_letter_path="dummy_cl.pdf",
+                cover_letter_name="cover_letter.pdf",
+            )
+            
+            self.assertEqual(result["resume_text"], "Python Django developer")
+            self.assertIsNotNone(result["cover_letter_text"])
+            self.assertIsNotNone(result["cover_letter_feedback"])
+            self.assertEqual(result["cover_letter_feedback"]["length"]["status"], "Too short")
+            self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])

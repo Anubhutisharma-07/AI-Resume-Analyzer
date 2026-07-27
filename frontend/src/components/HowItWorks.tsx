@@ -1,19 +1,20 @@
 import React from 'react'
-import { FiUploadCloud, FiCpu, FiCheckCircle } from 'react-icons/fi'
+import { UploadCloud, Cpu, CheckCircle } from 'lucide-react'
 
 const steps = [
   {
-    icon: <FiUploadCloud size={36} />,
+    icon: <UploadCloud size={36} />,
+    color: '#eeeff5',
     title: '1. Upload',
     description: 'Upload your resume in PDF format.',
   },
   {
-    icon: <FiCpu size={36} />,
+    icon: <Cpu size={36} />,
     title: '2. We analyze',
     description: 'Our system scans your skills against your target role.',
   },
   {
-    icon: <FiCheckCircle size={36} />,
+    icon: <CheckCircle size={36} />,
     title: '3. Get suggestions',
     description: 'Receive actionable insights to improve your score.',
   },
@@ -28,7 +29,7 @@ export const HowItWorks: React.FC = () => {
         borderTop: '1px solid var(--border-color, rgba(128, 128, 128, 0.2))',
       }}
     >
-      <h3 style={{ marginBottom: '1.5rem', fontSize: '1.2rem', fontWeight: '600' }}>
+      <h3 style={{ color: 'var(--text-primary)', textAlign: 'center', marginBottom: '2rem' }}>
         How It Works
       </h3>
 

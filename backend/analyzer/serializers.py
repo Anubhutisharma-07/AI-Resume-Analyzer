@@ -23,8 +23,9 @@ class SignupSerializer(serializers.ModelSerializer):
 class ResumeAnalysisSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResumeAnalysis
-        fields = ("id", "file_name", "score", "skills_found", "suggestions",
-                  "matched_skills", "missing_skills", "target_role", "created_at")
+        fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
+                  "matched_skills", "missing_skills", "target_role", "created_at", "resume_text",
+                  "cover_letter_text", "cover_letter_feedback")
 
 
 class VersionComparisonSerializer(serializers.Serializer):

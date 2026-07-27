@@ -10,6 +10,10 @@ export interface AnalysisEntry {
   missingSkills: string[]
   targetRole: string
   fileName: string
+  source?: 'sample' | 'upload'
+  share_id?: string
+  coverLetterText?: string
+  coverLetterFeedback?: any
 }
 
 const STORAGE_KEY = 'resume_analysis_history'
