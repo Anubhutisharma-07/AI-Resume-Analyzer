@@ -14,6 +14,7 @@ export interface AnalysisEntry {
   share_id?: string
   coverLetterText?: string
   coverLetterFeedback?: any
+  interviewQuestions?: string[]
 }
 
 const STORAGE_KEY = 'resume_analysis_history'

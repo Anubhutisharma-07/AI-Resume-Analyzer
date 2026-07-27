@@ -159,7 +159,158 @@ def analyze_cover_letter(text, target_role="", job_description=""):
             "feedback": relevance_feedback,
             "suggestions": relevance_suggestions
         }
-    }
+    }SKILL_QUESTIONS = {
+    "html": [
+        "What is semantic HTML, and how does it improve SEO and accessibility for assistive technologies?",
+        "Explain the purpose of HTML5 data-* attributes and how they are accessed in JavaScript and CSS."
+    ],
+    "css": [
+        "Explain the CSS Box Model, the difference between content-box and border-box, and how box-sizing affects layout sizing.",
+        "Compare CSS Flexbox and Grid. In what scenarios is one layout model more appropriate than the other?"
+    ],
+    "javascript": [
+        "Explain event delegation in JavaScript and how event bubbling enables it.",
+        "Discuss JavaScript closures. Can you describe a scenario where you used closures to maintain private variables or state?"
+    ],
+    "typescript": [
+        "How do TypeScript interfaces differ from type aliases, and when would you choose one over the other?",
+        "Explain the concept of generics in TypeScript and how they help write reusable, type-safe code."
+    ],
+    "react": [
+        "Explain React's virtual DOM reconciliation process and why key props are necessary when rendering dynamic lists.",
+        "How do you manage complex state in a growing React application, and how do you prevent unnecessary child component re-renders?"
+    ],
+    "next.js": [
+        "What are the main differences between Server-Side Rendering (SSR), Static Site Generation (SSG), and Client-Side Rendering in Next.js?",
+        "Explain how Next.js App Router layout systems and nested routing improve page shell caching and state preservation."
+    ],
+    "tailwind": [
+        "How does Tailwind's utility-first approach compare to traditional component-based CSS? Discuss performance benefits (e.g. PurgeCSS)."
+    ],
+    "git": [
+        "Explain the difference between git merge and git rebase. Under what workflows would you choose one over the other?"
+    ],
+    "github": [
+        "Describe your process for resolving merge conflicts during a pull request review on GitHub."
+    ],
+    "python": [
+        "Explain the difference between Python's list comprehensions, generator expressions, and traditional loops. When is a generator preferred?",
+        "How does Python's Global Interpreter Lock (GIL) affect multi-threaded CPU-bound programs, and how do you bypass it?"
+    ],
+    "django": [
+        "How does Django's ORM handle database query optimization? How do select_related and prefetch_related prevent N+1 query patterns?",
+        "Explain Django's middleware architecture. How would you design a custom middleware to log incoming request execution times?"
+    ],
+    "flask": [
+        "Explain Flask's application context and request context. Why are they separated, and how do context locals work?"
+    ],
+    "fastapi": [
+        "What makes FastAPI highly performant compared to standard frameworks? Discuss its dependency injection and async/await support."
+    ],
+    "node.js": [
+        "How does Node.js handle non-blocking asynchronous I/O operations despite being single-threaded? Explain the event loop."
+    ],
+    "sql": [
+        "How do database indexes (like B-Tree indexes) speed up query execution? Discuss the trade-offs on insert/update performance.",
+        "Explain the differences between INNER JOIN, LEFT JOIN, RIGHT JOIN, and FULL OUTER JOIN with hypothetical query examples."
+    ],
+    "postgresql": [
+        "Discuss transaction isolation levels in PostgreSQL. How does Multi-Version Concurrency Control (MVCC) prevent dirty reads?"
+    ],
+    "mongodb": [
+        "How does schema design in a document database like MongoDB differ from a traditional relational database? When is denormalization preferred?"
+    ],
+    "docker": [
+        "Explain the difference between Docker images and containers. How do multi-stage Docker builds optimize image size and security?"
+    ],
+    "excel": [
+        "Describe how you handle large datasets in Excel. What formulas or features (e.g. XLOOKUP, Pivot Tables) do you use to aggregate data?"
+    ],
+    "machine learning": [
+        "Explain the bias-variance trade-off in machine learning model training. How do regularization methods (like L1/L2) mitigate overfitting?",
+        "What metrics (e.g. precision, recall, F1-score, ROC-AUC) would you prioritize when evaluating a highly imbalanced classification dataset?"
+    ],
+    "deep learning": [
+        "Explain the vanishing gradient problem in deep neural networks and what techniques (e.g. ReLU, batch normalization, residual connections) help solve it."
+    ],
+    "data analysis": [
+        "Describe your process for clean-up and preprocessing of a noisy, incomplete dataset before performing exploratory data analysis."
+    ],
+    "pandas": [
+        "How do you optimize operations on large DataFrames in Pandas? Contrast the performance of apply() vs vectorized operations."
+    ],
+    "numpy": [
+        "Explain NumPy's broadcasting rules and why vectorized calculations on NumPy arrays are faster than traditional Python loops."
+    ],
+}
+
+ROLE_QUESTIONS = {
+    "Frontend Developer": [
+        "How do you approach web accessibility (a11y) to ensure compliance with WCAG standards in modern Single Page Applications (SPAs)?",
+        "Describe how you optimize frontend performance. What metrics (e.g. LCP, FID, CLS) do you track, and what strategies do you use to improve them?",
+        "How do you handle API state caching and synchronization (e.g. using React Query, RTK Query, or custom caching layers) on the frontend?"
+    ],
+    "Backend Developer": [
+        "How do you design a secure, idempotent RESTful API endpoint? Discuss error handling schemas, validation protocols, and JWT token authentication.",
+        "Describe how you would design a system architecture that handles asynchronous background task processing (e.g., using message queues like Celery, Redis, or RabbitMQ).",
+        "How do you secure your backend APIs against common vulnerabilities like SQL injection, cross-site scripting (XSS), and denial-of-service (DoS) attacks?"
+    ],
+    "Data Analyst": [
+        "Describe a time when you discovered an unexpected anomaly or insight in a dataset. How did you communicate your findings to non-technical stakeholders?",
+        "How do you design dashboard KPIs that are actionable rather than just vanity metrics for executive business teams?",
+        "Explain how you choose the appropriate data visualization (e.g. bar chart, scatter plot, heat map) to best tell a specific data story."
+    ]
+}
+
+BEHAVIORAL_QUESTIONS = [
+    "Tell me about a challenging technical bug you encountered in a recent project. How did you diagnose and resolve it?",
+    "Describe a situation where you had to work with a teammate who had a different technical opinion. How did you reach a consensus?",
+    "How do you keep up with new technology changes, libraries, and framework updates in your engineering track?",
+    "Describe a project where you had a tight deadline and limited requirements. How did you prioritize tasks to deliver value on time?"
+]
+
+def generate_interview_questions(skills, target_role):
+    import random
+    questions = []
+    
+    skills_shuffled = list(skills)
+    random.shuffle(skills_shuffled)
+    
+    for skill in skills_shuffled:
+        skill_lower = skill.lower()
+        if skill_lower in SKILL_QUESTIONS:
+            q = random.choice(SKILL_QUESTIONS[skill_lower])
+            if q not in questions:
+                questions.append(q)
+            if len(questions) >= 4:
+                break
+                
+    role_pool = ROLE_QUESTIONS.get(target_role, [])
+    if role_pool:
+        role_shuffled = list(role_pool)
+        random.shuffle(role_shuffled)
+        for q in role_shuffled:
+            if q not in questions:
+                questions.append(q)
+            if len(questions) >= 6:
+                break
+                
+    behavioral_shuffled = list(BEHAVIORAL_QUESTIONS)
+    random.shuffle(behavioral_shuffled)
+    for q in behavioral_shuffled:
+        if len(questions) >= 8:
+            break
+        if q not in questions:
+            questions.append(q)
+            
+    if len(questions) < 5:
+        for q in behavioral_shuffled:
+            if q not in questions:
+                questions.append(q)
+            if len(questions) >= 5:
+                break
+                
+    return questions[:8]
 
 
 def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None, job_description=None, cover_letter_path=None, cover_letter_name=None):
@@ -206,6 +357,9 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
             if os.path.exists(cover_letter_path):
                 os.remove(cover_letter_path)
 
+    # Generate interview questions based on target track and detected skills
+    interview_questions = generate_interview_questions(detected, target_role)
+
     analysis_id = None
 
     if user_id:
@@ -224,6 +378,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
                 resume_text=raw_text,
                 cover_letter_text=cover_letter_text if cover_letter_text else None,
                 cover_letter_feedback=cover_letter_feedback,
+                interview_questions=interview_questions,
             )
             analysis_id = analysis_record.id
         except User.DoesNotExist:
@@ -266,6 +421,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "resume_text": raw_text,
         "cover_letter_text": cover_letter_text if cover_letter_text else None,
         "cover_letter_feedback": cover_letter_feedback,
+        "interview_questions": interview_questions,
         "progress": progress_info,
         "pipeline_stages": PIPELINE_STAGES,
         "track_comparisons": track_comparisons,
