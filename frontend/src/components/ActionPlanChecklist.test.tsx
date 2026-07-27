@@ -35,7 +35,7 @@ describe('ActionPlanChecklist Component', () => {
     render(<ActionPlanChecklist {...defaultProps} />)
 
     expect(screen.getByText('Prioritized Action Plan Checklist')).toBeInTheDocument()
-    expect(screen.getByText(/Backend Developer/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Backend Developer/i)[0]).toBeInTheDocument()
     expect(screen.getByText(/Top Priority Rule: Focus on the top 3 items first!/i)).toBeInTheDocument()
   })
 
