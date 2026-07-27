@@ -26,6 +26,7 @@ class ResumeAnalysis(models.Model):
     share_id = models.UUIDField(default=uuid.uuid4, unique=True)
     cover_letter_text = models.TextField(blank=True, null=True)
     cover_letter_feedback = models.JSONField(blank=True, null=True)
+    interview_questions = models.JSONField(blank=True, null=True)
 
     class Meta:
         ordering = ["-created_at"]

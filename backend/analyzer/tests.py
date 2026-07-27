@@ -416,7 +416,6 @@ class InterviewQuestionTests(TestCase):
         self.assertIn("interview_questions", result)
         self.assertTrue(len(result["interview_questions"]) >= 5)
 
-
 class JdAnalysisTests(TestCase):
     def test_analyze_jd_endpoint(self):
         from rest_framework import status
