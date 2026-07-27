@@ -414,3 +414,38 @@ class InterviewQuestionTests(TestCase):
         
         self.assertIn("interview_questions", result)
         self.assertTrue(len(result["interview_questions"]) >= 5)
+
+
+class JdAnalysisTests(TestCase):
+    def test_analyze_jd_endpoint(self):
+        from rest_framework import status
+        
+        # Test empty input error
+        resp = self.client.post("/api/analyze-jd/", {"job_description": ""})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
+        
+        # Test valid input analysis with known skill keywords and stop words
+        jd_text = (
+            "We are seeking a React Developer. The candidate should have experience in React, "
+            "JavaScript, HTML, and CSS. Working with teams to deliver responsive layouts is essential. "
+            "React and TypeScript are strong plusses. The candidate will work in a fast-paced environment."
+        )
+        resp = self.client.post("/api/analyze-jd/", {"job_description": jd_text})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("keywords", resp.data)
+        
+        keywords = resp.data["keywords"]
+        self.assertTrue(len(keywords) > 0)
+        
+        # Check that 'react' is recognized and tagged as a skill
+        react_keyword = next((k for k in keywords if k["text"] == "react"), None)
+        self.assertIsNotNone(react_keyword)
+        self.assertEqual(react_keyword["type"], "skill")
+        self.assertTrue(react_keyword["value"] >= 2)
+        
+        # Common English stop words like 'the' or 'and' or corporate fillers like 'candidate' shouldn't be here
+        texts = [k["text"] for k in keywords]
+        self.assertNotIn("the", texts)
+        self.assertNotIn("and", texts)
+        self.assertNotIn("candidate", texts)
