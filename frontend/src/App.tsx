@@ -114,7 +114,6 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
   )
 }
 
-
 interface SuggestionCardProps {
   text: string
   index: number
@@ -281,7 +280,7 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
- 
+
   const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
@@ -336,8 +335,8 @@ function App() {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0]
       const validTypes = ['.pdf', '.docx']
-      const isValid = validTypes.some(ext => droppedFile.name.toLowerCase().endsWith(ext))
-      
+      const isValid = validTypes.some((ext) => droppedFile.name.toLowerCase().endsWith(ext))
+
       if (isValid) {
         setFile(droppedFile)
         setFileError(null)
@@ -623,7 +622,7 @@ function App() {
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
- 
+
       setReadabilityLabel(res.data.readability_label ?? null)
       if (res.data.share_id) setShareId(res.data.share_id)
       setTrackComparisons(res.data.track_comparisons || null)
@@ -920,42 +919,74 @@ function App() {
                         Land More Interviews.
                       </h1>
 
-          <div style={{ display: "flex", gap: "12px", justifyContent: "center", alignItems: "center" }} className="mb-3">
-            <button
-              className="analyze-btn"
-              onClick={uploadResume}
-              disabled={loading}
-            >
-              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
-            </button>
-            <button
-              className="app-btn"
-              onClick={() => setShowGallery(true)}
-            >
-              📂 Template Gallery
-            </button>
-                    <button
-                      className="app-btn app-btn--secondary"
-                      onClick={() => setCompareUploadsOpen(true)}
-                    >
-                      <GitCompare size={15} /> Compare 2 Resumes
-                    </button>
-            <button
-              className="app-btn app-btn--secondary"
-              onClick={handleSampleResume}
-              disabled={loading}
-            >         {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
-            </button>
-          </div>
-          {showGallery && (
-            <div className="mt-4" style={{ textAlign: "left", background: "var(--card-bg, #fff)", padding: "20px", borderRadius: "8px" }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
-                <button onClick={() => setShowGallery(false)} style={{ cursor: 'pointer', background: 'transparent', border: 'none', fontSize: '16px' }}>❌</button>
-              </div>
-              <TemplateGallery />
-            </div>
-          )}
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '12px',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                        className="mb-3"
+                      >
+                        <button className="analyze-btn" onClick={uploadResume} disabled={loading}>
+                          {loading && analysisSource === 'upload'
+                            ? '⏳ Extracting and analyzing resume text...'
+                            : '🚀 Analyze Resume'}
+                        </button>
+                        <button className="app-btn" onClick={() => setShowGallery(true)}>
+                          📂 Template Gallery
+                        </button>
+                        <button
+                          className="app-btn app-btn--secondary"
+                          onClick={() => setCompareUploadsOpen(true)}
+                        >
+                          <GitCompare size={15} /> Compare 2 Resumes
+                        </button>
+                        <button
+                          className="app-btn app-btn--secondary"
+                          onClick={handleSampleResume}
+                          disabled={loading}
+                        >
+                          {' '}
+                          {loading && analysisSource === 'sample'
+                            ? '⏳ Loading Sample...'
+                            : 'Try Sample Resume'}
+                        </button>
+                      </div>
+                      {showGallery && (
+                        <div
+                          className="mt-4"
+                          style={{
+                            textAlign: 'left',
+                            background: 'var(--card-bg, #fff)',
+                            padding: '20px',
+                            borderRadius: '8px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '16px',
+                            }}
+                          >
+                            <h3 style={{ margin: 0 }}>ATS Resume Templates</h3>
+                            <button
+                              onClick={() => setShowGallery(false)}
+                              style={{
+                                cursor: 'pointer',
+                                background: 'transparent',
+                                border: 'none',
+                                fontSize: '16px',
+                              }}
+                            >
+                              ❌
+                            </button>
+                          </div>
+                          <TemplateGallery />
+                        </div>
+                      )}
                       <p
                         className="hero-description"
                         style={{
@@ -969,7 +1000,10 @@ function App() {
                         compatibility and receive personalized recommendations in seconds.
                       </p>
 
-                      <div className="hero-stats" style={{ color: theme === 'light' ? '#000000' : '#ffffff' }}>
+                      <div
+                        className="hero-stats"
+                        style={{ color: theme === 'light' ? '#000000' : '#ffffff' }}
+                      >
                         <div>
                           <h2>50K+</h2>
                           <span>Resumes Reviewed</span>
@@ -1115,8 +1149,10 @@ function App() {
                               if (e.target.files && e.target.files[0]) {
                                 const selectedFile = e.target.files[0]
                                 const validTypes = ['.pdf', '.docx']
-                                const isValid = validTypes.some(ext => selectedFile.name.toLowerCase().endsWith(ext))
-                                
+                                const isValid = validTypes.some((ext) =>
+                                  selectedFile.name.toLowerCase().endsWith(ext)
+                                )
+
                                 if (isValid) {
                                   setFile(selectedFile)
                                   setFileError(null)
@@ -1267,7 +1303,6 @@ function App() {
                             fontWeight: '600',
                             display: 'block',
                             marginBottom: '8px',
-
                           }}
                         >
                           Job Description (Optional)
@@ -1395,7 +1430,7 @@ function App() {
                   <div id="ats-score">
                     <AtsScore
                       score={score}
-                      
+
                       readabilityLabel={readabilityLabel}
                     />
                   </div>
@@ -1418,7 +1453,15 @@ function App() {
                     </p>
                   )}
 
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '16px', marginBottom: '16px', justifyContent: 'center' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '8px',
+                      marginTop: '16px',
+                      marginBottom: '16px',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => setActiveTab('detailed')}
@@ -1428,7 +1471,10 @@ function App() {
                         fontSize: '0.9rem',
                         fontWeight: '600',
                         cursor: 'pointer',
-                        background: activeTab === 'detailed' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                        background:
+                          activeTab === 'detailed'
+                            ? 'var(--color-primary, #6366f1)'
+                            : 'rgba(255, 255, 255, 0.05)',
                         color: '#fff',
                         border: '1px solid rgba(255, 255, 255, 0.15)',
                         transition: 'all 0.2s ease',
@@ -1446,7 +1492,10 @@ function App() {
                           fontSize: '0.9rem',
                           fontWeight: '600',
                           cursor: 'pointer',
-                          background: activeTab === 'matrix' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                          background:
+                            activeTab === 'matrix'
+                              ? 'var(--color-primary, #6366f1)'
+                              : 'rgba(255, 255, 255, 0.05)',
                           color: '#fff',
                           border: '1px solid rgba(255, 255, 255, 0.15)',
                           transition: 'all 0.2s ease',
@@ -1558,7 +1607,12 @@ function App() {
                                 }}
                               >
                                 {matchedSkills.map((s, i) => (
-                                  <SkillChip key={i} skill={s} type="matched" targetRole={targetRole} />
+                                  <SkillChip
+                                    key={i}
+                                    skill={s}
+                                    type="matched"
+                                    targetRole={targetRole}
+                                  />
                                 ))}
                               </div>
                             )}
@@ -1597,7 +1651,11 @@ function App() {
                                   type="button"
                                   className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
                                   onClick={copySuggestionsToClipboard}
-                                  style={{ minHeight: '44px', padding: '8px 16px', fontSize: '13px' }}
+                                  style={{
+                                    minHeight: '44px',
+                                    padding: '8px 16px',
+                                    fontSize: '13px',
+                                  }}
                                 >
                                   {copied ? '✅ Copied!' : '📋 Copy All'}
                                 </button>

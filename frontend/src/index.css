@@ -1699,7 +1699,8 @@ input {
 }
 
 /* Ensure container grid alignment wraps beautifully on tight mobile layouts */
-@media (max-width: 600px) {}
+@media (max-width: 600px) {
+}
 
 .app-footer {
   padding: 30px 16px 16px !important;
@@ -2144,7 +2145,6 @@ input {
 }
 
 @media print {
-
   .navbar,
   header,
   nav,
@@ -2280,7 +2280,6 @@ input {
     height: auto !important;
     overflow: visible !important;
   }
-
 
   @page {
     margin: 15mm;
