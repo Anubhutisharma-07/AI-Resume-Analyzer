@@ -14,6 +14,7 @@ import { InfoTooltip } from './components/InfoTooltip'
 import { SkillWordCloud } from './components/SkillWordCloud'
 import { TrackMatrix } from './components/TrackMatrix'
 import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
+import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
 import {
@@ -72,6 +73,7 @@ interface UndoState {
   targetRole: string
   coverLetterText?: string
   coverLetterFeedback?: any
+  interviewQuestions?: string[]
 }
 
 const DEFAULT_TITLE = 'AI Resume Analyzer'
@@ -320,7 +322,7 @@ function App() {
   const [analysisStageLabel, setAnalysisStageLabel] = useState<string>('')
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
   const [trackComparisons, setTrackComparisons] = useState<TrackComparisons | null>(null)
-  const [activeTab, setActiveTab] = useState<'detailed' | 'matrix' | 'cover_letter'>('detailed')
+  const [activeTab, setActiveTab] = useState<'detailed' | 'matrix' | 'cover_letter' | 'interview_questions'>('detailed')
   const [resumeUrl, setResumeUrl] = useState<string>('')
   const [urlError, setUrlError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -330,6 +332,9 @@ function App() {
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [coverLetterText, setCoverLetterText] = useState<string>('')
   const [coverLetterFeedback, setCoverLetterFeedback] = useState<any>(null)
+
+  // Interview Questions States
+  const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
 
   // History
   const {
@@ -433,6 +438,7 @@ function App() {
             file_name: string
             cover_letter_text?: string
             cover_letter_feedback?: any
+            interview_questions?: string[]
           }) => ({
             id: String(item.id),
             timestamp: new Date(item.created_at).getTime(),
@@ -445,6 +451,7 @@ function App() {
             fileName: item.file_name,
             coverLetterText: item.cover_letter_text,
             coverLetterFeedback: item.cover_letter_feedback,
+            interviewQuestions: item.interview_questions,
           })
         )
         const uniqueDbEntries = dbEntries.filter(
@@ -502,6 +509,7 @@ function App() {
         targetRole,
         coverLetterText,
         coverLetterFeedback,
+        interviewQuestions,
       })
       setShowUndoToast(true)
     }
@@ -525,6 +533,7 @@ function App() {
     setCoverLetterError(null)
     setCoverLetterText('')
     setCoverLetterFeedback(null)
+    setInterviewQuestions([])
   }, [
     file,
     score,
@@ -538,6 +547,7 @@ function App() {
     targetRole,
     coverLetterText,
     coverLetterFeedback,
+    interviewQuestions,
   ])
 
   const handleUndoReset = useCallback(() => {
@@ -554,6 +564,7 @@ function App() {
       setTargetRole(undoState.targetRole)
       setCoverLetterText(undoState.coverLetterText || '')
       setCoverLetterFeedback(undoState.coverLetterFeedback || null)
+      setInterviewQuestions(undoState.interviewQuestions || [])
       setUndoState(null)
       setShowUndoToast(false)
     }
@@ -656,6 +667,8 @@ function App() {
       setResumeText(res.data.resume_text || '')
       setCoverLetterText(res.data.cover_letter_text || '')
       setCoverLetterFeedback(res.data.cover_letter_feedback || null)
+      setInterviewQuestions(res.data.interview_questions || [])
+
       setReadabilityLabel(res.data.readability_label ?? null)
       if (res.data.share_id) setShareId(res.data.share_id)
       setTrackComparisons(res.data.track_comparisons || null)
@@ -683,6 +696,7 @@ function App() {
           fileName: fileName,
           coverLetterText: res.data.cover_letter_text,
           coverLetterFeedback: res.data.cover_letter_feedback,
+          interviewQuestions: res.data.interview_questions,
         })
       }
 
@@ -864,6 +878,7 @@ function App() {
     setActiveFileName(entry.fileName)
     setCoverLetterText(entry.coverLetterText || '')
     setCoverLetterFeedback(entry.coverLetterFeedback || null)
+    setInterviewQuestions(entry.interviewQuestions || [])
     setShowAllSkills(false)
     setCopied(false)
     setHistoryOpen(false)
@@ -970,7 +985,11 @@ function App() {
                             ? '⏳ Extracting and analyzing resume text...'
                             : '🚀 Analyze Resume'}
                         </button>
-                        <button className="app-btn" onClick={() => setShowGallery(true)}>
+                        <button
+                          className="app-btn"
+                          onClick={() => setShowGallery(true)}
+                          title="Browse ATS-friendly resume templates"
+                        >
                           📂 Template Gallery
                         </button>
                         <button
@@ -1657,6 +1676,25 @@ function App() {
                         ✉️ Cover Letter
                       </button>
                     )}
+                    {interviewQuestions && interviewQuestions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('interview_questions')}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          background: activeTab === 'interview_questions' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
+                          color: '#fff',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        💬 Interview Prep
+                      </button>
+                    )}
                   </div>
 
                   {activeTab === 'matrix' && trackComparisons ? (
@@ -1675,6 +1713,8 @@ function App() {
                     />
                   ) : activeTab === 'cover_letter' && coverLetterFeedback ? (
                     <CoverLetterFeedbackPanel feedback={coverLetterFeedback} />
+                  ) : activeTab === 'interview_questions' && interviewQuestions && interviewQuestions.length > 0 ? (
+                    <InterviewQuestionsPanel questions={interviewQuestions} />
                   ) : (
                     <>
                       {/* Skills Section */}

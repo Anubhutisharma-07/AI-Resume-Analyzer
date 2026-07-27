@@ -5,16 +5,32 @@ import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { Navbar } from './Navbar'
 
-describe('Navbar Component (#241)', () => {
-  const defaultProps = {
-    theme: 'dark' as const,
-    toggleTheme: vi.fn(),
-    user: null,
-    onLogin: vi.fn(),
-    onLogout: vi.fn(),
-    onHistoryClick: vi.fn(),
-  }
+beforeAll(() => {
+  window.scrollTo = vi.fn()
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
+const defaultProps = {
+  theme: 'dark' as const,
+  toggleTheme: vi.fn(),
+  user: null,
+  onLogin: vi.fn(),
+  onLogout: vi.fn(),
+  onHistoryClick: vi.fn(),
+}
+
+const renderNavbar = (
+  props: Partial<React.ComponentProps<typeof Navbar>> = {},
+  initialEntries = ['/']
+) => {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Navbar {...defaultProps} {...props} />
+    </MemoryRouter>
+  )
+}
+
+describe('Navbar Component (#241)', () => {
   it('renders the header brand with emoji and "AI Resume Analyzer" title text', () => {
     render(
       <MemoryRouter>
@@ -154,5 +170,55 @@ describe('Navbar responsive hamburger (#245)', () => {
     fireEvent.click(historyLink)
     expect(menu.className).not.toContain('mobile-open')
     expect(onHistoryClick).toHaveBeenCalled()
+  })
+})
+
+describe('Navbar active/current indicator (#404)', () => {
+  it('marks Home as active by default on the root route', () => {
+    renderNavbar()
+
+    const homeLink = screen.getByText('Home')
+    const analyzeLink = screen.getByText('Analyze Resume')
+    const atsLink = screen.getByText('ATS Score')
+
+    expect(homeLink).toHaveClass('active')
+    expect(homeLink).toHaveAttribute('aria-current', 'page')
+
+    expect(analyzeLink).not.toHaveClass('active')
+    expect(analyzeLink).not.toHaveAttribute('aria-current')
+
+    expect(atsLink).not.toHaveClass('active')
+    expect(atsLink).not.toHaveAttribute('aria-current')
+  })
+
+  it('activates ATS Score and deactivates Home when ATS Score is clicked', () => {
+    renderNavbar()
+
+    const homeLink = screen.getByText('Home')
+    const atsLink = screen.getByText('ATS Score')
+
+    fireEvent.click(atsLink)
+
+    expect(atsLink).toHaveClass('active')
+    expect(atsLink).toHaveAttribute('aria-current', 'true')
+    expect(homeLink).not.toHaveClass('active')
+    expect(homeLink).not.toHaveAttribute('aria-current')
+  })
+
+  it('marks Analyze Resume as active when located on /analyze route', () => {
+    renderNavbar({}, ['/analyze'])
+
+    const homeLink = screen.getByText('Home')
+    const analyzeLink = screen.getByText('Analyze Resume')
+    const atsLink = screen.getByText('ATS Score')
+
+    expect(analyzeLink).toHaveClass('active')
+    expect(analyzeLink).toHaveAttribute('aria-current', 'page')
+
+    expect(homeLink).not.toHaveClass('active')
+    expect(homeLink).not.toHaveAttribute('aria-current')
+
+    expect(atsLink).not.toHaveClass('active')
+    expect(atsLink).not.toHaveAttribute('aria-current')
   })
 })
