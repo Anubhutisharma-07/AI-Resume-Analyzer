@@ -51,8 +51,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="navbar">
-      <div style={{ color: theme === 'light' ? '#000000' : '#ffffff' }}>🚀 AI Resume Analyzer</div>
-
+      <Link
+        to="/"
+        className={`navbar-brand ${theme}`}
+        onClick={closeMenu}
+      >
+        🚀 AI Resume Analyzer
+      </Link>
       <button
         className="navbar-toggle"
         onClick={() => setMobileOpen((prev) => !prev)}
