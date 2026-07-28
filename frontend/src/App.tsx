@@ -53,6 +53,7 @@ import { FilePreview } from './components/FilePreview/FilePreview'
 import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
 import CookieConsentBanner from './components/CookieConsentBanner'
+import QuantifyNudges, { type QuantifyNudge } from './QuantifyNudges'
 import AdminDashboard from './components/AdminDashboard'
 import { ActionPlanChecklist } from './components/ActionPlanChecklist'
 import {
@@ -60,7 +61,6 @@ import {
   exportActionPlanPdf,
   generateActionPlan,
 } from './utils/actionPlanUtils'
-
 type Theme = 'light' | 'dark'
 
 interface UndoState {
@@ -163,21 +163,24 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
     }
   }
 
+  const isQuantify = text.startsWith('QUANTIFY:')
+  const displayText = isQuantify ? text.replace('QUANTIFY:', '').trim() : text
+
   return (
-    <div className="suggestion-card">
+    <div className="suggestion-card" style={isQuantify ? { borderLeft: '4px solid #3b82f6' } : {}}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '16px' }}>💡</span>
+          <span style={{ fontSize: '16px' }}>{isQuantify ? '📊' : '💡'}</span>
           <span
             style={{
               fontSize: '12px',
               fontWeight: '700',
-              color: 'var(--color-primary)',
+              color: isQuantify ? '#3b82f6' : 'var(--color-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
           >
-            Recommendation #{index + 1}
+            {isQuantify ? 'Quantify Achievement' : `Recommendation #${index + 1}`}
           </span>
         </div>
         <p
@@ -188,7 +191,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
             lineHeight: '1.6',
           }}
         >
-          {text}
+          {displayText}
         </p>
       </div>
 
@@ -290,12 +293,14 @@ function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [useDefaultResume, setUseDefaultResume] = useState(false)
+  const [defaultResumeName, setDefaultResumeName] = useState<string | null>(null)
   const [retryAfter, setRetryAfter] = useState<number | null>(null)
   const [retryDisabled, setRetryDisabled] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
-
+  const [quantifyNudges, setQuantifyNudges] = useState<QuantifyNudge[]>([])
   const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
@@ -482,6 +487,37 @@ function App() {
   useEffect(() => {
     if (user) fetchDbHistory(user.token)
   }, [user, fetchDbHistory])
+
+  useEffect(() => {
+    try {
+      const savedName = localStorage.getItem('default_resume_name')
+      if (savedName) {
+        setDefaultResumeName(savedName)
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const urlRole = params.get('role')
+    const urlJd = params.get('job_description')
+
+    if (urlRole) {
+      setTargetRole(urlRole)
+    }
+    if (urlJd) {
+      setJobDesc(urlJd)
+    }
+
+    try {
+      const savedName = localStorage.getItem('default_resume_name')
+      if ((urlRole || urlJd) && savedName) {
+        setUseDefaultResume(true)
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -674,6 +710,7 @@ function App() {
       setScore(res.data.score)
       setSkills(res.data.skills_found || [])
       setSuggestions(res.data.suggestions || [])
+      setQuantifyNudges(res.data.quantify_nudges || [])
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
@@ -787,6 +824,22 @@ function App() {
     }
   }
 
+  const saveAsDefaultResume = (fileToSave: File) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        localStorage.setItem('default_resume_base64', reader.result as string)
+        localStorage.setItem('default_resume_name', fileToSave.name)
+        localStorage.setItem('default_resume_type', fileToSave.type)
+        setDefaultResumeName(fileToSave.name)
+        alert(`Successfully set "${fileToSave.name}" as your default resume!`)
+      } catch (err) {
+        alert('Failed to save default resume to local storage.')
+      }
+    }
+    reader.readAsDataURL(fileToSave)
+  }
+
   const uploadResume = async () => {
     let hasError = false
 
@@ -797,8 +850,32 @@ function App() {
       setRoleError(null)
     }
 
+    let fileToAnalyze: File | null = file
+
     if (uploadMode === 'file') {
-      if (!file) {
+      if (useDefaultResume) {
+        try {
+          const b64 = localStorage.getItem('default_resume_base64')
+          const name = localStorage.getItem('default_resume_name')
+          const type = localStorage.getItem('default_resume_type')
+          if (b64 && name && type) {
+            const byteString = atob(b64.split(',')[1])
+            const ab = new ArrayBuffer(byteString.length)
+            const ia = new Uint8Array(ab)
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i)
+            }
+            fileToAnalyze = new File([ab], name, { type })
+            setFileError(null)
+          } else {
+            setFileError('No default resume is currently saved.')
+            hasError = true
+          }
+        } catch {
+          setFileError('Failed to load the default resume. Please upload manually.')
+          hasError = true
+        }
+      } else if (!file) {
         setFileError('Please upload a resume file before analyzing.')
         hasError = true
       } else {
@@ -829,7 +906,7 @@ function App() {
 
     await requestNotificationPermission()
     if (uploadMode === 'file') {
-      await runAnalysis(file!, 'upload')
+      await runAnalysis(fileToAnalyze, 'upload')
     } else {
       await runAnalysis(null, 'upload', resumeUrl.trim())
     }
@@ -1365,7 +1442,8 @@ function App() {
                       </div>
 
                       {uploadMode === 'file' ? (
-                        <div
+                        <>
+                          <div
                           className={`upload-box mb-3 ${isDragging ? 'dragging' : ''}`}
                           style={{ width: '100%', maxWidth: '100%' }}
                           onDragOver={handleDragOver}
@@ -1429,8 +1507,42 @@ function App() {
                               )}
                             </div>
                             <div style={{ textAlign: 'center' }}>
-                              {file ? (
-                                <strong className="upload-file-name">{file.name}</strong>
+                              {useDefaultResume && defaultResumeName ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '1.5rem' }}>✅</span>
+                                  <strong className="upload-file-name" style={{ color: '#4ade80' }}>
+                                    Default Resume Pre-loaded: {defaultResumeName}
+                                  </strong>
+                                  <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                                    (Uncheck the default option below to upload another file)
+                                  </span>
+                                </div>
+                              ) : file ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                  <strong className="upload-file-name">{file.name}</strong>
+                                  {defaultResumeName !== file.name && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        saveAsDefaultResume(file)
+                                      }}
+                                      style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.78rem',
+                                        borderRadius: 'var(--radius-sm)',
+                                        border: '1px solid var(--color-primary)',
+                                        background: 'rgba(99, 102, 241, 0.1)',
+                                        color: '#a5b4fc',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s'
+                                      }}
+                                    >
+                                      💾 Save as Default
+                                    </button>
+                                  )}
+                                </div>
                               ) : (
                                 <>
                                   <span className="upload-text-primary">
@@ -1445,6 +1557,50 @@ function App() {
                             </div>
                           </label>
                         </div>
+
+                        {defaultResumeName && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '8px',
+                              marginTop: '-8px',
+                              marginBottom: '16px',
+                              background: 'rgba(99, 102, 241, 0.05)',
+                              border: '1px solid rgba(99, 102, 241, 0.2)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '10px 14px'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              id="useDefaultResume"
+                              checked={useDefaultResume}
+                              onChange={(e) => {
+                                setUseDefaultResume(e.target.checked)
+                                if (e.target.checked) {
+                                  setFile(null)
+                                  setFileError(null)
+                                }
+                              }}
+                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <label
+                              htmlFor="useDefaultResume"
+                              style={{
+                                color: '#e2e8f0',
+                                fontSize: '0.88rem',
+                                cursor: 'pointer',
+                                fontWeight: '500',
+                                userSelect: 'none'
+                              }}
+                            >
+                              📂 Use saved default resume: <span style={{ color: '#a5b4fc', fontWeight: '600' }}>{defaultResumeName}</span>
+                            </label>
+                          </div>
+                        )}
+                        </>
                       ) : (
                         <div className="mb-3" style={{ textAlign: 'left' }}>
                           <label
@@ -2186,6 +2342,7 @@ function App() {
                             </div>
                           )}
 
+                          <QuantifyNudges nudges={quantifyNudges} />
                           <CuratedTips targetRole={targetRole} />
 
                           <div style={{ marginTop: '24px', textAlign: 'center' }}>
