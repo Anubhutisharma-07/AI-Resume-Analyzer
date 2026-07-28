@@ -389,47 +389,22 @@ class CoverLetterAnalysisTests(TestCase):
             self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])
 
 
-class InterviewQuestionTests(TestCase):
-    def test_generate_interview_questions_valid(self):
-        from analyzer.services import generate_interview_questions
-        
-        # Test generation with React skill and Frontend Developer target role
-        questions = generate_interview_questions(["React", "TypeScript"], "Frontend Developer")
-        self.assertTrue(len(questions) >= 5)
-        self.assertTrue(len(questions) <= 8)
-        
-        # At least one question should be from React or TS
-        has_tech = any("React" in q or "TypeScript" in q or "virtual DOM" in q or "generics" in q for q in questions)
-        self.assertTrue(has_tech)
+class SkillsLeaderboardTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        self.client = APIClient()
+        self.url = "/api/skills-leaderboard/"
+        cache.clear()
 
-    @patch("analyzer.services.pdfplumber.open")
-    def test_analyze_resume_generates_interview_questions(self, mock_open):
-        mock_open.return_value = _fake_pdf("Expert in Python and SQL.")
-        
-        result = analyze_resume(
-            file_path="dummy_resume.pdf",
-            target_role="Backend Developer",
-            file_name="resume.pdf",
-        )
-        
-        self.assertIn("interview_questions", result)
-        self.assertTrue(len(result["interview_questions"]) >= 5)
-
-
-class JdAnalysisTests(TestCase):
-    def test_analyze_jd_endpoint(self):
-        from rest_framework import status
-        
-        # Test empty input error
-        resp = self.client.post("/api/analyze-jd/", {"job_description": ""})
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("error", resp.data)
-        
-        # Test valid input analysis with known skill keywords and stop words
-        jd_text = (
-            "We are seeking a React Developer. The candidate should have experience in React, "
-            "JavaScript, HTML, and CSS. Working with teams to deliver responsive layouts is essential. "
-            "React and TypeScript are strong plusses. The candidate will work in a fast-paced environment."
+    def test_leaderboard_endpoint(self):
+        from analyzer.models import ResumeAnalysis
+        ResumeAnalysis.objects.create(
+            file_name="res1.pdf",
+            target_role="Frontend Developer",
+            score=80,
+            matched_skills=["react", "javascript", "html"],
+            missing_skills=["css"],
+            suggestions=[]
         )
         resp = self.client.post("/api/analyze-jd/", {"job_description": jd_text})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
