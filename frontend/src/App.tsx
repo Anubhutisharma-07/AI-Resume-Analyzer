@@ -1424,7 +1424,8 @@ function App() {
                       </div>
 
                       {uploadMode === 'file' ? (
-                        <div
+                        <>
+                          <div
                           className={`upload-box mb-3 ${isDragging ? 'dragging' : ''}`}
                           style={{ width: '100%', maxWidth: '100%' }}
                           onDragOver={handleDragOver}
@@ -1581,6 +1582,7 @@ function App() {
                             </label>
                           </div>
                         )}
+                        </>
                       ) : (
                         <div className="mb-3" style={{ textAlign: 'left' }}>
                           <label
