@@ -52,6 +52,12 @@ import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import AdminDashboard from './components/AdminDashboard'
+import { ActionPlanChecklist } from './components/ActionPlanChecklist'
+import {
+  exportActionPlanMarkdown,
+  exportActionPlanPdf,
+  generateActionPlan,
+} from './utils/actionPlanUtils'
 
 type Theme = 'light' | 'dark'
 
@@ -2066,15 +2072,79 @@ function App() {
                                         color: 'var(--body-text)',
                                         textAlign: 'left',
                                         cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
                                       }}
                                     >
                                       Export CSV
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const plan = generateActionPlan({
+                                          score: score || 0,
+                                          targetRole,
+                                          suggestions,
+                                          missingSkills,
+                                          readabilityLabel,
+                                          coverLetterFeedback,
+                                          fileName: activeFileName,
+                                        })
+                                        exportActionPlanMarkdown(plan)
+                                        setShowExportDropdown(false)
+                                      }}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
+                                      }}
+                                    >
+                                      Action Plan (.md)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const plan = generateActionPlan({
+                                          score: score || 0,
+                                          targetRole,
+                                          suggestions,
+                                          missingSkills,
+                                          readabilityLabel,
+                                          coverLetterFeedback,
+                                          fileName: activeFileName,
+                                        })
+                                        exportActionPlanPdf(plan)
+                                        setShowExportDropdown(false)
+                                      }}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Action Plan (.pdf)
                                     </button>
                                   </div>
                                 )}
                               </div>
                             </div>
                           </div>
+
+                          <ActionPlanChecklist
+                            score={score || 0}
+                            targetRole={targetRole}
+                            suggestions={suggestions}
+                            missingSkills={missingSkills}
+                            readabilityLabel={readabilityLabel}
+                            coverLetterFeedback={coverLetterFeedback}
+                            fileName={activeFileName}
+                          />
 
                           {suggestions.length === 0 ? (
                             <p
