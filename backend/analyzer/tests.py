@@ -449,3 +449,57 @@ class JdAnalysisTests(TestCase):
         self.assertNotIn("the", texts)
         self.assertNotIn("and", texts)
         self.assertNotIn("candidate", texts)
+
+
+class UserProfileTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="testuser", password="password123", email="test@example.com")
+        self.other_user = User.objects.create_user(username="otheruser", password="password123", email="other@example.com")
+
+    def test_get_profile_requires_auth(self):
+        from rest_framework import status
+        resp = self.client.get("/api/profile/")
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_get_profile_success(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.get("/api/profile/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["username"], "testuser")
+        self.assertEqual(resp.data["email"], "test@example.com")
+
+    def test_put_profile_success(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.put("/api/profile/", {"username": "newusername", "email": "newemail@example.com"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["username"], "newusername")
+        self.assertEqual(resp.data["email"], "newemail@example.com")
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "newusername")
+        self.assertEqual(self.user.email, "newemail@example.com")
+
+    def test_put_profile_duplicate_username(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.put("/api/profile/", {"username": "otheruser", "email": "test@example.com"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("username", resp.data)
+
+    def test_put_profile_duplicate_email(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.put("/api/profile/", {"username": "testuser", "email": "other@example.com"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", resp.data)
+
+    def test_put_profile_invalid_email(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+        resp = self.client.put("/api/profile/", {"username": "testuser", "email": "not-an-email"})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("email", resp.data)

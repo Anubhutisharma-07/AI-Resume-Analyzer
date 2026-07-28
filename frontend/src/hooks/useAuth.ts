@@ -55,5 +55,14 @@ export function useAuth() {
   )
 
   const logout = useCallback(() => persist(null), [])
-  return { user, signup, login, logout }
+
+  const updateProfileSession = useCallback((newUsername: string) => {
+    if (user) {
+      const isLocalStorage = localStorage.getItem('auth_user') !== null
+      const updatedUser = { ...user, username: newUsername }
+      persist(updatedUser, isLocalStorage)
+    }
+  }, [user])
+
+  return { user, signup, login, logout, updateProfileSession }
 }

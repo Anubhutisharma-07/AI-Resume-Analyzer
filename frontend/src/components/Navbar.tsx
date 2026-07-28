@@ -152,7 +152,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {user ? (
             <div className="navbar-user">
-              <span className="auth-username">👤 {user.username}</span>
+              <Link
+                to="/profile"
+                className="auth-username"
+                onClick={closeMenu}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                👤 {user.username}
+              </Link>
               <button
                 className="auth-bar-btn"
                 onClick={() => {

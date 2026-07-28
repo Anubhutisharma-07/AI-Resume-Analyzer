@@ -28,6 +28,7 @@ from .serializers import (
     SignupSerializer,
     ResumeAnalysisSerializer,
     VersionComparisonSerializer,
+    UserProfileSerializer,
 )
 from .services import analyze_resume
 from .url_fetcher import download_and_validate_url
@@ -442,3 +443,19 @@ def analyze_jd_view(request):
         })
         
     return Response({"keywords": results}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def user_profile_view(request):
+    user = request.user
+    if request.method == "GET":
+        serializer = UserProfileSerializer(user, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    elif request.method == "PUT":
+        serializer = UserProfileSerializer(user, data=request.data, context={"request": request}, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
