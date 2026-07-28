@@ -16,6 +16,7 @@ import { TrackMatrix } from './components/TrackMatrix'
 import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { SkillsLeaderboard } from './components/SkillsLeaderboard'
+import { JdVisualizerPanel } from './components/JdVisualizerPanel'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
 import {
