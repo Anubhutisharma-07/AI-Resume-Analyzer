@@ -442,3 +442,60 @@ def analyze_jd_view(request):
         })
         
     return Response({"keywords": results}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def skills_leaderboard_view(request):
+    from django.core.cache import cache
+    
+    track = request.query_params.get("track", "")
+    
+    cache_key = f"skills_leaderboard_{track}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return Response(cached_data, status=status.HTTP_200_OK)
+        
+    analyses = ResumeAnalysis.objects.all()
+    if track:
+        analyses = analyses.filter(target_role=track)
+        
+    data_list = list(analyses.values_list("matched_skills", "missing_skills"))
+    total_count = len(data_list)
+    
+    matched_counter = Counter()
+    missing_counter = Counter()
+    
+    for matched, missing in data_list:
+        if isinstance(matched, list):
+            matched_counter.update(matched)
+        if isinstance(missing, list):
+            missing_counter.update(missing)
+            
+    top_matched = [
+        {
+            "skill": skill.title(),
+            "count": count,
+            "percentage": int(count / total_count * 100) if total_count > 0 else 0
+        }
+        for skill, count in matched_counter.most_common(10)
+    ]
+    
+    top_missing = [
+        {
+            "skill": skill.title(),
+            "count": count,
+            "percentage": int(count / total_count * 100) if total_count > 0 else 0
+        }
+        for skill, count in missing_counter.most_common(10)
+    ]
+    
+    response_data = {
+        "total_analyses": total_count,
+        "matched_skills": top_matched,
+        "missing_skills": top_missing
+    }
+    
+    cache.set(cache_key, response_data, 300)
+    return Response(response_data, status=status.HTTP_200_OK)
+

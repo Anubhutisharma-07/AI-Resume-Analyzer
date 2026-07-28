@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import NotFound from './components/NotFound'
 import axios from 'axios'
 import './index.css'
@@ -15,6 +15,7 @@ import { SkillWordCloud } from './components/SkillWordCloud'
 import { TrackMatrix } from './components/TrackMatrix'
 import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
+import { SkillsLeaderboard } from './components/SkillsLeaderboard'
 import { JdVisualizerPanel } from './components/JdVisualizerPanel'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
@@ -287,6 +288,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
 }
 
 function App() {
+  const navigate = useNavigate()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
@@ -968,6 +970,7 @@ function App() {
         onHistoryClick={() => setHistoryOpen(true)}
       />
       <Routes>
+        <Route path="/leaderboard" element={<SkillsLeaderboard onBack={() => navigate('/')} />} />
         <Route path="/admin" element={<AdminDashboard user={user} />} />
         <Route path="/shared/:shareId" element={<SharedResultView />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
