@@ -51,6 +51,7 @@ import { FilePreview } from './components/FilePreview/FilePreview'
 import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
 import CookieConsentBanner from './components/CookieConsentBanner'
+import QuantifyNudges, { type QuantifyNudge } from './QuantifyNudges'
 import AdminDashboard from './components/AdminDashboard'
 import { ActionPlanChecklist } from './components/ActionPlanChecklist'
 import {
@@ -58,7 +59,6 @@ import {
   exportActionPlanPdf,
   generateActionPlan,
 } from './utils/actionPlanUtils'
-
 type Theme = 'light' | 'dark'
 
 interface UndoState {
@@ -161,21 +161,24 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
     }
   }
 
+  const isQuantify = text.startsWith('QUANTIFY:')
+  const displayText = isQuantify ? text.replace('QUANTIFY:', '').trim() : text
+
   return (
-    <div className="suggestion-card">
+    <div className="suggestion-card" style={isQuantify ? { borderLeft: '4px solid #3b82f6' } : {}}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <span style={{ fontSize: '16px' }}>💡</span>
+          <span style={{ fontSize: '16px' }}>{isQuantify ? '📊' : '💡'}</span>
           <span
             style={{
               fontSize: '12px',
               fontWeight: '700',
-              color: 'var(--color-primary)',
+              color: isQuantify ? '#3b82f6' : 'var(--color-primary)',
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
             }}
           >
-            Recommendation #{index + 1}
+            {isQuantify ? 'Quantify Achievement' : `Recommendation #${index + 1}`}
           </span>
         </div>
         <p
@@ -186,7 +189,7 @@ const SuggestionCard: React.FC<SuggestionCardProps> = ({ text, index, backendUrl
             lineHeight: '1.6',
           }}
         >
-          {text}
+          {displayText}
         </p>
       </div>
 
@@ -292,7 +295,7 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
-
+  const [quantifyNudges, setQuantifyNudges] = useState<QuantifyNudge[]>([])
   const [readabilityLabel, setReadabilityLabel] = useState<string | null>(null)
   const [undoState, setUndoState] = useState<UndoState | null>(null)
   const [showUndoToast, setShowUndoToast] = useState(false)
@@ -670,6 +673,7 @@ function App() {
       setScore(res.data.score)
       setSkills(res.data.skills_found || [])
       setSuggestions(res.data.suggestions || [])
+      setQuantifyNudges(res.data.quantify_nudges || [])
       setMatchedSkills(res.data.matched_skills || [])
       setMissingSkills(res.data.missing_skills || [])
       setResumeText(res.data.resume_text || '')
@@ -2172,6 +2176,7 @@ function App() {
                             </div>
                           )}
 
+                          <QuantifyNudges nudges={quantifyNudges} />
                           <CuratedTips targetRole={targetRole} />
 
                           <div style={{ marginTop: '24px', textAlign: 'center' }}>
