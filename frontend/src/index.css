@@ -64,10 +64,10 @@
   --banner-bg: rgba(59, 130, 246, 0.1);
   --banner-border: rgba(59, 130, 246, 0.3);
   --banner-text: #1e40af;
-  --btn-secondary-bg: rgba(255, 255, 255, 0.15);
-  --btn-secondary-text: #ffffff;
-  --btn-secondary-border: rgba(255, 255, 255, 0.3);
-  --btn-secondary-hover-bg: rgba(255, 255, 255, 0.25);
+  --btn-secondary-bg: var(--btn-bg);
+  --btn-secondary-text: var(--btn-text);
+  --btn-secondary-border: var(--surface-border);
+  --btn-secondary-hover-bg: var(--btn-bg);
   --btn-accent-bg: var(--color-primary);
   --btn-accent-hover-bg: #2563eb;
   --btn-success-bg: var(--color-accent);
