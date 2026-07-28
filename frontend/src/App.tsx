@@ -17,6 +17,7 @@ import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
 import { SkillsLeaderboard } from './components/SkillsLeaderboard'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { ProfileModal } from './components/ProfileModal'
+import { JdVisualizerPanel } from './components/JdVisualizerPanel'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
 import {
