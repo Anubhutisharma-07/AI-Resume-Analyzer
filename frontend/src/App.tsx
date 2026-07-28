@@ -52,6 +52,12 @@ import { ShareResult } from './components/ShareResult'
 import { SharedResultView } from './SharedResultView'
 import CookieConsentBanner from './components/CookieConsentBanner'
 import AdminDashboard from './components/AdminDashboard'
+import { ActionPlanChecklist } from './components/ActionPlanChecklist'
+import {
+  exportActionPlanMarkdown,
+  exportActionPlanPdf,
+  generateActionPlan,
+} from './utils/actionPlanUtils'
 
 type Theme = 'light' | 'dark'
 
@@ -331,6 +337,13 @@ function App() {
 
   // Interview Questions States
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
+
+  // Standalone Job Description States
+  const [activeFlow, setActiveFlow] = useState<'resume' | 'jd'>('resume')
+  const [jdInputText, setJdInputText] = useState('')
+  const [jdKeywords, setJdKeywords] = useState<any[]>([])
+  const [jdLoading, setJdLoading] = useState(false)
+  const [jdError, setJdError] = useState<string | null>(null)
 
   // History
   const {
@@ -750,6 +763,27 @@ function App() {
     }
   }
 
+  const runJdAnalysis = async () => {
+    if (!jdInputText || !jdInputText.trim()) {
+      setJdError('Job description cannot be empty.')
+      return
+    }
+    setJdLoading(true)
+    setJdError(null)
+    setJdKeywords([])
+    try {
+      const res = await axios.post(`${backendUrl}/api/analyze-jd/`, {
+        job_description: jdInputText,
+      })
+      setJdKeywords(res.data.keywords || [])
+    } catch (err: any) {
+      console.error(err)
+      setJdError(err.response?.data?.error || 'Failed to analyze job description.')
+    } finally {
+      setJdLoading(false)
+    }
+  }
+
   const uploadResume = async () => {
     let hasError = false
 
@@ -1078,7 +1112,140 @@ function App() {
                   {(loading || score !== null) && <StepProgress currentStep={currentStep} />}
 
                   <section className="analyzer-form-section" aria-label="Resume Analyzer Form">
-                    {/* STEP 1: Target Career Track */}
+                    {/* Active Flow Switcher Tabs */}
+                    {score === null && !loading && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '12px',
+                          justifyContent: 'center',
+                          marginBottom: '24px',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                          paddingBottom: '12px',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFlow('resume')
+                            setJdKeywords([])
+                          }}
+                          style={{
+                            padding: '8px 20px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.95rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              activeFlow === 'resume'
+                                ? 'var(--color-primary, #6366f1)'
+                                : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          📄 Optimize Resume
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveFlow('jd')
+                          }}
+                          style={{
+                            padding: '8px 20px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.95rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              activeFlow === 'jd'
+                                ? 'var(--color-primary, #6366f1)'
+                                : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          💼 Analyze Job Description
+                        </button>
+                      </div>
+                    )}
+
+                    {activeFlow === 'jd' && jdKeywords.length > 0 ? (
+                      <JdVisualizerPanel
+                        keywords={jdKeywords}
+                        onBack={() => {
+                          setJdKeywords([])
+                          setJdInputText('')
+                        }}
+                      />
+                    ) : activeFlow === 'jd' ? (
+                      <div className="animate-fade-in">
+                        <div
+                          className="mb-4 p-4"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid rgba(255,255,255,0.04)',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <label
+                            htmlFor="jdTextInput"
+                            style={{
+                              color: theme === 'light' ? '#000000' : '#ffffff',
+                              display: 'block',
+                              marginBottom: '12px',
+                              fontWeight: '600',
+                              fontSize: 'var(--font-size-sm)',
+                            }}
+                          >
+                            📝 Paste the Job Description to extract and visualize key terms:
+                          </label>
+                          <textarea
+                            id="jdTextInput"
+                            rows={8}
+                            value={jdInputText}
+                            onChange={(e) => {
+                              setJdInputText(e.target.value)
+                              if (e.target.value.trim() !== '') setJdError(null)
+                            }}
+                            placeholder="Paste job description here..."
+                            style={{
+                              width: '100%',
+                              padding: '12px',
+                              borderRadius: 'var(--radius-md)',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              background: 'rgba(0,0,0,0.2)',
+                              color: '#fff',
+                              outline: 'none',
+                              fontSize: '0.92rem',
+                              lineHeight: '1.5',
+                              resize: 'vertical'
+                            }}
+                          />
+                          {jdError && (
+                            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>
+                              ⚠️ {jdError}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
+                            <button
+                              type="button"
+                              className="analyze-btn"
+                              onClick={runJdAnalysis}
+                              disabled={jdLoading}
+                              style={{ width: 'auto', minWidth: '200px' }}
+                            >
+                              {jdLoading ? '⏳ Analyzing Keywords...' : '🔍 Analyze JD Keywords'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* STEP 1: Target Career Track */}
                     <div
                       className="mb-4 p-4 role-selector-container"
                       style={{
@@ -1538,7 +1705,9 @@ function App() {
                         </p>
                       )}
                     </div>
-                  </section>
+                  </>
+                )}
+              </section>
                 </div>
               </div>
 
@@ -1905,15 +2074,79 @@ function App() {
                                         color: 'var(--body-text)',
                                         textAlign: 'left',
                                         cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
                                       }}
                                     >
                                       Export CSV
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const plan = generateActionPlan({
+                                          score: score || 0,
+                                          targetRole,
+                                          suggestions,
+                                          missingSkills,
+                                          readabilityLabel,
+                                          coverLetterFeedback,
+                                          fileName: activeFileName,
+                                        })
+                                        exportActionPlanMarkdown(plan)
+                                        setShowExportDropdown(false)
+                                      }}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderBottom: '1px solid var(--surface-border)',
+                                      }}
+                                    >
+                                      Action Plan (.md)
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const plan = generateActionPlan({
+                                          score: score || 0,
+                                          targetRole,
+                                          suggestions,
+                                          missingSkills,
+                                          readabilityLabel,
+                                          coverLetterFeedback,
+                                          fileName: activeFileName,
+                                        })
+                                        exportActionPlanPdf(plan)
+                                        setShowExportDropdown(false)
+                                      }}
+                                      style={{
+                                        padding: '8px 12px',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--body-text)',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                      }}
+                                    >
+                                      Action Plan (.pdf)
                                     </button>
                                   </div>
                                 )}
                               </div>
                             </div>
                           </div>
+
+                          <ActionPlanChecklist
+                            score={score || 0}
+                            targetRole={targetRole}
+                            suggestions={suggestions}
+                            missingSkills={missingSkills}
+                            readabilityLabel={readabilityLabel}
+                            coverLetterFeedback={coverLetterFeedback}
+                            fileName={activeFileName}
+                          />
 
                           {suggestions.length === 0 ? (
                             <p
