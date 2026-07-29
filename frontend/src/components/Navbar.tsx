@@ -43,11 +43,7 @@ export const Navbar: React.FC<NavbarProps> = ({ theme, toggleTheme, user, onLogi
 
   return (
     <header className="navbar">
-      <Link
-        to="/"
-        className={`navbar-brand ${theme}`}
-        onClick={closeMenu}
-      >
+      <Link to="/" className={`navbar-brand ${theme}`} onClick={closeMenu}>
         🚀 AI Resume Analyzer
       </Link>
       <button

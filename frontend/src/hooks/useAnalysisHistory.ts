@@ -13,7 +13,7 @@ export interface AnalysisEntry {
   source?: 'sample' | 'upload'
   share_id?: string
   coverLetterText?: string
-  coverLetterFeedback?: any
+  coverLetterFeedback?: unknown
   interviewQuestions?: string[]
 }
 
