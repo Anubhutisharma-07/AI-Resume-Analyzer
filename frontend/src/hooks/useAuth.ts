@@ -6,6 +6,7 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 export interface AuthUser {
   username: string
   token: string
+  avatarUrl?: string
 }
 
 function loadUser(): AuthUser | null {
@@ -43,13 +44,13 @@ export function useAuth() {
   const signup = useCallback(async (username: string, password: string) => {
     await axios.post(`${BACKEND}/api/auth/signup/`, { username, password })
     const res = await axios.post(`${BACKEND}/api/auth/login/`, { username, password })
-    persist({ username, token: res.data.access }, true)
+    persist({ username, token: res.data.access, avatarUrl: res.data.avatar_url }, true)
   }, [])
 
   const login = useCallback(
     async (username: string, password: string, rememberMe: boolean = true) => {
       const res = await axios.post(`${BACKEND}/api/auth/login/`, { username, password })
-      persist({ username, token: res.data.access }, rememberMe)
+      persist({ username, token: res.data.access, avatarUrl: res.data.avatar_url }, rememberMe)
     },
     []
   )

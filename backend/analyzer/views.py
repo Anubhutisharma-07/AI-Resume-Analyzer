@@ -379,7 +379,6 @@ def admin_stats_view(request):
             missing_skills_counter.update(skills_list)
             
     top_missing_skills = missing_skills_counter.most_common(10)
-    
     return Response({
         "total_analyses": total_analyses,
         "popular_roles": [{"role": r[0], "count": r[1]} for r in popular_roles if r[0]],

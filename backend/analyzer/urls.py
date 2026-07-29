@@ -27,7 +27,7 @@ urlpatterns = [
     path("profile/", user_profile_view),
 
     path("auth/signup/", signup),
-    path("auth/login/", TokenObtainPairView.as_view()),
+    path("auth/login/", CustomTokenObtainPairView.as_view()),
     path("auth/refresh/", TokenRefreshView.as_view()),
 
     path("history/", analysis_history),

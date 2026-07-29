@@ -9,6 +9,7 @@ interface NavbarProps {
   onLogin: () => void
   onLogout: () => void
   onHistoryClick: () => void
+  onProfileClick?: () => void
 }
 
 const MOBILE_BREAKPOINT = 1024
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogin,
   onLogout,
   onHistoryClick,
+  onProfileClick,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
