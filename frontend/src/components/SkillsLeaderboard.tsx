@@ -26,6 +26,30 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   useEffect(() => {
+    const metaDescription = document.querySelector('meta[name="description"]')
+    const ogDescription = document.querySelector('meta[property="og:description"]')
+    const twitterDescription = document.querySelector('meta[name="twitter:description"]')
+    
+    const originalDesc = metaDescription?.getAttribute('content') || ''
+    const originalTitle = document.title
+    
+    const newDesc = "Explore the AI Resume Analyzer Skills Leaderboard. View aggregated insights on top matched skills and in-demand skill gaps across various career tracks."
+    const newTitle = "Skills Leaderboard | AI Resume Analyzer"
+    
+    if (metaDescription) metaDescription.setAttribute('content', newDesc)
+    if (ogDescription) ogDescription.setAttribute('content', newDesc)
+    if (twitterDescription) twitterDescription.setAttribute('content', newDesc)
+    document.title = newTitle
+
+    return () => {
+      if (metaDescription) metaDescription.setAttribute('content', originalDesc)
+      if (ogDescription) ogDescription.setAttribute('content', originalDesc)
+      if (twitterDescription) twitterDescription.setAttribute('content', originalDesc)
+      document.title = originalTitle
+    }
+  }, [])
+
+  useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true)
       setError(null)
