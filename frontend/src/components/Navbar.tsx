@@ -8,12 +8,19 @@ interface NavbarProps {
   user: AuthUser | null
   onLogin: () => void
   onLogout: () => void
-
+  onProfileClick?: () => void
 }
 
 const MOBILE_BREAKPOINT = 1024
 
-
+export const Navbar: React.FC<NavbarProps> = ({
+  theme,
+  toggleTheme,
+  user,
+  onLogin,
+  onLogout,
+  onProfileClick,
+}) => {
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const [activeSection, setActiveSection] = useState<'home' | 'ats'>('home')
