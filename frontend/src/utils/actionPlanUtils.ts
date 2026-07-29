@@ -101,7 +101,9 @@ export function generateActionPlan(params: ActionPlanParams): ActionPlanData {
   // 3. Additional generic suggestions not covered by missing skills
   suggestions.forEach((sug) => {
     // Avoid duplicate skill suggestions
-    const isSkillSug = missingSkills.some((m) => sug.toLowerCase().includes(m.toLowerCase()))
+    const isSkillSug = missingSkills.some(
+      (m) => sug.toLowerCase().includes(m.toLowerCase())
+    )
     if (!isSkillSug) {
       items.push({
         id: `ap-${idCounter++}`,

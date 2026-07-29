@@ -7,8 +7,7 @@ import {
 } from '../utils/actionPlanUtils'
 import { ListChecks, Download, FileText, CheckCircle2, TrendingUp, Sparkles } from 'lucide-react'
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ActionPlanChecklistProps extends ActionPlanParams {}
+interface ActionPlanChecklistProps extends ActionPlanParams {}
 
 export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) => {
   const actionPlan = generateActionPlan(props)
@@ -82,8 +81,7 @@ export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) =
               color: 'var(--text-secondary, #94a3b8)',
             }}
           >
-            Target Role: <strong>{actionPlan.targetRole}</strong> — Ordered by estimated score
-            impact
+            Target Role: <strong>{actionPlan.targetRole}</strong> — Ordered by estimated score impact
           </p>
         </div>
 
@@ -144,15 +142,12 @@ export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) =
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Sparkles size={20} style={{ color: '#818cf8', flexShrink: 0 }} />
           <div>
-            <div
-              style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary, #fff)' }}
-            >
+            <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary, #fff)' }}>
               Top Priority Rule: Focus on the top 3 items first!
             </div>
             <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>
               Current ATS Score: <strong>{actionPlan.score}%</strong> &rarr; Potential:{' '}
-              <strong style={{ color: '#34d399' }}>{potentialScore}%</strong> (+
-              {actionPlan.totalPotentialGain}% max score impact)
+              <strong style={{ color: '#34d399' }}>{potentialScore}%</strong> (+{actionPlan.totalPotentialGain}% max score impact)
             </div>
           </div>
         </div>
@@ -166,10 +161,7 @@ export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) =
       </div>
 
       {/* Items Checklist List */}
-      <div
-        className="action-items-list"
-        style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}
-      >
+      <div className="action-items-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {actionPlan.items.map((item, index) => {
           const isDone = !!completedIds[item.id]
           const isTop3 = index < 3
@@ -201,13 +193,13 @@ export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) =
                 background: isDone
                   ? 'rgba(34, 197, 94, 0.08)'
                   : isTop3
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : 'rgba(0, 0, 0, 0.15)',
+                  ? 'rgba(255, 255, 255, 0.04)'
+                  : 'rgba(0, 0, 0, 0.15)',
                 border: isDone
                   ? '1px solid rgba(34, 197, 94, 0.3)'
                   : isTop3
-                    ? '1px solid rgba(129, 140, 248, 0.25)'
-                    : '1px solid rgba(255, 255, 255, 0.06)',
+                  ? '1px solid rgba(129, 140, 248, 0.25)'
+                  : '1px solid rgba(255, 255, 255, 0.06)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease-in-out',
                 opacity: isDone ? 0.75 : 1,
@@ -270,9 +262,7 @@ export const ActionPlanChecklist: React.FC<ActionPlanChecklistProps> = (props) =
                   style={{
                     fontSize: '0.92rem',
                     fontWeight: 600,
-                    color: isDone
-                      ? 'var(--text-secondary, #94a3b8)'
-                      : 'var(--text-primary, #f8fafc)',
+                    color: isDone ? 'var(--text-secondary, #94a3b8)' : 'var(--text-primary, #f8fafc)',
                     textDecoration: isDone ? 'line-through' : 'none',
                   }}
                 >

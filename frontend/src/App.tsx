@@ -73,7 +73,7 @@ interface UndoState {
   activeFileName: string
   targetRole: string
   coverLetterText?: string
-  coverLetterFeedback?: unknown
+  coverLetterFeedback?: any
   interviewQuestions?: string[]
 }
 
@@ -323,9 +323,7 @@ function App() {
   const [analysisStageLabel, setAnalysisStageLabel] = useState<string>('')
   const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file')
   const [trackComparisons, setTrackComparisons] = useState<TrackComparisons | null>(null)
-  const [activeTab, setActiveTab] = useState<
-    'detailed' | 'matrix' | 'cover_letter' | 'interview_questions'
-  >('detailed')
+  const [activeTab, setActiveTab] = useState<'detailed' | 'matrix' | 'cover_letter' | 'interview_questions'>('detailed')
   const [resumeUrl, setResumeUrl] = useState<string>('')
   const [urlError, setUrlError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -334,7 +332,7 @@ function App() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null)
   const [coverLetterError, setCoverLetterError] = useState<string | null>(null)
   const [coverLetterText, setCoverLetterText] = useState<string>('')
-  const [coverLetterFeedback, setCoverLetterFeedback] = useState<unknown>(null)
+  const [coverLetterFeedback, setCoverLetterFeedback] = useState<any>(null)
 
   // Interview Questions States
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
@@ -342,7 +340,7 @@ function App() {
   // Standalone Job Description States
   const [activeFlow, setActiveFlow] = useState<'resume' | 'jd'>('resume')
   const [jdInputText, setJdInputText] = useState('')
-  const [jdKeywords, setJdKeywords] = useState<unknown[]>([])
+  const [jdKeywords, setJdKeywords] = useState<any[]>([])
   const [jdLoading, setJdLoading] = useState(false)
   const [jdError, setJdError] = useState<string | null>(null)
 
@@ -447,7 +445,7 @@ function App() {
             target_role: string
             file_name: string
             cover_letter_text?: string
-            cover_letter_feedback?: unknown
+            cover_letter_feedback?: any
             interview_questions?: string[]
           }) => ({
             id: String(item.id),
@@ -777,7 +775,7 @@ function App() {
         job_description: jdInputText,
       })
       setJdKeywords(res.data.keywords || [])
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error(err)
       setJdError(err.response?.data?.error || 'Failed to analyze job description.')
     } finally {
@@ -1187,7 +1185,7 @@ function App() {
                             background: 'rgba(255, 255, 255, 0.02)',
                             borderRadius: 'var(--radius-lg)',
                             border: '1px solid rgba(255,255,255,0.04)',
-                            textAlign: 'left',
+                            textAlign: 'left'
                           }}
                         >
                           <label
@@ -1221,24 +1219,15 @@ function App() {
                               outline: 'none',
                               fontSize: '0.92rem',
                               lineHeight: '1.5',
-                              resize: 'vertical',
+                              resize: 'vertical'
                             }}
                           />
                           {jdError && (
-                            <div
-                              style={{
-                                color: '#ef4444',
-                                fontSize: '13px',
-                                marginTop: '8px',
-                                fontWeight: '500',
-                              }}
-                            >
+                            <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: '500' }}>
                               ⚠️ {jdError}
                             </div>
                           )}
-                          <div
-                            style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}
-                          >
+                          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
                             <button
                               type="button"
                               className="analyze-btn"
@@ -1254,506 +1243,468 @@ function App() {
                     ) : (
                       <>
                         {/* STEP 1: Target Career Track */}
+                    <div
+                      className="mb-4 p-4 role-selector-container"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid rgba(255,255,255,0.04)',
+                      }}
+                    >
+                      <label
+                        htmlFor="roleSelect"
+                        style={{
+                          color: theme === 'light' ? '#000000' : '#ffffff',
+                          display: 'block',
+                          marginBottom: '12px',
+                          fontWeight: '600',
+                          textAlign: 'center',
+                          fontSize: 'var(--font-size-sm)',
+                        }}
+                      >
+                        🎯 Target Career Track
+                      </label>
+                      <div className="custom-select-container">
+                        <select
+                          id="roleSelect"
+                          value={targetRole}
+                          onChange={(e) => {
+                            setTargetRole(e.target.value)
+                            if (e.target.value.trim() !== '') setRoleError(null)
+                          }}
+                          className="custom-select-element"
+                        >
+                          <option value="Frontend Developer">Frontend Developer</option>
+                          <option value="Backend Developer">Backend Developer</option>
+                          <option value="Data Analyst">Data Analyst</option>
+                        </select>
+                      </div>
+                      {roleError && (
                         <div
-                          className="mb-4 p-4 role-selector-container"
                           style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            borderRadius: 'var(--radius-lg)',
-                            border: '1px solid rgba(255,255,255,0.04)',
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            marginTop: '8px',
+                            fontWeight: '500',
+                            textAlign: 'center',
                           }}
                         >
-                          <label
-                            htmlFor="roleSelect"
-                            style={{
-                              color: theme === 'light' ? '#000000' : '#ffffff',
-                              display: 'block',
-                              marginBottom: '12px',
-                              fontWeight: '600',
-                              textAlign: 'center',
-                              fontSize: 'var(--font-size-sm)',
-                            }}
-                          >
-                            🎯 Target Career Track
-                          </label>
-                          <div className="custom-select-container">
-                            <select
-                              id="roleSelect"
-                              value={targetRole}
-                              onChange={(e) => {
-                                setTargetRole(e.target.value)
-                                if (e.target.value.trim() !== '') setRoleError(null)
-                              }}
-                              className="custom-select-element"
-                            >
-                              <option value="Frontend Developer">Frontend Developer</option>
-                              <option value="Backend Developer">Backend Developer</option>
-                              <option value="Data Analyst">Data Analyst</option>
-                            </select>
-                          </div>
-                          {roleError && (
-                            <div
-                              style={{
-                                color: '#ef4444',
-                                fontSize: '13px',
-                                marginTop: '8px',
-                                fontWeight: '500',
-                                textAlign: 'center',
-                              }}
-                            >
-                              ⚠️ {roleError}
-                            </div>
-                          )}
+                          ⚠️ {roleError}
                         </div>
+                      )}
+                    </div>
 
-                        {/* STEP 2: Upload File / Link & Job Description */}
-                        <div className="mb-5">
-                          {/* Mode Switcher Tabs */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              gap: '8px',
-                              justifyContent: 'center',
-                              marginBottom: '16px',
+                    {/* STEP 2: Upload File / Link & Job Description */}
+                    <div className="mb-5">
+                      {/* Mode Switcher Tabs */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '8px',
+                          justifyContent: 'center',
+                          marginBottom: '16px',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadMode('file')
+                            setUrlError(null)
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          📄 Local File Upload
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadMode('url')
+                            setFileError(null)
+                          }}
+                          style={{
+                            padding: '8px 16px',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.85rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            background:
+                              uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
+                            color: '#fff',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          🔗 Import via Link
+                        </button>
+                      </div>
+
+                      {uploadMode === 'file' ? (
+                        <div
+                          className={`upload-box mb-3 ${isDragging ? 'dragging' : ''}`}
+                          style={{ width: '100%', maxWidth: '100%' }}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                        >
+                          <input
+                            type="file"
+                            id="fileUpload"
+                            hidden
+                            accept=".pdf,.docx"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const selectedFile = e.target.files[0]
+                                const validTypes = ['.pdf', '.docx']
+                                const isValid = validTypes.some((ext) =>
+                                  selectedFile.name.toLowerCase().endsWith(ext)
+                                )
+
+                                if (isValid) {
+                                  setFile(selectedFile)
+                                  setFileError(null)
+                                } else {
+                                  setFileError('Only PDF and DOCX files are supported.')
+                                }
+                              }
                             }}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setUploadMode('file')
-                                setUrlError(null)
-                              }}
-                              style={{
-                                padding: '8px 16px',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                background:
-                                  uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
-                                color: '#fff',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              📄 Local File Upload
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setUploadMode('url')
-                                setFileError(null)
-                              }}
-                              style={{
-                                padding: '8px 16px',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: '0.85rem',
-                                fontWeight: '600',
-                                cursor: 'pointer',
-                                background:
-                                  uploadMode === 'file' ? '#6366f1' : 'rgba(255, 255, 255, 0.05)',
-                                color: '#fff',
-                                border: '1px solid rgba(255, 255, 255, 0.15)',
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              🔗 Import via Link
-                            </button>
-                          </div>
-
-                          {uploadMode === 'file' ? (
-                            <div
-                              className={`upload-box mb-3 ${isDragging ? 'dragging' : ''}`}
-                              style={{ width: '100%', maxWidth: '100%' }}
-                              onDragOver={handleDragOver}
-                              onDragLeave={handleDragLeave}
-                              onDrop={handleDrop}
-                            >
-                              <input
-                                type="file"
-                                id="fileUpload"
-                                hidden
-                                accept=".pdf,.docx"
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                  if (e.target.files && e.target.files[0]) {
-                                    const selectedFile = e.target.files[0]
-                                    const validTypes = ['.pdf', '.docx']
-                                    const isValid = validTypes.some((ext) =>
-                                      selectedFile.name.toLowerCase().endsWith(ext)
-                                    )
-
-                                    if (isValid) {
-                                      setFile(selectedFile)
-                                      setFileError(null)
-                                    } else {
-                                      setFileError('Only PDF and DOCX files are supported.')
-                                    }
-                                  }
-                                }}
-                              />
-                              <label htmlFor="fileUpload" className="upload-label">
-                                <div className="upload-icon-wrapper" aria-hidden="true">
-                                  {file ? (
-                                    <svg
-                                      width="28"
-                                      height="28"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                                      <polyline points="14 2 14 8 20 8" />
-                                      <path d="M9 15l2 2 4-4" />
-                                    </svg>
-                                  ) : (
-                                    <svg
-                                      width="28"
-                                      height="28"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
-                                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                      <polyline points="17 8 12 3 7 8" />
-                                      <line x1="12" y1="3" x2="12" y2="15" />
-                                    </svg>
-                                  )}
-                                </div>
-                                <div style={{ textAlign: 'center' }}>
-                                  {file ? (
-                                    <strong className="upload-file-name">{file.name}</strong>
-                                  ) : (
-                                    <>
-                                      <span className="upload-text-primary">
-                                        Drag &amp; Drop Resume or{' '}
-                                        <span className="upload-text-browse">Click to Browse</span>
-                                      </span>
-                                      <span className="upload-text-secondary">
-                                        Supports PDF, DOCX, TXT up to 10MB
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                              </label>
-                            </div>
-                          ) : (
-                            <div className="mb-3" style={{ textAlign: 'left' }}>
-                              <label
-                                htmlFor="resumeUrlInput"
-                                style={{
-                                  fontWeight: '600',
-                                  display: 'block',
-                                  marginBottom: '8px',
-                                  color: '#e2e8f0',
-                                  fontSize: '0.85rem',
-                                }}
-                              >
-                                Paste Shareable Link (Google Drive / Dropbox / Direct PDF)
-                              </label>
-                              <input
-                                type="url"
-                                id="resumeUrlInput"
-                                value={resumeUrl}
-                                onChange={(e) => {
-                                  setResumeUrl(e.target.value)
-                                  if (e.target.value.trim() !== '') setUrlError(null)
-                                }}
-                                placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
-                                style={{
-                                  width: '100%',
-                                  padding: '12px 16px',
-                                  borderRadius: 'var(--radius-md)',
-                                  background: 'rgba(255, 255, 255, 0.04)',
-                                  color: '#fff',
-                                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                                  fontSize: '0.9rem',
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: '0.78rem',
-                                  color: 'rgba(255,255,255,0.6)',
-                                  marginTop: '6px',
-                                  display: 'block',
-                                }}
-                              >
-                                ℹ️ Note: Make sure link permissions are set to "Anyone with the link
-                                can view".
-                              </span>
-                            </div>
-                          )}
-                          {file && uploadMode === 'file' && (
-                            <div className="mb-3">
-                              <FilePreview file={file} />
-                            </div>
-                          )}
-                          {fileError && uploadMode === 'file' && (
-                            <div
-                              style={{
-                                color: '#ef4444',
-                                fontSize: '13px',
-                                marginTop: '-4px',
-                                marginBottom: '16px',
-                                fontWeight: '500',
-                                textAlign: 'center',
-                              }}
-                            >
-                              ⚠️ {fileError}
-                            </div>
-                          )}
-
-                          {urlError && uploadMode === 'url' && (
-                            <div
-                              style={{
-                                color: '#ef4444',
-                                fontSize: '13px',
-                                marginTop: '4px',
-                                marginBottom: '16px',
-                                fontWeight: '500',
-                                textAlign: 'center',
-                              }}
-                            >
-                              ⚠️ {urlError}
-                            </div>
-                          )}
-
-                          {/* Optional Cover Letter Upload Slot */}
-                          <div className="mb-4" style={{ textAlign: 'left' }}>
-                            <label
-                              htmlFor="coverLetterUpload"
-                              style={{
-                                fontWeight: '600',
-                                display: 'block',
-                                marginBottom: '8px',
-                                color: '#e2e8f0',
-                                fontSize: '0.85rem',
-                              }}
-                            >
-                              ✉️ Cover Letter (Optional)
-                            </label>
-                            <div
-                              className="cover-letter-upload-container"
-                              style={{
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                border: '1px dashed rgba(255, 255, 255, 0.1)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: '12px 16px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '12px',
-                                transition: 'all 0.2s',
-                              }}
-                            >
-                              <input
-                                type="file"
-                                id="coverLetterUpload"
-                                hidden
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                  if (e.target.files && e.target.files[0]) {
-                                    const clFile = e.target.files[0]
-                                    const validTypes = ['.pdf', '.docx', '.txt']
-                                    const isValid = validTypes.some((ext) =>
-                                      clFile.name.toLowerCase().endsWith(ext)
-                                    )
-                                    if (isValid) {
-                                      setCoverLetterFile(clFile)
-                                      setCoverLetterError(null)
-                                    } else {
-                                      setCoverLetterError(
-                                        'Only PDF, DOCX, and TXT files are supported.'
-                                      )
-                                    }
-                                  }
-                                }}
-                              />
-                              <label
-                                htmlFor="coverLetterUpload"
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '8px',
-                                  cursor: 'pointer',
-                                  flex: 1,
-                                  margin: 0,
-                                }}
-                              >
+                          />
+                          <label htmlFor="fileUpload" className="upload-label">
+                            <div className="upload-icon-wrapper" aria-hidden="true">
+                              {file ? (
                                 <svg
-                                  width="20"
-                                  height="20"
+                                  width="28"
+                                  height="28"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"
                                   strokeWidth="2"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
-                                  style={{ opacity: 0.7 }}
                                 >
-                                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                                  <polyline points="22,6 12,13 2,6" />
+                                  <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <path d="M9 15l2 2 4-4" />
                                 </svg>
-                                <span
-                                  style={{
-                                    fontSize: '0.85rem',
-                                    color: 'rgba(255,255,255,0.7)',
-                                    userSelect: 'none',
-                                  }}
+                              ) : (
+                                <svg
+                                  width="28"
+                                  height="28"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
                                 >
-                                  {coverLetterFile
-                                    ? coverLetterFile.name
-                                    : 'Upload optional Cover Letter (PDF, DOCX, TXT)'}
-                                </span>
-                              </label>
-                              {coverLetterFile && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    e.preventDefault()
-                                    setCoverLetterFile(null)
-                                  }}
-                                  style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#ef4444',
-                                    cursor: 'pointer',
-                                    padding: '4px',
-                                    display: 'inline-flex',
-                                  }}
-                                >
-                                  <svg
-                                    width="16"
-                                    height="16"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                  </svg>
-                                </button>
+                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                  <polyline points="17 8 12 3 7 8" />
+                                  <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
                               )}
                             </div>
-                            {coverLetterError && (
-                              <div
-                                style={{
-                                  color: '#ef4444',
-                                  fontSize: '13px',
-                                  marginTop: '6px',
-                                  fontWeight: '500',
-                                }}
-                              >
-                                ⚠️ {coverLetterError}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Optional Job Description */}
-                          <div className="mb-4" style={{ textAlign: 'left' }}>
-                            <label
-                              htmlFor="jobDescription"
-                              style={{
-                                color: 'var(--text-primary)',
-                                fontWeight: '600',
-                                display: 'block',
-                                marginBottom: '8px',
-                              }}
-                            >
-                              Job Description (Optional)
-                            </label>
-                            <textarea
-                              id="jobDescription"
-                              className="custom-textarea"
-                              value={jobDesc}
-                              onChange={(e) => setJobDesc(e.target.value)}
-                              placeholder="Paste the job description here..."
-                              style={{
-                                width: '100%',
-                                minHeight: '100px',
-                                padding: '12px',
-                                borderRadius: 'var(--radius-md)',
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                color: 'inherit',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                              }}
-                            />
-                            <div
-                              style={{
-                                textAlign: 'right',
-                                color: isOver ? '#ef4444' : isClose ? '#f97316' : 'inherit',
-                                opacity: isOver || isClose ? 1 : 0.7,
-                                fontSize: '0.85rem',
-                                marginTop: '5px',
-                                fontWeight: isOver ? 'bold' : 'normal',
-                              }}
-                            >
-                              {jobDesc.length} / {MAX_CHARS} characters
+                            <div style={{ textAlign: 'center' }}>
+                              {file ? (
+                                <strong className="upload-file-name">{file.name}</strong>
+                              ) : (
+                                <>
+                                  <span className="upload-text-primary">
+                                    Drag &amp; Drop Resume or{' '}
+                                    <span className="upload-text-browse">Click to Browse</span>
+                                  </span>
+                                  <span className="upload-text-secondary">
+                                    Supports PDF, DOCX, TXT up to 10MB
+                                  </span>
+                                </>
+                              )}
                             </div>
-                          </div>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="mb-3" style={{ textAlign: 'left' }}>
+                          <label
+                            htmlFor="resumeUrlInput"
+                            style={{
+                              fontWeight: '600',
+                              display: 'block',
+                              marginBottom: '8px',
+                              color: '#e2e8f0',
+                              fontSize: '0.85rem',
+                            }}
+                          >
+                            Paste Shareable Link (Google Drive / Dropbox / Direct PDF)
+                          </label>
+                          <input
+                            type="url"
+                            id="resumeUrlInput"
+                            value={resumeUrl}
+                            onChange={(e) => {
+                              setResumeUrl(e.target.value)
+                              if (e.target.value.trim() !== '') setUrlError(null)
+                            }}
+                            placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                            style={{
+                              width: '100%',
+                              padding: '12px 16px',
+                              borderRadius: 'var(--radius-md)',
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              color: '#fff',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              fontSize: '0.9rem',
+                            }}
+                          />
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              color: 'rgba(255,255,255,0.6)',
+                              marginTop: '6px',
+                              display: 'block',
+                            }}
+                          >
+                            ℹ️ Note: Make sure link permissions are set to "Anyone with the link can
+                            view".
+                          </span>
+                        </div>
+                      )}
+                      {file && uploadMode === 'file' && (
+                        <div className="mb-3">
+                          <FilePreview file={file} />
+                        </div>
+                      )}
+                      {fileError && uploadMode === 'file' && (
+                        <div
+                          style={{
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            marginTop: '-4px',
+                            marginBottom: '16px',
+                            fontWeight: '500',
+                            textAlign: 'center',
+                          }}
+                        >
+                          ⚠️ {fileError}
+                        </div>
+                      )}
 
-                          {/* STEP 3: Action Buttons */}
-                          <div
+                      {urlError && uploadMode === 'url' && (
+                        <div
+                          style={{
+                            color: '#ef4444',
+                            fontSize: '13px',
+                            marginTop: '4px',
+                            marginBottom: '16px',
+                            fontWeight: '500',
+                            textAlign: 'center',
+                          }}
+                        >
+                          ⚠️ {urlError}
+                        </div>
+                      )}
+
+                      {/* Optional Cover Letter Upload Slot */}
+                      <div className="mb-4" style={{ textAlign: 'left' }}>
+                        <label
+                          htmlFor="coverLetterUpload"
+                          style={{
+                            fontWeight: '600',
+                            display: 'block',
+                            marginBottom: '8px',
+                            color: '#e2e8f0',
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          ✉️ Cover Letter (Optional)
+                        </label>
+                        <div
+                          className="cover-letter-upload-container"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px dashed rgba(255, 255, 255, 0.1)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px 16px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '12px',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          <input
+                            type="file"
+                            id="coverLetterUpload"
+                            hidden
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const clFile = e.target.files[0]
+                                const validTypes = ['.pdf', '.docx', '.txt']
+                                const isValid = validTypes.some(ext => clFile.name.toLowerCase().endsWith(ext))
+                                if (isValid) {
+                                  setCoverLetterFile(clFile)
+                                  setCoverLetterError(null)
+                                } else {
+                                  setCoverLetterError('Only PDF, DOCX, and TXT files are supported.')
+                                }
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor="coverLetterUpload"
                             style={{
                               display: 'flex',
-                              flexWrap: 'wrap',
-                              gap: '12px',
-                              justifyContent: 'center',
                               alignItems: 'center',
+                              gap: '8px',
+                              cursor: 'pointer',
+                              flex: 1,
+                              margin: 0,
                             }}
-                            className="action-buttons"
                           >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                              <polyline points="22,6 12,13 2,6"/>
+                            </svg>
+                            <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)', userSelect: 'none' }}>
+                              {coverLetterFile ? coverLetterFile.name : 'Upload optional Cover Letter (PDF, DOCX, TXT)'}
+                            </span>
+                          </label>
+                          {coverLetterFile && (
                             <button
-                              className="analyze-btn"
-                              onClick={uploadResume}
-                              disabled={loading || retryDisabled}
-                              style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
-                            >
-                              {loading && analysisSource === 'upload'
-                                ? '⏳ Extracting...'
-                                : '🚀 Analyze Resume'}
-                            </button>
-
-                            <button
-                              className="secondary-btn"
-                              onClick={handleSampleResume}
-                              disabled={loading || retryDisabled}
                               type="button"
-                              style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
-                            >
-                              {loading && analysisSource === 'sample' ? (
-                                <>
-                                  <Loader2 size={15} className="spin" /> Loading...
-                                </>
-                              ) : (
-                                'Try Sample Resume'
-                              )}
-                            </button>
-                          </div>
-                          {retryDisabled && retryAfter !== null && (
-                            <p
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                setCoverLetterFile(null)
+                              }}
                               style={{
+                                background: 'transparent',
+                                border: 'none',
                                 color: '#ef4444',
-                                marginTop: '10px',
-                                fontWeight: 600,
-                                textAlign: 'center',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'inline-flex',
                               }}
                             >
-                              Too many requests. Please wait {retryAfter}s before trying again.
-                            </p>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
                           )}
                         </div>
-                      </>
-                    )}
-                  </section>
+                        {coverLetterError && (
+                          <div style={{ color: '#ef4444', fontSize: '13px', marginTop: '6px', fontWeight: '500' }}>
+                            ⚠️ {coverLetterError}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Optional Job Description */}
+                      <div className="mb-4" style={{ textAlign: 'left' }}>
+                        <label
+                          htmlFor="jobDescription"
+                          style={{
+                            color: 'var(--text-primary)',
+                            fontWeight: '600',
+                            display: 'block',
+                            marginBottom: '8px',
+                          }}
+                        >
+                          Job Description (Optional)
+                        </label>
+                        <textarea
+                          id="jobDescription"
+                          className="custom-textarea"
+                          value={jobDesc}
+                          onChange={(e) => setJobDesc(e.target.value)}
+                          placeholder="Paste the job description here..."
+                          style={{
+                            width: '100%',
+                            minHeight: '100px',
+                            padding: '12px',
+                            borderRadius: 'var(--radius-md)',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            color: 'inherit',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                          }}
+                        />
+                        <div
+                          style={{
+                            textAlign: 'right',
+                            color: isOver ? '#ef4444' : isClose ? '#f97316' : 'inherit',
+                            opacity: isOver || isClose ? 1 : 0.7,
+                            fontSize: '0.85rem',
+                            marginTop: '5px',
+                            fontWeight: isOver ? 'bold' : 'normal',
+                          }}
+                        >
+                          {jobDesc.length} / {MAX_CHARS} characters
+                        </div>
+                      </div>
+
+                      {/* STEP 3: Action Buttons */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                        className="action-buttons"
+                      >
+                        <button
+                          className="analyze-btn"
+                          onClick={uploadResume}
+                          disabled={loading || retryDisabled}
+                          style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
+                        >
+                          {loading && analysisSource === 'upload'
+                            ? '⏳ Extracting...'
+                            : '🚀 Analyze Resume'}
+                        </button>
+
+                        <button
+                          className="secondary-btn"
+                          onClick={handleSampleResume}
+                          disabled={loading || retryDisabled}
+                          type="button"
+                          style={{ minHeight: '44px', flex: '1 1 200px', maxWidth: '100%' }}
+                        >
+                          {loading && analysisSource === 'sample' ? (
+                            <>
+                              <Loader2 size={15} className="spin" /> Loading...
+                            </>
+                          ) : (
+                            'Try Sample Resume'
+                          )}
+                        </button>
+                      </div>
+                      {retryDisabled && retryAfter !== null && (
+                        <p
+                          style={{
+                            color: '#ef4444',
+                            marginTop: '10px',
+                            fontWeight: 600,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Too many requests. Please wait {retryAfter}s before trying again.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </section>
                 </div>
               </div>
 
@@ -1879,10 +1830,7 @@ function App() {
                           fontSize: '0.9rem',
                           fontWeight: '600',
                           cursor: 'pointer',
-                          background:
-                            activeTab === 'cover_letter'
-                              ? 'var(--color-primary, #6366f1)'
-                              : 'rgba(255, 255, 255, 0.05)',
+                          background: activeTab === 'cover_letter' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
                           color: '#fff',
                           border: '1px solid rgba(255, 255, 255, 0.15)',
                           transition: 'all 0.2s ease',
@@ -1901,10 +1849,7 @@ function App() {
                           fontSize: '0.9rem',
                           fontWeight: '600',
                           cursor: 'pointer',
-                          background:
-                            activeTab === 'interview_questions'
-                              ? 'var(--color-primary, #6366f1)'
-                              : 'rgba(255, 255, 255, 0.05)',
+                          background: activeTab === 'interview_questions' ? 'var(--color-primary, #6366f1)' : 'rgba(255, 255, 255, 0.05)',
                           color: '#fff',
                           border: '1px solid rgba(255, 255, 255, 0.15)',
                           transition: 'all 0.2s ease',
@@ -1931,9 +1876,7 @@ function App() {
                     />
                   ) : activeTab === 'cover_letter' && coverLetterFeedback ? (
                     <CoverLetterFeedbackPanel feedback={coverLetterFeedback} />
-                  ) : activeTab === 'interview_questions' &&
-                    interviewQuestions &&
-                    interviewQuestions.length > 0 ? (
+                  ) : activeTab === 'interview_questions' && interviewQuestions && interviewQuestions.length > 0 ? (
                     <InterviewQuestionsPanel questions={interviewQuestions} />
                   ) : (
                     <>

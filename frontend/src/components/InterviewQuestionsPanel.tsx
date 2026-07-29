@@ -11,10 +11,7 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
   if (!questions || questions.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.6)' }}>
-        <p>
-          No interview questions generated. Try re-running the analysis with a target role and
-          skills.
-        </p>
+        <p>No interview questions generated. Try re-running the analysis with a target role and skills.</p>
       </div>
     )
   }
@@ -46,27 +43,15 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
 
   return (
     <div className="interview-questions-container" style={{ textAlign: 'left', marginTop: '20px' }}>
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '20px',
-        }}
-      >
-        <h3
-          style={{
-            fontSize: '1.4rem',
-            fontWeight: '700',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#fff',
-          }}
-        >
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '12px',
+        marginBottom: '20px'
+      }}>
+        <h3 style={{ fontSize: '1.4rem', fontWeight: '700', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
           💬 Interview Questions ({questions.length})
         </h3>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -82,7 +67,7 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
               background: copiedAll ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.05)',
               color: copiedAll ? '#4ade80' : '#fff',
               border: '1px solid rgba(255, 255, 255, 0.1)',
-              transition: 'all 0.2s',
+              transition: 'all 0.2s'
             }}
           >
             {copiedAll ? '✓ Copied All' : '📋 Copy All'}
@@ -99,7 +84,7 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
               background: 'rgba(255, 255, 255, 0.05)',
               color: '#fff',
               border: '1px solid rgba(255, 255, 255, 0.1)',
-              transition: 'all 0.2s',
+              transition: 'all 0.2s'
             }}
           >
             📥 Export TXT
@@ -120,21 +105,19 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
               justifyContent: 'space-between',
               alignItems: 'flex-start',
               gap: '16px',
-              transition: 'transform 0.2s, background-color 0.2s',
+              transition: 'transform 0.2s, background-color 0.2s'
             }}
           >
             <div style={{ flex: 1 }}>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: '700',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: '#818cf8',
-                  display: 'block',
-                  marginBottom: '6px',
-                }}
-              >
+              <span style={{
+                fontSize: '0.72rem',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                color: '#818cf8',
+                display: 'block',
+                marginBottom: '6px'
+              }}>
                 Question {index + 1}
               </span>
               <p style={{ fontSize: '0.94rem', color: '#f1f5f9', margin: 0, lineHeight: '1.5' }}>
@@ -153,7 +136,7 @@ export const InterviewQuestionsPanel: React.FC<InterviewQuestionsPanelProps> = (
                 color: copiedIndex === index ? '#4ade80' : 'rgba(255, 255, 255, 0.8)',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
+                whiteSpace: 'nowrap'
               }}
             >
               {copiedIndex === index ? 'Copied ✓' : 'Copy'}
