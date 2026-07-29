@@ -71,6 +71,10 @@ function App() {
   const [analysisSource, setAnalysisSource] = useState<"sample" | "upload" | null>(null);
   const [resumeText, setResumeText] = useState<string>("");
 
+  // Retry state
+  const [retryCount, setRetryCount] = useState(0);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
   // Auth
   const { user, signup, login, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -119,9 +123,26 @@ function App() {
     }
   }, [theme]);
 
+  // Cooldown timer effect
+  useEffect(() => {
+    if (cooldownRemaining > 0) {
+      const timer = setTimeout(() => {
+        setCooldownRemaining((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownRemaining]);
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
+
+  const getRetryDelay = (attemptNumber: number): number => {
+    // Exponential backoff: 2^attemptNumber seconds, capped at 30 seconds
+    const delay = Math.pow(2, attemptNumber);
+    return Math.min(delay, 30);
+  };
+
 
   const runAnalysis = async (fileToAnalyze: File, source: "sample" | "upload") => {
     try {
@@ -144,6 +165,10 @@ function App() {
       setActiveFileName(fileToAnalyze.name);
 
       setLoading(false);
+
+      // Reset retry state on success
+      setRetryCount(0);
+      setCooldownRemaining(0);
 
       if (user) {
         await fetchDbHistory(user.token);
@@ -168,6 +193,11 @@ function App() {
       );
 
       setLoading(false);
+
+      // Increment retry count and set cooldown
+      const newRetryCount = retryCount + 1;
+      setRetryCount(newRetryCount);
+      setCooldownRemaining(getRetryDelay(newRetryCount));
     }
   };
 
@@ -176,10 +206,17 @@ function App() {
       alert("Please upload resume");
       return;
     }
+    if (cooldownRemaining > 0) {
+      return; // Prevent retry during cooldown
+    }
     await runAnalysis(file, "upload");
   };
 
   const handleSampleResume = async () => {
+    if (cooldownRemaining > 0) {
+      return; // Prevent retry during cooldown
+    }
+
     try {
       setLoading(true);
       setAnalysisSource("sample");
@@ -202,10 +239,10 @@ function App() {
 
       setActiveFileName(sampleFile.name);
     } catch (error: unknown) {
-  console.error(error);
-  alert("Could not load sample resume");
-  setLoading(false);
-}
+      console.error(error);
+      alert("Could not load sample resume");
+      setLoading(false);
+    }
   };
 
   const resetAnalysis = () => {
@@ -220,6 +257,8 @@ function App() {
     setCopied(false);
     setAnalysisSource(null);
     setActiveFileName("");
+    setRetryCount(0);
+    setCooldownRemaining(0);
   };
 
   const copySuggestionsToClipboard = () => {
@@ -327,17 +366,21 @@ function App() {
             <button
               className="analyze-btn"
               onClick={uploadResume}
-              disabled={loading}
+              disabled={loading || cooldownRemaining > 0}
             >
-              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." : "🚀 Analyze Resume"}
+              {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." :
+               cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
+               "🚀 Analyze Resume"}
             </button>
             <button
               className="secondary-btn"
               onClick={handleSampleResume}
-              disabled={loading}
+              disabled={loading || cooldownRemaining > 0}
               type="button"
             >
-              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." : "Try Sample Resume"}
+              {loading && analysisSource === "sample" ? "⏳ Loading Sample..." :
+               cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
+               "Try Sample Resume"}
             </button>
           </div>
 
