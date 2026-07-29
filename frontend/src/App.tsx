@@ -1042,8 +1042,7 @@ function App() {
         user={user}
         onLogin={() => setShowAuthModal(true)}
         onLogout={handleLogout}
-        onHistoryClick={() => setHistoryOpen(true)}
-        onProfileClick={() => setShowProfileModal(true)}
+
       />
       <Routes>
         <Route path="/leaderboard" element={<SkillsLeaderboard onBack={() => navigate('/')} />} />

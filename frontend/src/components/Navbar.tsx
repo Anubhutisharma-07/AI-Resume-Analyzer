@@ -8,7 +8,6 @@ interface NavbarProps {
   user: AuthUser | null
   onLogin: () => void
   onLogout: () => void
-  onHistoryClick: () => void
   onProfileClick?: () => void
 }
 
@@ -20,7 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   user,
   onLogin,
   onLogout,
-  onHistoryClick,
   onProfileClick,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -127,17 +125,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
           >
             ATS Score
-          </a>
-          <a
-            href="#"
-            data-tour="history-link"
-            onClick={(e) => {
-              e.preventDefault()
-              onHistoryClick()
-              closeMenu()
-            }}
-          >
-            History
           </a>
         </div>
 
