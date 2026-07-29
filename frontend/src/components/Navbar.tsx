@@ -8,7 +8,6 @@ interface NavbarProps {
   user: AuthUser | null
   onLogin: () => void
   onLogout: () => void
-  onHistoryClick: () => void
   onProfileClick?: () => void
 }
 
@@ -20,7 +19,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   user,
   onLogin,
   onLogout,
-  onHistoryClick,
   onProfileClick,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -103,7 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             Analyze Resume
           </Link>
           <Link to="/leaderboard" onClick={() => setMobileOpen(false)}>
-            📊 Leaderboard
+            🏆 Leaderboard
           </Link>
           <a
             href="#ats-score"
@@ -128,17 +126,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             ATS Score
           </a>
-          <a
-            href="#"
-            data-tour="history-link"
-            onClick={(e) => {
-              e.preventDefault()
-              onHistoryClick()
-              closeMenu()
-            }}
-          >
-            History
-          </a>
         </div>
 
         <div className="navbar-actions">
@@ -156,50 +143,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           {user ? (
-            <div className="navbar-user">
-              <span
-                className="auth-username"
-                onClick={() => {
-                  onProfileClick?.()
-                  closeMenu()
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  color: '#fff',
-                }}
-              >
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: '#6366f1',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    overflow: 'hidden',
-                    fontSize: '0.82rem',
-                    fontWeight: '700',
-                    color: '#fff',
-                    border: '1.5px solid rgba(255,255,255,0.1)'
-                  }}
-                >
-                  {user.avatarUrl ? (
-                    <img
-                      src={user.avatarUrl}
-                      alt={user.username}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    user.username.slice(0, 2).toUpperCase()
-                  )}
-                </div>
-                <span>{user.username}</span>
-              </span>
             <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
