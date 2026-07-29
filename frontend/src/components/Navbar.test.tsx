@@ -61,7 +61,7 @@ describe('Navbar Component right-side cluster (#244)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -85,7 +85,7 @@ describe('Navbar Component right-side cluster (#244)', () => {
           user={user}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -105,7 +105,7 @@ describe('Navbar responsive hamburger (#245)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -125,7 +125,7 @@ describe('Navbar responsive hamburger (#245)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -145,6 +145,17 @@ describe('Navbar responsive hamburger (#245)', () => {
   })
 
   it('closes menu when a nav link is clicked', () => {
+    render(
+      <MemoryRouter>
+        <Navbar
+          theme="light"
+          toggleTheme={() => {}}
+          user={null}
+          onLogin={() => {}}
+          onLogout={() => {}}
+        />
+      </MemoryRouter>
+    )
 
     const toggle = screen.getByRole('button', { name: /toggle navigation/i })
     const menu = document.getElementById('navbar-menu')!
