@@ -65,5 +65,13 @@ export function useAuth() {
     }
   }, [user])
 
-  return { user, signup, login, logout, updateProfileSession }
+  const updateUserAvatar = useCallback((avatarUrl: string | null) => {
+    if (user) {
+      const isLocalStorage = localStorage.getItem('auth_user') !== null
+      const updatedUser = { ...user, avatarUrl: avatarUrl || undefined }
+      persist(updatedUser, isLocalStorage)
+    }
+  }, [user])
+
+  return { user, signup, login, logout, updateProfileSession, updateUserAvatar }
 }
