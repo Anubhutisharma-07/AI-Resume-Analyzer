@@ -1,5 +1,3 @@
-import React, { useState, useEffect } from "react";
-import type { AnalysisEntry } from "./hooks/useAnalysisHistory";
 import React, { useState, useEffect } from 'react'
 import { X, ClipboardList, BookOpen, Trash2, GitCompare } from 'lucide-react'
 import type { AnalysisEntry } from './hooks/useAnalysisHistory'
@@ -58,7 +56,6 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       // localStorage may be unavailable
     }
   }, [sortMode]);
-  const [confirmClear, setConfirmClear] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
 
@@ -220,24 +217,10 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             </p>
           </div>
         ) : (
-          <ul className="history-list">
-            {sortedEntries.map((entry) => (
-              <li
-                key={entry.id}
-                className="history-item"
-                onClick={() => onSelect(entry)}
-              >
-                <div className="history-item-top">
-                  <span className="history-item-score">{entry.score}%</span>
-                  <button
-                    className="history-item-delete"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(entry.id);
           <>
             <ScoreHistoryChart entries={entries} />
             <ul className="history-list">
-              {entries.slice(0, visibleCount).map((entry) => {
+              {sortedEntries.slice(0, visibleCount).map((entry) => {
                 const isNew = entry.timestamp > lastViewedTimestamp
                 return (
                   <li
