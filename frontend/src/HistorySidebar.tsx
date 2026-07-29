@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { AnalysisEntry } from "./hooks/useAnalysisHistory";
+
+type SortMode = "recent" | "most-matched" | "most-missing";
 
 interface HistorySidebarProps {
   entries: AnalysisEntry[];
@@ -10,6 +12,8 @@ interface HistorySidebarProps {
   onToggle: () => void;
 }
 
+const SORT_MODE_STORAGE_KEY = "history_sort_mode";
+
 export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   entries,
   onSelect,
@@ -19,6 +23,26 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onToggle,
 }) => {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    try {
+      const saved = localStorage.getItem(SORT_MODE_STORAGE_KEY);
+      if (saved === "recent" || saved === "most-matched" || saved === "most-missing") {
+        return saved;
+      }
+    } catch {
+      // localStorage may be unavailable
+    }
+    return "recent";
+  });
+
+  // Persist sort mode to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(SORT_MODE_STORAGE_KEY, sortMode);
+    } catch {
+      // localStorage may be unavailable
+    }
+  }, [sortMode]);
 
   const formatDate = (ts: number) => {
     const d = new Date(ts);
@@ -29,6 +53,20 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       minute: "2-digit",
     });
   };
+
+  // Sort entries based on current sort mode
+  const sortedEntries = React.useMemo(() => {
+    const entriesCopy = [...entries];
+    switch (sortMode) {
+      case "most-matched":
+        return entriesCopy.sort((a, b) => b.matchedSkills.length - a.matchedSkills.length);
+      case "most-missing":
+        return entriesCopy.sort((a, b) => b.missingSkills.length - a.missingSkills.length);
+      case "recent":
+      default:
+        return entriesCopy.sort((a, b) => b.timestamp - a.timestamp);
+    }
+  }, [entries, sortMode]);
 
   return (
     <>
@@ -67,11 +105,38 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
           )}
         </div>
 
+        {/* Sort mode toggle */}
+        {entries.length > 0 && (
+          <div className="history-sort-controls">
+            <button
+              className={`history-sort-btn ${sortMode === "recent" ? "history-sort-btn--active" : ""}`}
+              onClick={() => setSortMode("recent")}
+              title="Sort by most recent"
+            >
+              Recent
+            </button>
+            <button
+              className={`history-sort-btn ${sortMode === "most-matched" ? "history-sort-btn--active" : ""}`}
+              onClick={() => setSortMode("most-matched")}
+              title="Sort by most matched skills"
+            >
+              Most Matched
+            </button>
+            <button
+              className={`history-sort-btn ${sortMode === "most-missing" ? "history-sort-btn--active" : ""}`}
+              onClick={() => setSortMode("most-missing")}
+              title="Sort by most missing skills"
+            >
+              Most Missing
+            </button>
+          </div>
+        )}
+
         {entries.length === 0 ? (
           <p className="history-empty">No past analyses yet.</p>
         ) : (
           <ul className="history-list">
-            {entries.map((entry) => (
+            {sortedEntries.map((entry) => (
               <li
                 key={entry.id}
                 className="history-item"

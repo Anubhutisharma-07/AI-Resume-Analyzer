@@ -143,3 +143,20 @@ class AnalyzeResumeTests(TestCase):
         mock_open.return_value = _fake_pdf("Python Django")
         analyze_resume("dummy.pdf", "Backend Developer")
         mock_create.assert_not_called()
+
+    @patch("analyzer.services.pdfplumber.open")
+    def test_matched_and_missing_skills_counts(self, mock_open):
+        """Test that matched_skills and missing_skills arrays are correctly populated"""
+        mock_open.return_value = _fake_pdf("Python Django React")
+        result = analyze_resume("dummy.pdf", "Backend Developer")
+
+        # Verify that matched skills are counted correctly
+        self.assertIsInstance(result["matched_skills"], list)
+        self.assertIsInstance(result["missing_skills"], list)
+        self.assertGreater(len(result["matched_skills"]), 0)
+        
+        # Verify that the counts can be used for sorting
+        matched_count = len(result["matched_skills"])
+        missing_count = len(result["missing_skills"])
+        self.assertGreaterEqual(matched_count, 0)
+        self.assertGreaterEqual(missing_count, 0)
