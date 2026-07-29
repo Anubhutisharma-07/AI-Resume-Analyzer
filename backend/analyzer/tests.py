@@ -526,6 +526,36 @@ class SkillsLeaderboardTests(TestCase):
         self.assertEqual(css_item["percentage"], 100)
         self.assertEqual(css_item["count"], 2)
 
+    def test_skills_leaderboard_includes_last_updated(self):
+        from rest_framework import status
+        from django.contrib.auth.models import User
+        from analyzer.models import ResumeAnalysis
+        from datetime import datetime
+        from django.utils.timezone import now
+        
+        user = User.objects.create_user(username="testuser2", password="password123")
+        ResumeAnalysis.objects.create(
+            user=user,
+            file_name="resume1.pdf",
+            target_role="Frontend Developer",
+            score=80,
+            skills_found=["react", "javascript"],
+            matched_skills=["react"],
+            missing_skills=["css"],
+        )
+        
+        resp = self.client.get("/api/skills-leaderboard/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        self.assertIn("last_updated", resp.data)
+        self.assertIsInstance(resp.data["last_updated"], str)
+        
+        # Verify it's a valid ISO format timestamp
+        try:
+            datetime.fromisoformat(resp.data["last_updated"])
+        except ValueError:
+            self.fail("last_updated is not a valid ISO format timestamp")
+
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 

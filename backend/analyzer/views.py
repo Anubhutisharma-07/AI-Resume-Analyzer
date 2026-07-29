@@ -447,6 +447,7 @@ def analyze_jd_view(request):
 @permission_classes([AllowAny])
 def skills_leaderboard_view(request):
     from django.core.cache import cache
+    from django.utils.timezone import now
     
     track = request.query_params.get("track", "")
     
@@ -492,7 +493,8 @@ def skills_leaderboard_view(request):
     response_data = {
         "total_analyses": total_count,
         "matched_skills": top_matched,
-        "missing_skills": top_missing
+        "missing_skills": top_missing,
+        "last_updated": now().isoformat()
     }
     
     cache.set(cache_key, response_data, 300)
