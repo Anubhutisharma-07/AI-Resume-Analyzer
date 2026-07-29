@@ -28,6 +28,30 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   useEffect(() => {
+    const metaDescription = document.querySelector('meta[name="description"]')
+    const ogDescription = document.querySelector('meta[property="og:description"]')
+    const twitterDescription = document.querySelector('meta[name="twitter:description"]')
+    
+    const originalDesc = metaDescription?.getAttribute('content') || ''
+    const originalTitle = document.title
+    
+    const newDesc = "Explore the AI Resume Analyzer Skills Leaderboard. View aggregated insights on top matched skills and in-demand skill gaps across various career tracks."
+    const newTitle = "Skills Leaderboard | AI Resume Analyzer"
+    
+    if (metaDescription) metaDescription.setAttribute('content', newDesc)
+    if (ogDescription) ogDescription.setAttribute('content', newDesc)
+    if (twitterDescription) twitterDescription.setAttribute('content', newDesc)
+    document.title = newTitle
+
+    return () => {
+      if (metaDescription) metaDescription.setAttribute('content', originalDesc)
+      if (ogDescription) ogDescription.setAttribute('content', originalDesc)
+      if (twitterDescription) twitterDescription.setAttribute('content', originalDesc)
+      document.title = originalTitle
+    }
+  }, [])
+
+  useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true)
       setError(null)
@@ -38,6 +62,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
         const res = await axios.get(url)
         setData(res.data)
       } catch (err: unknown) {
+      } catch (err: any) {
         console.error(err)
         setError('Failed to load leaderboard statistics. Please try again.')
       } finally {
@@ -75,6 +100,11 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
               gap: '8px',
             }}
           >
+    <div className="skills-leaderboard-page animate-fade-in" style={{ padding: '20px 0', textAlign: 'left' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
             📊 Skills Leaderboard
           </h2>
           <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
@@ -117,11 +147,23 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
             {formatRelativeTime(data.last_updated)}
           </span>
         )}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '8px',
+        marginBottom: '24px',
+        background: 'rgba(255,255,255,0.02)',
+        padding: '6px',
+        borderRadius: 'var(--radius-lg)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        width: 'fit-content'
+      }}>
         {[
           { label: 'All Tracks', value: '' },
           { label: 'Frontend', value: 'Frontend Developer' },
           { label: 'Backend', value: 'Backend Developer' },
           { label: 'Data Analyst', value: 'Data Analyst' },
+          { label: 'Data Analyst', value: 'Data Analyst' }
         ].map((item) => (
           <button
             key={item.label}
@@ -136,6 +178,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
               color: '#fff',
               border: 'none',
               transition: 'all 0.2s',
+              transition: 'all 0.2s'
             }}
           >
             {item.label}
@@ -157,6 +200,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
               borderRadius: '50%',
             }}
           ></div>
+          <div className="loader spin" style={{ margin: '0 auto 16px', width: '32px', height: '32px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#6366f1', borderRadius: '50%' }}></div>
           <p>Analyzing aggregate dataset...</p>
         </div>
       ) : error ? (
@@ -165,6 +209,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
           <button className="app-btn app-btn--secondary mt-3" onClick={() => setTrack(track)}>
             Retry
           </button>
+          <button className="app-btn app-btn--secondary mt-3" onClick={() => setTrack(track)}>Retry</button>
         </div>
       ) : data ? (
         <div>
@@ -233,6 +278,22 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                   marginBottom: '20px',
                 }}
               >
+          <div className="card glass-card p-3 mb-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <span style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
+              Total Resumes Aggregated: <strong style={{ color: '#fff' }}>{data.total_analyses}</strong>
+            </span>
+            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#818cf8', fontWeight: '700' }}>
+              ✓ Anonymity Guaranteed
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
+            {/* Left Column: Top Matched Skills */}
+            <div className="card glass-card p-4">
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
+                🔥 Top Skills Possessed
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.6)', marginTop: '-8px', marginBottom: '20px' }}>
                 Skills commonly matching the career track requirements.
               </p>
 
@@ -240,6 +301,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>
                   No data collected yet.
                 </p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>No data collected yet.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {data.matched_skills.map((item, index) => (
@@ -253,6 +315,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                           fontSize: '0.9rem',
                         }}
                       >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.9rem' }}>
                         <span style={{ fontWeight: '600', color: '#fff' }}>
                           {index + 1}. {item.skill}
                         </span>
@@ -277,6 +340,8 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                             borderRadius: '3px',
                           }}
                         ></div>
+                      <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${item.percentage}%`, height: '100%', background: '#22c55e', borderRadius: '3px' }}></div>
                       </div>
                     </div>
                   ))}
@@ -307,6 +372,10 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                   marginBottom: '20px',
                 }}
               >
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: '#fff' }}>
+                ⚠️ Top Skill Gaps (In-Demand)
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.6)', marginTop: '-8px', marginBottom: '20px' }}>
                 Highly sought-after skills that applicants frequently miss.
               </p>
 
@@ -314,6 +383,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>
                   No data collected yet.
                 </p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>No data collected yet.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {data.missing_skills.map((item, index) => (
@@ -327,6 +397,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                           fontSize: '0.9rem',
                         }}
                       >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', fontSize: '0.9rem' }}>
                         <span style={{ fontWeight: '600', color: '#fff' }}>
                           {index + 1}. {item.skill}
                         </span>
@@ -351,6 +422,8 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
                             borderRadius: '3px',
                           }}
                         ></div>
+                      <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${item.percentage}%`, height: '100%', background: '#f59e0b', borderRadius: '3px' }}></div>
                       </div>
                     </div>
                   ))}

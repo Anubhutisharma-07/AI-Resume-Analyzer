@@ -200,6 +200,58 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <span>{user.username}</span>
               </span>
+            <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => onProfileClick?.()}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Edit profile avatar"
+              >
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt="Profile Avatar"
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '50%',
+                      background: 'var(--color-primary, #3b82f6)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '0.85rem',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {user.username ? user.username.slice(0, 2).toUpperCase() : 'U'}
+                  </div>
+                )}
+              </button>
+              <Link
+                to="/profile"
+                className="auth-username"
+                onClick={closeMenu}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                {user.username}
+              </Link>
               <button
                 className="auth-bar-btn"
                 onClick={() => {
