@@ -378,7 +378,6 @@ def admin_stats_view(request):
             missing_skills_counter.update(skills_list)
             
     top_missing_skills = missing_skills_counter.most_common(10)
-    
     return Response({
         "total_analyses": total_analyses,
         "popular_roles": [{"role": r[0], "count": r[1]} for r in popular_roles if r[0]],
@@ -442,3 +441,111 @@ def analyze_jd_view(request):
         })
         
     return Response({"keywords": results}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def skills_leaderboard_view(request):
+    from django.core.cache import cache
+    
+    track = request.query_params.get("track", "")
+    
+    cache_key = f"skills_leaderboard_{track}"
+    cached_data = cache.get(cache_key)
+    if cached_data is not None:
+        return Response(cached_data, status=status.HTTP_200_OK)
+        
+    analyses = ResumeAnalysis.objects.all()
+    if track:
+        analyses = analyses.filter(target_role=track)
+        
+    data_list = list(analyses.values_list("matched_skills", "missing_skills"))
+    total_count = len(data_list)
+    
+    matched_counter = Counter()
+    missing_counter = Counter()
+    
+    for matched, missing in data_list:
+        if isinstance(matched, list):
+            matched_counter.update(matched)
+        if isinstance(missing, list):
+            missing_counter.update(missing)
+            
+    top_matched = [
+        {
+            "skill": skill.title(),
+            "count": count,
+            "percentage": int(count / total_count * 100) if total_count > 0 else 0
+        }
+        for skill, count in matched_counter.most_common(10)
+    ]
+    
+    top_missing = [
+        {
+            "skill": skill.title(),
+            "count": count,
+            "percentage": int(count / total_count * 100) if total_count > 0 else 0
+        }
+        for skill, count in missing_counter.most_common(10)
+    ]
+    
+    response_data = {
+        "total_analyses": total_count,
+        "matched_skills": top_matched,
+        "missing_skills": top_missing
+    }
+    
+    cache.set(cache_key, response_data, 300)
+    return Response(response_data, status=status.HTTP_200_OK)
+
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def profile_avatar_view(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == "POST":
+        file_obj = request.FILES.get("avatar")
+        if not file_obj:
+            return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+            return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        max_size = 2 * 1024 * 1024
+        if file_obj.size > max_size:
+            return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+                
+        profile.avatar = file_obj
+        profile.save()
+        
+        avatar_url = request.build_absolute_uri(profile.avatar.url)
+        return Response({"avatar_url": avatar_url}, status=status.HTTP_200_OK)
+        
+    elif request.method == "DELETE":
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+            profile.avatar = None
+            profile.save()
+            
+        return Response({"message": "Avatar removed successfully."}, status=status.HTTP_200_OK)

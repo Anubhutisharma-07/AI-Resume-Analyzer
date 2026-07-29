@@ -17,15 +17,20 @@ from .views import (
     get_shared_result,
     admin_stats_view,
     analyze_jd_view,
+    skills_leaderboard_view,
+    CustomTokenObtainPairView,
+    profile_avatar_view,
 )
 
 urlpatterns = [
     path("upload/", upload_resume),
     path("compare-uploads/", compare_uploads),
     path("analyze-jd/", analyze_jd_view),
+    path("skills-leaderboard/", skills_leaderboard_view),
+    path("profile/avatar/", profile_avatar_view),
 
     path("auth/signup/", signup),
-    path("auth/login/", TokenObtainPairView.as_view()),
+    path("auth/login/", CustomTokenObtainPairView.as_view()),
     path("auth/refresh/", TokenRefreshView.as_view()),
 
     path("history/", analysis_history),
