@@ -18,6 +18,7 @@ import { SkillsLeaderboard } from './components/SkillsLeaderboard'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { ProfileModal } from './components/ProfileModal'
 import { JdVisualizerPanel } from './components/JdVisualizerPanel'
+import { ProfilePage } from './components/ProfilePage'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
 import {
@@ -1049,6 +1050,7 @@ function App() {
         <Route path="/admin" element={<AdminDashboard user={user} />} />
         <Route path="/shared/:shareId" element={<SharedResultView />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route
           path="/"
           element={
