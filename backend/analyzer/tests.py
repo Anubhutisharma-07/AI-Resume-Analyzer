@@ -389,24 +389,168 @@ class CoverLetterAnalysisTests(TestCase):
             self.assertTrue(result["cover_letter_feedback"]["relevance"]["references_role"])
 
 
-class SkillsLeaderboardTests(TestCase):
-    def setUp(self):
-        from django.core.cache import cache
-        self.client = APIClient()
-        self.url = "/api/skills-leaderboard/"
-        cache.clear()
 
-    def test_leaderboard_endpoint(self):
+class InterviewQuestionTests(TestCase):
+    def test_generate_interview_questions_valid(self):
+        from analyzer.services import generate_interview_questions
+        
+        # Test generation with React skill and Frontend Developer target role
+        questions = generate_interview_questions(["React", "TypeScript"], "Frontend Developer")
+        self.assertTrue(len(questions) >= 5)
+        self.assertTrue(len(questions) <= 8)
+        
+        # At least one question should be from React or TS
+        has_tech = any("React" in q or "TypeScript" in q or "virtual DOM" in q or "generics" in q for q in questions)
+        self.assertTrue(has_tech)
+
+    @patch("analyzer.services.pdfplumber.open")
+    def test_analyze_resume_generates_interview_questions(self, mock_open):
+        mock_open.return_value = _fake_pdf("Expert in Python and SQL.")
+        
+        result = analyze_resume(
+            file_path="dummy_resume.pdf",
+            target_role="Backend Developer",
+            file_name="resume.pdf",
+        )
+        
+        self.assertIn("interview_questions", result)
+        self.assertTrue(len(result["interview_questions"]) >= 5)
+
+class JdAnalysisTests(TestCase):
+    def test_analyze_jd_endpoint(self):
+        from rest_framework import status
+        
+        # Test empty input error
+        resp = self.client.post("/api/analyze-jd/", {"job_description": ""})
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
+        
+        # Test valid input analysis with known skill keywords and stop words
+        jd_text = (
+            "We are seeking a React Developer. The candidate should have experience in React, "
+            "JavaScript, HTML, and CSS. Working with teams to deliver responsive layouts is essential. "
+            "React and TypeScript are strong plusses. The candidate will work in a fast-paced environment."
+        )
+        resp = self.client.post("/api/analyze-jd/", {"job_description": jd_text})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("keywords", resp.data)
+        
+        keywords = resp.data["keywords"]
+        self.assertTrue(len(keywords) > 0)
+        
+        # Check that 'react' is recognized and tagged as a skill
+        react_keyword = next((k for k in keywords if k["text"] == "react"), None)
+        self.assertIsNotNone(react_keyword)
+        self.assertEqual(react_keyword["type"], "skill")
+        self.assertTrue(react_keyword["value"] >= 2)
+        
+        # Common English stop words like 'the' or 'and' or corporate fillers like 'candidate' shouldn't be here
+        texts = [k["text"] for k in keywords]
+        self.assertNotIn("the", texts)
+        self.assertNotIn("and", texts)
+        self.assertNotIn("candidate", texts)
+
+
+class SkillsLeaderboardTests(TestCase):
+    def test_skills_leaderboard_endpoint(self):
+        from rest_framework import status
+        from django.contrib.auth.models import User
         from analyzer.models import ResumeAnalysis
+        
+        user = User.objects.create_user(username="testuser", password="password123")
         ResumeAnalysis.objects.create(
-            file_name="res1.pdf",
+            user=user,
+            file_name="resume1.pdf",
             target_role="Frontend Developer",
             score=80,
-            matched_skills=["react", "javascript", "html"],
-            missing_skills=["css"],
-            suggestions=[]
+            skills_found=["react", "javascript", "html"],
+            matched_skills=["react", "javascript"],
+            missing_skills=["typescript", "css"],
         )
-        resp = self.client.get(self.url)
-        self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.data["total_analyses"], 1)
-        self.assertTrue(len(resp.data["matched_skills"]) > 0)
+        ResumeAnalysis.objects.create(
+            user=user,
+            file_name="resume2.pdf",
+            target_role="Backend Developer",
+            score=50,
+            skills_found=["python"],
+            matched_skills=["python"],
+            missing_skills=["django", "sql"],
+        )
+        ResumeAnalysis.objects.create(
+            user=user,
+            file_name="resume3.pdf",
+            target_role="Frontend Developer",
+            score=90,
+            skills_found=["react", "typescript"],
+            matched_skills=["react", "typescript"],
+            missing_skills=["css"],
+        )
+        
+        resp = self.client.get("/api/skills-leaderboard/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        self.assertIn("total_analyses", resp.data)
+        self.assertIn("matched_skills", resp.data)
+        self.assertIn("missing_skills", resp.data)
+        self.assertEqual(resp.data["total_analyses"], 3)
+        
+        resp_fe = self.client.get("/api/skills-leaderboard/?track=Frontend Developer")
+        self.assertEqual(resp_fe.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp_fe.data["total_analyses"], 2)
+        
+        matched_fe = resp_fe.data["matched_skills"]
+        react_item = next((s for s in matched_fe if s["skill"] == "React"), None)
+        self.assertIsNotNone(react_item)
+        self.assertEqual(react_item["percentage"], 100)
+        self.assertEqual(react_item["count"], 2)
+        
+        missing_fe = resp_fe.data["missing_skills"]
+        css_item = next((s for s in missing_fe if s["skill"] == "Css"), None)
+        self.assertIsNotNone(css_item)
+        self.assertEqual(css_item["percentage"], 100)
+        self.assertEqual(css_item["count"], 2)
+
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+class ProfileAvatarTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        self.user = User.objects.create_user(username="avataruser", password="password123")
+        
+    def test_login_returns_avatar_url(self):
+        from rest_framework import status
+        resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNone(resp.data["avatar_url"])
+
+    def test_upload_and_delete_avatar(self):
+        from rest_framework import status
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        token = login_resp.data["access"]
+        auth_headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        
+        txt_file = SimpleUploadedFile("avatar.txt", b"plain text content", content_type="text/plain")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": txt_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
+        
+        large_file = SimpleUploadedFile("avatar.png", b"x" * (2 * 1024 * 1024 + 1), content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": large_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        valid_img = SimpleUploadedFile("avatar.png", b"fake_png_binary_data", content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": valid_img}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNotNone(resp.data["avatar_url"])
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNotNone(login_resp.data["avatar_url"])
+        
+        del_resp = self.client.delete("/api/profile/avatar/", **auth_headers)
+        self.assertEqual(del_resp.status_code, status.HTTP_200_OK)
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNone(login_resp.data["avatar_url"])

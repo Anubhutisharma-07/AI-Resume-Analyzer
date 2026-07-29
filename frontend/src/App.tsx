@@ -14,8 +14,9 @@ import { InfoTooltip } from './components/InfoTooltip'
 import { SkillWordCloud } from './components/SkillWordCloud'
 import { TrackMatrix } from './components/TrackMatrix'
 import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
-import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { SkillsLeaderboard } from './components/SkillsLeaderboard'
+import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
+import { ProfileModal } from './components/ProfileModal'
 import { JdVisualizerPanel } from './components/JdVisualizerPanel'
 import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
 import type { TrackComparisons } from './components/TrackMatrix'
@@ -399,8 +400,9 @@ function App() {
     currentStep = 3
   }
 
-  const { user, signup, login, logout } = useAuth()
+  const { user, signup, login, logout, updateUserAvatar } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -1041,6 +1043,7 @@ function App() {
         onLogin={() => setShowAuthModal(true)}
         onLogout={handleLogout}
         onHistoryClick={() => setHistoryOpen(true)}
+        onProfileClick={() => setShowProfileModal(true)}
       />
       <Routes>
         <Route path="/leaderboard" element={<SkillsLeaderboard onBack={() => navigate('/')} />} />
@@ -1056,6 +1059,14 @@ function App() {
                   onSignup={signup}
                   onLogin={login}
                   onClose={() => setShowAuthModal(false)}
+                />
+              )}
+
+              {showProfileModal && user && (
+                <ProfileModal
+                  user={user}
+                  onClose={() => setShowProfileModal(false)}
+                  onAvatarUpdated={updateUserAvatar}
                 />
               )}
 

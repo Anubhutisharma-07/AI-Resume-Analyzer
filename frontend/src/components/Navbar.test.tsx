@@ -17,6 +17,7 @@ const defaultProps = {
   onLogin: vi.fn(),
   onLogout: vi.fn(),
   onHistoryClick: vi.fn(),
+  onProfileClick: vi.fn(),
 }
 
 const renderNavbar = (
