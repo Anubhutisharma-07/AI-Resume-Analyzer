@@ -88,18 +88,6 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
         }}
       >
         <div>
-          <h2
-            style={{
-              fontSize: '1.8rem',
-              fontWeight: '800',
-              margin: 0,
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            📊 Skills Leaderboard
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
             🏆 Skills Leaderboard
           </h2>
