@@ -9,90 +9,6 @@ import { AuthModal } from "./AuthModal";
 import { Footer } from "./Footer";
 
 type Theme = "light" | "dark";
-import React, { useState, useEffect, useCallback } from 'react'
-import { Routes, Route, useNavigate } from 'react-router-dom'
-import NotFound from './components/NotFound'
-import axios from 'axios'
-import './index.css'
-import { AtsScore } from './AtsScore'
-import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
-import { HistorySidebar } from './HistorySidebar'
-import { useAuth } from './hooks/useAuth'
-import { AuthModal } from './AuthModal'
-import { Footer } from './Footer'
-import AnalysisSkeleton from './components/AnalysisSkeleton/AnalysisSkeleton'
-import { InfoTooltip } from './components/InfoTooltip'
-import { SkillWordCloud } from './components/SkillWordCloud'
-import { TrackMatrix } from './components/TrackMatrix'
-import { CoverLetterFeedbackPanel } from './components/CoverLetterFeedbackPanel'
-import { SkillsLeaderboard } from './components/SkillsLeaderboard'
-import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
-import { ProfileModal } from './components/ProfileModal'
-import { JdVisualizerPanel } from './components/JdVisualizerPanel'
-import { ProfilePage } from './components/ProfilePage'
-import { ResetPasswordConfirmPage } from './components/ResetPasswordConfirmPage'
-import type { TrackComparisons } from './components/TrackMatrix'
-import {
-  FileText,
-  Loader2,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
-  Target,
-  Info,
-  HelpCircle,
-  GitCompare,
-  X,
-} from 'lucide-react'
-import { Navbar } from './components/Navbar'
-import { TemplateGallery } from './components/TemplateGallery'
-import EmptyState from './components/EmptyState'
-import { CuratedTips } from './components/CuratedTips'
-import { StepProgress } from './components/StepProgress'
-import { OnboardingTour } from './components/OnboardingTour'
-import { HowItWorks } from './components/HowItWorks'
-import { CompareVersions } from './components/CompareVersions/CompareVersions'
-import { CompareUploads } from './components/CompareVersions/CompareUploads'
-import { SkillChip } from './components/SkillChip'
-import {
-  requestNotificationPermission,
-  sendAnalysisCompleteNotification,
-} from './utils/notification'
-import { ProgressBar } from './components/ProgressBar/ProgressBar'
-import { UndoToast } from './components/UndoToast/UndoToast'
-import { FilePreview } from './components/FilePreview/FilePreview'
-import { ShareResult } from './components/ShareResult'
-import { SharedResultView } from './SharedResultView'
-import CookieConsentBanner from './components/CookieConsentBanner'
-import QuantifyNudges, { type QuantifyNudge } from './QuantifyNudges'
-import AdminDashboard from './components/AdminDashboard'
-import { ActionPlanChecklist } from './components/ActionPlanChecklist'
-import {
-  exportActionPlanMarkdown,
-  exportActionPlanPdf,
-  generateActionPlan,
-} from './utils/actionPlanUtils'
-type Theme = 'light' | 'dark'
-
-interface UndoState {
-  file: File | null
-  score: number | null
-  skills: string[]
-  suggestions: string[]
-  matchedSkills: string[]
-  missingSkills: string[]
-  resumeText: string
-  analysisSource: 'sample' | 'upload' | null
-  activeFileName: string
-  targetRole: string
-  coverLetterText?: string
-  coverLetterFeedback?: any
-  interviewQuestions?: string[]
-}
-
-const DEFAULT_TITLE = 'AI Resume Analyzer'
-const READY_TITLE = '✅ Analysis Ready — AI Resume Analyzer'
 
 function getInitialTheme(): Theme {
   try {
@@ -404,47 +320,6 @@ function App() {
               <button className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>🔐 Login / Sign Up</button>
             )}
           </div>
-      {compareOpen && (
-        <CompareVersions
-          entries={entries}
-          token={user?.token}
-          onClose={() => setCompareOpen(false)}
-        />
-      )}
-
-      {compareUploadsOpen && (
-        <CompareUploads
-          targetRole={targetRole}
-          jobDesc={jobDesc}
-          onClose={() => setCompareUploadsOpen(false)}
-        />
-      )}
-
-      <Navbar
-        theme={theme}
-        toggleTheme={toggleTheme}
-        user={user}
-        onLogin={() => setShowAuthModal(true)}
-        onLogout={handleLogout}
-
-      />
-      <Routes>
-        <Route path="/leaderboard" element={<SkillsLeaderboard onBack={() => navigate('/')} />} />
-        <Route path="/admin" element={<AdminDashboard user={user} />} />
-        <Route path="/shared/:shareId" element={<SharedResultView />} />
-        <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirmPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route
-          path="/"
-          element={
-            <main id="main-content" className="landing-page">
-              {showAuthModal && (
-                <AuthModal
-                  onSignup={signup}
-                  onLogin={login}
-                  onClose={() => setShowAuthModal(false)}
-                />
-              )}
 
           {showAuthModal && (
             <AuthModal
