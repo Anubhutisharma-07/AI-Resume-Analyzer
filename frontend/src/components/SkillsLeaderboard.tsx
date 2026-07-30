@@ -75,7 +75,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            📊 Skills Leaderboard
+            🏆 Skills Leaderboard
           </h2>
           <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
             Aggregated, anonymized insights on commonly matched skills and in-demand gaps.
