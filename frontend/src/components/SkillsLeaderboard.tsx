@@ -26,6 +26,30 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   useEffect(() => {
+    const metaDescription = document.querySelector('meta[name="description"]')
+    const ogDescription = document.querySelector('meta[property="og:description"]')
+    const twitterDescription = document.querySelector('meta[name="twitter:description"]')
+    
+    const originalDesc = metaDescription?.getAttribute('content') || ''
+    const originalTitle = document.title
+    
+    const newDesc = "Explore the AI Resume Analyzer Skills Leaderboard. View aggregated insights on top matched skills and in-demand skill gaps across various career tracks."
+    const newTitle = "Skills Leaderboard | AI Resume Analyzer"
+    
+    if (metaDescription) metaDescription.setAttribute('content', newDesc)
+    if (ogDescription) ogDescription.setAttribute('content', newDesc)
+    if (twitterDescription) twitterDescription.setAttribute('content', newDesc)
+    document.title = newTitle
+
+    return () => {
+      if (metaDescription) metaDescription.setAttribute('content', originalDesc)
+      if (ogDescription) ogDescription.setAttribute('content', originalDesc)
+      if (twitterDescription) twitterDescription.setAttribute('content', originalDesc)
+      document.title = originalTitle
+    }
+  }, [])
+
+  useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true)
       setError(null)
@@ -51,7 +75,7 @@ export const SkillsLeaderboard: React.FC<SkillsLeaderboardProps> = ({ onBack }) 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
         <div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: '800', margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            📊 Skills Leaderboard
+            🏆 Skills Leaderboard
           </h2>
           <p style={{ margin: '4px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
             Aggregated, anonymized insights on commonly matched skills and in-demand gaps.

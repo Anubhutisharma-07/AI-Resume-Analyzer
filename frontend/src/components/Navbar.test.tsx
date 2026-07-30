@@ -16,8 +16,7 @@ const defaultProps = {
   user: null,
   onLogin: vi.fn(),
   onLogout: vi.fn(),
-  onHistoryClick: vi.fn(),
-  onProfileClick: vi.fn(),
+
 }
 
 const renderNavbar = (
@@ -63,7 +62,7 @@ describe('Navbar Component right-side cluster (#244)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -87,7 +86,7 @@ describe('Navbar Component right-side cluster (#244)', () => {
           user={user}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -107,7 +106,7 @@ describe('Navbar responsive hamburger (#245)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -127,7 +126,7 @@ describe('Navbar responsive hamburger (#245)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={() => {}}
+
         />
       </MemoryRouter>
     )
@@ -147,7 +146,6 @@ describe('Navbar responsive hamburger (#245)', () => {
   })
 
   it('closes menu when a nav link is clicked', () => {
-    const onHistoryClick = vi.fn()
     render(
       <MemoryRouter>
         <Navbar
@@ -156,7 +154,6 @@ describe('Navbar responsive hamburger (#245)', () => {
           user={null}
           onLogin={() => {}}
           onLogout={() => {}}
-          onHistoryClick={onHistoryClick}
         />
       </MemoryRouter>
     )
@@ -167,10 +164,9 @@ describe('Navbar responsive hamburger (#245)', () => {
     fireEvent.click(toggle)
     expect(menu.className).toContain('mobile-open')
 
-    const historyLink = screen.getByText('History')
-    fireEvent.click(historyLink)
+    const atsLink = screen.getByText('ATS Score')
+    fireEvent.click(atsLink)
     expect(menu.className).not.toContain('mobile-open')
-    expect(onHistoryClick).toHaveBeenCalled()
   })
 })
 
