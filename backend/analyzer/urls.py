@@ -18,6 +18,9 @@ from .views import (
     admin_stats_view,
     analyze_jd_view,
     user_profile_view,
+    contact_us_view,
+    CustomTokenObtainPairView,
+    skills_leaderboard_view,
 )
 
 urlpatterns = [
@@ -25,6 +28,8 @@ urlpatterns = [
     path("compare-uploads/", compare_uploads),
     path("analyze-jd/", analyze_jd_view),
     path("profile/", user_profile_view),
+    path("contact/", contact_us_view),
+    path("skills-leaderboard/", skills_leaderboard_view),
 
     path("auth/signup/", signup),
     path("auth/login/", CustomTokenObtainPairView.as_view()),
