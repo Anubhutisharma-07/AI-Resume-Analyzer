@@ -1,4 +1,5 @@
 import {} from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
@@ -163,7 +164,44 @@ export const Footer: React.FC = () => {
           </ul>
         </div>
 
-        {/* Column 4: Social Interfaces */}
+        {/* Column 3b: FAQ */}
+        <div>
+          <h5
+            style={{
+              margin: '0 0 16px 0',
+              fontSize: 'var(--font-size-sm)',
+              color: '#a5b4fc',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Support
+          </h5>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <li>
+              <Link
+                to="/faq"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                ❓ FAQ
+              </Link>
+            </li>
+          </ul>
+        </div>
         <div>
           <h5
             style={{

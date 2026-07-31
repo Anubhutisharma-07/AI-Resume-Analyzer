@@ -45,11 +45,17 @@ if (import.meta.env.VITE_SENTRY_DSN) {
   })
 }
 
+import { Routes, Route } from 'react-router-dom'
+import { FAQPage } from './pages/FAQPage'
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <App />
+        <Routes>
+          <Route path="/faq" element={<FAQPage />} />
+          <Route path="/*" element={<App />} />
+        </Routes>
       </BrowserRouter>
     </ErrorBoundary>
   </StrictMode>
