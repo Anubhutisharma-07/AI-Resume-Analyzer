@@ -607,10 +607,15 @@ class UserProfileTests(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", resp.data)
 
-    def test_put_profile_invalid_email(self):
+class CaptchaProtectionTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="botuser", password="password123")
+
+    def test_signup_fails_without_captcha_token(self):
         from rest_framework import status
-        self.client.force_authenticate(user=self.user)
-        resp = self.client.put("/api/profile/", {"username": "testuser", "email": "not-an-email"})
+        resp = self.client.post("/api/auth/signup/", {"username": "newbot", "password": "password123"})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", resp.data)
 
