@@ -7,6 +7,7 @@ import { HistorySidebar } from "./HistorySidebar";
 import { useAuth } from "./hooks/useAuth";
 import { AuthModal } from "./AuthModal";
 import { Footer } from "./Footer";
+import { ActionPlanChecklist } from './components/ActionPlanChecklist'
 
 type Theme = "light" | "dark";
 
@@ -394,8 +395,8 @@ function App() {
               disabled={loading || cooldownRemaining > 0}
             >
               {loading && analysisSource === "upload" ? "⏳ Extracting and analyzing resume text..." :
-               cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
-               "🚀 Analyze Resume"}
+                cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
+                  "🚀 Analyze Resume"}
             </button>
             <button
               className="secondary-btn"
@@ -404,8 +405,8 @@ function App() {
               type="button"
             >
               {loading && analysisSource === "sample" ? "⏳ Loading Sample..." :
-               cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
-               "Try Sample Resume"}
+                cooldownRemaining > 0 ? `Retry available in ${cooldownRemaining}s` :
+                  "Try Sample Resume"}
             </button>
           </div>
 
@@ -482,7 +483,14 @@ function App() {
                 </div>
               </div>
 
-
+              {score !== null && (
+                <ActionPlanChecklist
+                  score={score}
+                  targetRole={targetRole}
+                  suggestions={suggestions}
+                  missingSkills={missingSkills}
+                />
+              )}
               {/* SUGGESTIONS BOX WITH THE UTILITY BUTTON */}
               <div className="suggestion-box mt-4">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
