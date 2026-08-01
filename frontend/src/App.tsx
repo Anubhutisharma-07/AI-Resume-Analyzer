@@ -58,6 +58,7 @@ function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [score, setScore] = useState<number | null>(null);
   const [skills, setSkills] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -348,7 +349,21 @@ function App() {
             </select>
           </div>
 
-          <div className="upload-box mb-3">
+          <div
+            className={`upload-box mb-3${isDragging ? " dragging" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                setFile(e.dataTransfer.files[0]);
+              }
+            }}
+          >
             <input
               type="file"
               id="fileUpload"
@@ -358,7 +373,17 @@ function App() {
               }}
             />
             <label htmlFor="fileUpload" className="upload-label">
-              📄 {file ? file.name : "Drag & Drop Resume or Click to Upload"}
+              <span className="upload-icon-wrapper" aria-hidden="true">📄</span>
+              <span className="upload-text-primary">
+                Drag & Drop Resume or <span className="upload-text-browse">Click to Browse</span>
+              </span>
+              {file ? (
+                <span className="upload-text-secondary" style={{ display: "block", marginTop: "4px" }}>
+                  Selected: {file.name}
+                </span>
+              ) : (
+                <span className="upload-text-secondary">Supports PDF, DOCX, TXT up to 10MB</span>
+              )}
             </label>
           </div>
 
