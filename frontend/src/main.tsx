@@ -46,14 +46,14 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 }
 
 import { Routes, Route } from 'react-router-dom'
-import { ContactPage } from './pages/ContactPage'
+import { FAQPage } from './pages/FAQPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faq" element={<FAQPage />} />
           <Route path="/*" element={<App />} />
         </Routes>
       </BrowserRouter>

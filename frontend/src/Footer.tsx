@@ -164,7 +164,7 @@ export const Footer: React.FC = () => {
           </ul>
         </div>
 
-        {/* Column 3b: Contact */}
+        {/* Column 3b: FAQ */}
         <div>
           <h5
             style={{
@@ -189,7 +189,7 @@ export const Footer: React.FC = () => {
           >
             <li>
               <Link
-                to="/contact"
+                to="/faq"
                 style={{
                   color: '#94a3b8',
                   fontSize: 'var(--font-size-sm)',
@@ -197,7 +197,7 @@ export const Footer: React.FC = () => {
                 }}
                 className="footer-link"
               >
-                ✉️ Contact Us
+                ❓ FAQ
               </Link>
             </li>
           </ul>
