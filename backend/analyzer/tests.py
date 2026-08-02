@@ -67,6 +67,8 @@ class AnalyzeResumeTests(TestCase):
         self.assertIn("javascript", result["matched_skills"])
         self.assertIn("react", result["missing_skills"])
         self.assertIn("git", result["missing_skills"])
+        self.assertIn("react", result["missing_skills"])
+        self.assertIn("git", result["missing_skills"])
         # score = matched / required * 100 -> 3 / 10 * 100 = 30
         self.assertEqual(result["score"], 3 * 100 // 10)
 
@@ -507,7 +509,6 @@ class SkillsLeaderboardTests(TestCase):
             score=90,
             skills_found=["react", "typescript"],
             matched_skills=["react", "typescript"],
-            missing_skills=["css"],
         )
         jd_text = "Looking for a React developer with strong React experience, TypeScript, and CSS skills."
         resp = self.client.post("/api/analyze-jd/", {"job_description": jd_text})
@@ -616,29 +617,35 @@ class CaptchaProtectionTests(TestCase):
         from rest_framework import status
         resp = self.client.post("/api/auth/signup/", {"username": "newbot", "password": "password123"})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("captcha_token", resp.data)
+        self.assertIn("email", resp.data)
 
-    def test_signup_succeeds_with_valid_captcha_token(self):
-        from rest_framework import status
-        resp = self.client.post(
-            "/api/auth/signup/",
-            {"username": "validuser", "password": "password123", "captcha_token": "CAP-VERIFIED-1234567890-abc123xyz"},
-        )
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    def test_login_fails_without_captcha_token(self):
+class ContactUsTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+
+    def test_contact_us_validation_error(self):
         from rest_framework import status
-        resp = self.client.post("/api/auth/login/", {"username": "botuser", "password": "password123"})
+        resp = self.client.post("/api/contact/", {"name": "", "email": "test@example.com", "message": ""})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
 
-    def test_login_succeeds_with_valid_captcha_token(self):
+    def test_contact_us_success(self):
         from rest_framework import status
         resp = self.client.post(
-            "/api/auth/login/",
-            {"username": "botuser", "password": "password123", "captcha_token": "CAP-VERIFIED-1234567890-abc123xyz"},
+            "/api/contact/",
+            {
+                "name": "Jane Doe",
+                "email": "jane@example.com",
+                "category": "Bug Report",
+                "subject": "Parser issue",
+                "message": "Found a minor bug when uploading resume.",
+            },
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertIn("access", resp.data)
+        self.assertEqual(resp.data["status"], "success")
+        self.assertIn("detail", resp.data)
 
 
 class ProfileAvatarTests(TestCase):

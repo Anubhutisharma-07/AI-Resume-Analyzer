@@ -693,3 +693,42 @@ def user_profile_view(request):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def contact_us_view(request):
+    name = request.data.get("name", "").strip()
+    email = request.data.get("email", "").strip()
+    category = request.data.get("category", "General Inquiry").strip()
+    subject = request.data.get("subject", "").strip()
+    message = request.data.get("message", "").strip()
+
+    if not name or not email or not message:
+        return Response(
+            {"error": "Name, email, and message are required fields."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    support_email = getattr(settings, "SUPPORT_EMAIL", "support@ai-resume-analyzer.dev")
+    email_body = f"Support Message Received:\n\nFrom: {name} ({email})\nCategory: {category}\nSubject: {subject}\n\nMessage:\n{message}"
+
+    try:
+        send_mail(
+            subject=f"[Support - {category}] {subject if subject else 'New Inquiry'}",
+            message=email_body,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"),
+            recipient_list=[support_email],
+            fail_silently=True,
+        )
+    except Exception as e:
+        print(f"Failed to send support email: {e}")
+
+    return Response(
+        {
+            "detail": "Thank you for contacting support! Your message has been received and routed to our team.",
+            "status": "success",
+        },
+        status=status.HTTP_200_OK,
+    )
+
