@@ -223,7 +223,7 @@ export const Footer: React.FC = () => {
                 }}
                 className="footer-link"
               >
-                ✉️ Contact Us
+                ❓ FAQ
               </Link>
             </li>
           </ul>
