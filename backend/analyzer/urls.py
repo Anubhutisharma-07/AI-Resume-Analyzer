@@ -19,6 +19,8 @@ from .views import (
     analyze_jd_view,
     user_profile_view,
     CustomTokenObtainPairView,
+    profile_avatar_view,
+    compare_bulk_jds_view,
     skills_leaderboard_view,
 )
 
@@ -26,6 +28,7 @@ urlpatterns = [
     path("upload/", upload_resume),
     path("compare-uploads/", compare_uploads),
     path("analyze-jd/", analyze_jd_view),
+    path("compare-bulk-jds/", compare_bulk_jds_view),
     path("profile/", user_profile_view),
     path("skills-leaderboard/", skills_leaderboard_view),
 

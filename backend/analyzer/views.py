@@ -23,14 +23,15 @@ from django.core.mail import send_mail
 from rest_framework.throttling import SimpleRateThrottle
 
 from .comparison import compare_versions
-from .models import ResumeAnalysis
+from .models import ResumeAnalysis, UserProfile
 from .serializers import (
     SignupSerializer,
     ResumeAnalysisSerializer,
     VersionComparisonSerializer,
     UserProfileSerializer,
 )
-from .services import analyze_resume
+from .services import analyze_resume, extract_text_from_file
+from .skill_matcher import extract_skills
 from .url_fetcher import download_and_validate_url
 from django.shortcuts import get_object_or_404
 
@@ -529,6 +530,153 @@ from .serializers import CustomTokenObtainPairSerializer
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+@api_view(["POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def profile_avatar_view(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == "POST":
+        file_obj = request.FILES.get("avatar")
+        if not file_obj:
+            return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        ext = os.path.splitext(file_obj.name)[1].lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+            return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        max_size = 2 * 1024 * 1024
+        if file_obj.size > max_size:
+            return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+                
+        profile.avatar = file_obj
+        profile.save()
+        
+        avatar_url = request.build_absolute_uri(profile.avatar.url)
+        return Response({"avatar_url": avatar_url}, status=status.HTTP_200_OK)
+        
+    elif request.method == "DELETE":
+        if profile.avatar:
+            try:
+                if os.path.exists(profile.avatar.path):
+                    os.remove(profile.avatar.path)
+            except Exception:
+                pass
+            profile.avatar = None
+            profile.save()
+            
+        return Response({"message": "Avatar removed successfully."}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+@permission_classes([AllowAny])
+@throttle_classes([UploadRateThrottle])
+def compare_bulk_jds_view(request):
+    file = request.FILES.get("file")
+    url = request.data.get("url") or request.data.get("resume_url")
+    
+    # Try parsing job descriptions from JSON string or list parameter
+    jds_raw = request.data.get("job_descriptions")
+    job_descriptions = []
+    if jds_raw:
+        import json
+        try:
+            job_descriptions = json.loads(jds_raw)
+        except Exception:
+            if isinstance(jds_raw, str):
+                job_descriptions = [jds_raw]
+            elif isinstance(jds_raw, list):
+                job_descriptions = jds_raw
+    else:
+        job_descriptions = request.data.getlist("job_descriptions") or request.data.getlist("job_descriptions[]")
+
+    if not file and not url:
+        return Response(
+            {"error": "Please provide a resume file or shareable link."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # limit up to 5 JDs
+    job_descriptions = [jd.strip() for jd in job_descriptions if jd and jd.strip()][:5]
+    if not job_descriptions:
+        return Response(
+            {"error": "Please provide at least one non-empty job description."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        if url:
+            try:
+                file_path, file_name = download_and_validate_url(url)
+            except ValueError as ve:
+                return Response(
+                    {"error": str(ve)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            file_name = file.name if file else "resume.pdf"
+            temp_dir = os.path.join(settings.BASE_DIR, "tmp")
+            os.makedirs(temp_dir, exist_ok=True)
+            storage = FileSystemStorage(location=temp_dir)
+            unique_name = f"{uuid.uuid4()}_{file.name}"
+            saved_name = storage.save(unique_name, file)
+            file_path = storage.path(saved_name)
+
+        try:
+            resume_text = extract_text_from_file(file_path, file_name)
+        finally:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+        detected_skills = extract_skills(resume_text)
+
+        results = []
+        for index, jd in enumerate(job_descriptions):
+            required = extract_skills(jd)
+            matched = [s for s in required if s in detected_skills]
+            missing = [s for s in required if s not in detected_skills]
+            score = (
+                int(len(matched) / len(required) * 100)
+                if required
+                else min(len(detected_skills) * 10, 100)
+            )
+            suggestions = [
+                f"Add projects or experience with {skill.title()}"
+                for skill in missing
+            ]
+            results.append({
+                "index": index,
+                "job_description": jd,
+                "score": score,
+                "matched_skills": matched,
+                "missing_skills": missing,
+                "suggestions": suggestions
+            })
+
+        # Sort by score descending (sorted by best match)
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        return Response({
+            "resume_skills": detected_skills,
+            "comparisons": results
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET", "PUT"])
