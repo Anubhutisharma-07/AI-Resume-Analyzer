@@ -160,8 +160,6 @@ def analyze_cover_letter(text, target_role="", job_description=""):
             "feedback": relevance_feedback,
         }
     }
-
-
 SKILL_QUESTIONS = {
     "html": [
         "What is semantic HTML, and how does it improve SEO and accessibility for assistive technologies?",
