@@ -1,4 +1,4 @@
-import {} from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
@@ -103,6 +103,20 @@ export const Footer: React.FC = () => {
               >
                 Career Tracks
               </a>
+            </li>
+            <li>
+              <Link
+                to="/privacy"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s',
+                }}
+                className="footer-link"
+              >
+                🔒 Privacy Policy
+              </Link>
             </li>
           </ul>
         </div>
