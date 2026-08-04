@@ -83,6 +83,18 @@ DATABASES = {
     }
 }
 
+# Password hashing: Argon2 (OWASP-recommended, winner of the Password
+# Hashing Competition) is tried first for all new/changed passwords.
+# PBKDF2 hashers stay listed so existing users' current PBKDF2 hashes
+# still verify correctly on login. Django transparently re-hashes each
+# user's password to Argon2 the moment they next log in successfully —
+# no bulk migration script needed. See SECURITY_AUDIT.md for the full
+# audit writeup (issue #478).
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+]
 
 AUTH_PASSWORD_VALIDATORS = [
     {
