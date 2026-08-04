@@ -1,5 +1,6 @@
 import {} from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { FaGithub, FaLinkedin } from "react-icons/fa"
 
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
@@ -215,35 +216,11 @@ export const Footer: React.FC = () => {
             Connect
           </h5>
           <div style={{ display: 'flex', gap: '16px' }}>
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub Repository"
-              style={{
-                fontSize: '20px',
-                color: '#94a3b8',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-              className="footer-icon-link"
-            >
-              🐙
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              <FaGithub size={24} color='white' />
             </a>
-            <a
-              href={LINKEDIN_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="LinkedIn Profile"
-              style={{
-                fontSize: '20px',
-                color: '#94a3b8',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-              className="footer-icon-link"
-            >
-              💼
+            <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
+              <FaLinkedin size={24} color='white' />
             </a>
           </div>
         </div>
