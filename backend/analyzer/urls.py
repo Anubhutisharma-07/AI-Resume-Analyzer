@@ -23,6 +23,7 @@ from .views import (
     profile_avatar_view,
     compare_bulk_jds_view,
     skills_leaderboard_view,
+    unsubscribe_digest_view,
 )
 
 urlpatterns = [
@@ -33,6 +34,7 @@ urlpatterns = [
     path("profile/", user_profile_view),
     path("contact/", contact_us_view),
     path("skills-leaderboard/", skills_leaderboard_view),
+    path("unsubscribe/", unsubscribe_digest_view),
 
     path("auth/signup/", signup),
     path("auth/login/", CustomTokenObtainPairView.as_view()),

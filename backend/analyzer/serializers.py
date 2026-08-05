@@ -73,10 +73,26 @@ class VersionComparisonSerializer(serializers.Serializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True, allow_blank=False)
+    weekly_digest_opt_in = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model = User
-        fields = ("username", "email")
+        fields = ("username", "email", "weekly_digest_opt_in")
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        profile, _ = UserProfile.objects.get_or_create(user=instance)
+        ret["weekly_digest_opt_in"] = profile.weekly_digest_opt_in
+        return ret
+
+    def update(self, instance, validated_data):
+        weekly_digest_opt_in = validated_data.pop("weekly_digest_opt_in", None)
+        user = super().update(instance, validated_data)
+        if weekly_digest_opt_in is not None:
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.weekly_digest_opt_in = weekly_digest_opt_in
+            profile.save()
+        return user
 
     def validate_email(self, value):
         user = None
