@@ -405,6 +405,44 @@ To ensure parity between local development and production environments, the head
 
 ---
 
+## Frequently Asked Questions (FAQ)
+
+### 1. Which resume formats are supported?
+Currently, the application supports **PDF resumes** for analysis. Make sure the uploaded file is valid and not corrupted.
+
+### 2. What are the minimum Node.js and Python versions?
+The recommended versions are:
+- **Node.js:** v18 or higher
+- **Python:** v3.10 or higher
+
+### 3. Why is my resume upload failing?
+If your upload fails, check the following:
+- The resume is in PDF format.
+- The backend server is running.
+- The file is not corrupted.
+- The API endpoint is correctly configured.
+
+### 4. How do I configure environment variables?
+Copy the provided example environment files (`.env.example`, `.env.development.example`, or `.env.production.example`) to the appropriate `.env` files and update the required values before starting the application.
+
+### 5. How do I run the frontend and backend together?
+Start the backend server first, then run the frontend in a separate terminal:
+
+```bash
+# Backend
+cd backend
+python manage.py runserver
+
+# Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+Once both services are running, open the frontend in your browser and ensure it is connected to the backend API.
+
+---
+
 ## Roadmap
 
 - [ ] **DOCX Document Parsing** — Integrate `python-docx` to support Word resume parser pipelines.
