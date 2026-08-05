@@ -206,10 +206,23 @@ refactor: simplify parser logic
 
 Before creating a new issue:
 
-- Search existing issues first.
+- Search existing issues first (see below for more details).
 - Include clear steps to reproduce.
 - Attach screenshots if applicable.
 - Mention your operating system and browser when relevant.
+
+## 🔍 Search Existing Issues First
+
+Before opening a new issue, please take a moment to search the existing issues to see if your bug report, feature request, or question has already been discussed. This helps reduce duplicates and keeps issue discussions organized.
+
+**Tip:** Use GitHub's issue search filters to narrow your results. For example:
+
+```text
+is:issue is:open label:bug login
+```
+
+This searches for open issues labeled `bug` containing the keyword `login`. You can replace `bug` and `login` with labels or keywords relevant to your issue.
+
 
 ---
 
