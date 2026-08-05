@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { X, ClipboardList, BookOpen, Trash2, GitCompare } from 'lucide-react'
+import { X, ClipboardList, BookOpen, Trash2, GitCompare, Archive } from 'lucide-react'
 import type { AnalysisEntry } from './hooks/useAnalysisHistory'
 import { ScoreHistoryChart } from './components/ScoreHistoryChart'
+import { downloadBulkReportsZip, type BulkReportItem } from './utils/exportZipReports'
 const PAGE_SIZE = 10
 
 type SortMode = "recent" | "most-matched" | "most-missing";
@@ -36,6 +37,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onCompare,
 }) => {
   const [confirmClear, setConfirmClear] = useState(false);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     try {
       const saved = localStorage.getItem(SORT_MODE_STORAGE_KEY);
@@ -47,6 +49,28 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     }
     return "recent";
   });
+
+  const handleDownloadHistoryZip = async () => {
+    if (entries.length === 0) return
+    setDownloadingZip(true)
+    try {
+      const reports: BulkReportItem[] = entries.map((e, index) => ({
+        id: e.id,
+        fileName: e.fileName,
+        targetRole: e.targetRole,
+        score: e.score,
+        matchedSkills: e.matchedSkills,
+        missingSkills: e.missingSkills,
+        suggestions: e.suggestions,
+        timestamp: e.timestamp,
+      }))
+      await downloadBulkReportsZip(reports, 'resume-analysis-history.zip')
+    } catch (err) {
+      console.error('Failed to export history ZIP:', err)
+    } finally {
+      setDownloadingZip(false)
+    }
+  }
 
   // Persist sort mode to localStorage
   useEffect(() => {
@@ -153,6 +177,17 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             <BookOpen size={18} /> Notifications & History
           </h3>
           <div className="history-header-actions">
+            {entries.length > 0 && (
+              <button
+                className="history-compare-btn"
+                onClick={handleDownloadHistoryZip}
+                disabled={downloadingZip}
+                title="Download all history reports as ZIP"
+                style={{ background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.3)' }}
+              >
+                <Archive size={14} /> ZIP
+              </button>
+            )}
             {onCompare && entries.length > 1 && (
               <button
                 className="history-compare-btn"

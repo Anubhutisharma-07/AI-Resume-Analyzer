@@ -19,6 +19,7 @@
     "bootstrap": "^5.3.8",
     "d3-cloud": "^1.2.9",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.24.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
