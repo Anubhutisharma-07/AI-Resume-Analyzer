@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { X, GitCompare, Loader2, Plus, Trash2 } from 'lucide-react'
+import { X, GitCompare, Loader2, Plus, Trash2, Archive } from 'lucide-react'
 import axios from 'axios'
+import { downloadBulkReportsZip, type BulkReportItem } from '../../utils/exportZipReports'
 
 interface CompareBulkJdsProps {
   onClose: () => void
@@ -27,9 +28,14 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
   const [resumeUrl, setResumeUrl] = useState('')
   const [jds, setJds] = useState<string[]>([''])
   const [loading, setLoading] = useState(false)
+  const [downloadingZip, setDownloadingZip] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<APIResponse | null>(null)
   const [expandedJds, setExpandedJds] = useState<{ [key: number]: boolean }>({})
+
+  const toggleExpand = (index: number) => {
+    setExpandedJds((prev) => ({ ...prev, [index]: !prev[index] }))
+  }
 
   const handleAddJd = () => {
     if (jds.length >= 5) return
@@ -84,8 +90,26 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
     }
   }
 
-  const toggleExpand = (idx: number) => {
-    setExpandedJds(prev => ({ ...prev, [idx]: !prev[idx] }))
+  const handleDownloadZip = async () => {
+    if (!results || !results.comparisons || results.comparisons.length === 0) return
+    setDownloadingZip(true)
+    try {
+      const reports: BulkReportItem[] = results.comparisons.map((c, i) => ({
+        id: c.index + 1,
+        targetRole: `Role_Option_${i + 1}`,
+        score: c.score,
+        matchedSkills: c.matched_skills,
+        missingSkills: c.missing_skills,
+        suggestions: c.suggestions,
+        jobDescription: c.job_description,
+      }))
+      await downloadBulkReportsZip(reports, 'bulk-job-comparison-reports.zip')
+    } catch (err) {
+      console.error('Failed to export ZIP package:', err)
+      setError('Failed to download ZIP package.')
+    } finally {
+      setDownloadingZip(false)
+    }
   }
 
   return (
@@ -408,7 +432,7 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
               })}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
               <button
                 className="app-btn app-btn--secondary"
                 onClick={() => {
@@ -418,9 +442,21 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
               >
                 Compare Another Set
               </button>
-              <button className="app-btn" onClick={onClose}>
-                Close
-              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  className="app-btn app-btn--accent"
+                  onClick={handleDownloadZip}
+                  disabled={downloadingZip}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {downloadingZip ? <Loader2 size={16} className="spin" /> : <Archive size={16} />}
+                  Download All (.ZIP)
+                </button>
+                <button className="app-btn" onClick={onClose}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         )}

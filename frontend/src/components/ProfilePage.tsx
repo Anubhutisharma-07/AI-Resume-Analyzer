@@ -8,10 +8,12 @@ export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
+  const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
+  const [originalOptIn, setOriginalOptIn] = useState(false)
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,8 +35,10 @@ export const ProfilePage: React.FC = () => {
         const data = response.data
         setUsername(data.username)
         setEmail(data.email || '')
+        setWeeklyDigestOptIn(!!data.weekly_digest_opt_in)
         setOriginalUsername(data.username)
         setOriginalEmail(data.email || '')
+        setOriginalOptIn(!!data.weekly_digest_opt_in)
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load profile details.')
       } finally {
@@ -48,6 +52,7 @@ export const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     setUsername(originalUsername)
     setEmail(originalEmail)
+    setWeeklyDigestOptIn(originalOptIn)
     setIsEditing(false)
     setError(null)
     setSuccessMsg(null)
@@ -79,7 +84,7 @@ export const ProfilePage: React.FC = () => {
       
       const response = await axios.put(
         `${BACKEND}/api/profile/`,
-        { username, email },
+        { username, email, weekly_digest_opt_in: weeklyDigestOptIn },
         {
           headers: {
             Authorization: `Bearer ${user.token}`,
@@ -90,8 +95,10 @@ export const ProfilePage: React.FC = () => {
       const updated = response.data
       setUsername(updated.username)
       setEmail(updated.email)
+      setWeeklyDigestOptIn(!!updated.weekly_digest_opt_in)
       setOriginalUsername(updated.username)
       setOriginalEmail(updated.email)
+      setOriginalOptIn(!!updated.weekly_digest_opt_in)
       
       // Update global context session
       updateProfileSession(updated.username)
@@ -221,6 +228,37 @@ export const ProfilePage: React.FC = () => {
                   cursor: isEditing ? 'text' : 'not-allowed'
                 }}
               />
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--control-border)',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <div>
+                <label htmlFor="weekly-digest-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
+                  📧 Weekly Resume-Tips Email Digest
+                </label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
+                  Receive actionable resume guidelines and score improvement nudges once a week.
+                </span>
+              </div>
+              <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
+                <input
+                  id="weekly-digest-toggle"
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  checked={weeklyDigestOptIn}
+                  onChange={(e) => setWeeklyDigestOptIn(e.target.checked)}
+                  disabled={!isEditing || saving}
+                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
+                />
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--surface-border)', paddingTop: '20px' }}>
