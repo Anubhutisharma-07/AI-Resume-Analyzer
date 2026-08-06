@@ -13,4 +13,4 @@ textstat>=0.7.13
 pytest>=8.0.0
 pytest-django>=4.12.0
 
-argon2-cffi>=23.1.0
+argon2-cffi>=25.1.0
