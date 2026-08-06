@@ -33,6 +33,10 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
   const [results, setResults] = useState<APIResponse | null>(null)
   const [expandedJds, setExpandedJds] = useState<{ [key: number]: boolean }>({})
 
+  const toggleExpand = (index: number) => {
+    setExpandedJds((prev) => ({ ...prev, [index]: !prev[index] }))
+  }
+
   const handleAddJd = () => {
     if (jds.length >= 5) return
     setJds([...jds, ''])

@@ -54,7 +54,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     if (entries.length === 0) return
     setDownloadingZip(true)
     try {
-      const reports: BulkReportItem[] = entries.map((e, index) => ({
+      const reports: BulkReportItem[] = entries.map((e) => ({
         id: e.id,
         fileName: e.fileName,
         targetRole: e.targetRole,
