@@ -724,3 +724,59 @@ class CompareBulkJDsTests(TestCase):
         # First one should have higher score since the resume matches python/django
         self.assertGreater(comparisons[0]["score"], comparisons[1]["score"])
 
+
+class WeeklyDigestTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from analyzer.models import UserProfile
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="digestuser", password="password123", email="digest@example.com")
+        self.profile, _ = UserProfile.objects.get_or_create(user=self.user)
+
+    def test_digest_opt_in_toggle(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+
+        # GET profile - default is False
+        resp = self.client.get("/api/profile/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(resp.data["weekly_digest_opt_in"])
+
+        # PUT profile - set opt-in True
+        put_resp = self.client.put("/api/profile/", {"username": "digestuser", "email": "digest@example.com", "weekly_digest_opt_in": True})
+        self.assertEqual(put_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(put_resp.data["weekly_digest_opt_in"])
+
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.weekly_digest_opt_in)
+
+    def test_unsubscribe_endpoint(self):
+        from rest_framework import status
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+        # Call unsubscribe via GET with email param
+        resp = self.client.get("/api/unsubscribe/?email=digest@example.com")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["unsubscribed_count"], 1)
+
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.weekly_digest_opt_in)
+
+    def test_send_weekly_digest_command(self):
+        from django.core.management import call_command
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+        ResumeAnalysis.objects.create(
+            user=self.user,
+            file_name="resume.pdf",
+            score=65,
+            target_role="Frontend Developer"
+        )
+
+        call_command("send_weekly_digest", "--dry-run")
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.weekly_digest_opt_in)
+
+

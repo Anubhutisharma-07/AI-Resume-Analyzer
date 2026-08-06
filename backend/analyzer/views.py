@@ -732,3 +732,44 @@ def contact_us_view(request):
         status=status.HTTP_200_OK,
     )
 
+
+@api_view(["GET", "POST"])
+@permission_classes([AllowAny])
+def unsubscribe_digest_view(request):
+    email = request.query_params.get("email") or request.data.get("email")
+    username = request.query_params.get("username") or request.data.get("username")
+
+    if not email and not username:
+        return Response(
+            {"error": "Please provide your email address or username to unsubscribe."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    users = User.objects.all()
+    if email:
+        users = users.filter(email__iexact=email.strip())
+    elif username:
+        users = users.filter(username__iexact=username.strip())
+
+    if not users.exists():
+        return Response(
+            {"detail": "User not found or already unsubscribed."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    updated_count = 0
+    for u in users:
+        profile, _ = UserProfile.objects.get_or_create(user=u)
+        profile.weekly_digest_opt_in = False
+        profile.save()
+        updated_count += 1
+
+    return Response(
+        {
+            "message": "You have successfully unsubscribed from the weekly resume-tips email digest.",
+            "unsubscribed_count": updated_count,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
