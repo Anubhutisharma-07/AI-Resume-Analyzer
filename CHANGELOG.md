@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Dedicated Privacy Policy page explaining data collection, immediate document deletion policy, user history control, and cookie usage, linked directly in the footer (#470).
+- Terms of Service page at `/terms` covering acceptable use, account terms, data handling, IP rights, disclaimers, and liability; linked from footer (#469).
 - Exportable prioritized Action Plan checklist ranked by estimated ATS score impact in clean Markdown (.md) and PDF (.pdf) formats (#379).
 - Created basic SEO crawlability files `sitemap.xml` and `robots.txt` in frontend public directory for search engine indexing (#354).
 - Responsive hamburger navigation menu below 1024px with slide-in animation, backdrop overlay, Escape key dismiss, and auto-close on resize (#245).
