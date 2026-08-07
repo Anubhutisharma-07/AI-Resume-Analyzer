@@ -67,6 +67,7 @@ function App() {
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [roastMode, setRoastMode] = useState<boolean>(false)
 
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
@@ -532,7 +533,7 @@ function App() {
                 </div>
               </div>
 
-              {/* SUGGESTIONS BOX WITH THE UTILITY BUTTON */}
+              {/* SUGGESTIONS BOX WITH THE UTILITY BUTTON & ROAST MODE TOGGLE */}
               <div className="suggestion-box mt-4">
                 <div
                   style={{
@@ -540,9 +541,37 @@ function App() {
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     marginBottom: '12px',
+                    flexWrap: 'wrap',
+                    gap: '8px',
                   }}
                 >
-                  <h4 style={{ margin: 0 }}>💡 Suggestions</h4>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <h4 style={{ margin: 0 }}>{roastMode ? '🔥 Resume Roast' : '💡 Suggestions'}</h4>
+                    <label
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        background: roastMode ? '#ef4444' : 'rgba(255,255,255,0.1)',
+                        color: '#fff',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={roastMode}
+                        onChange={(e) => setRoastMode(e.target.checked)}
+                        aria-label="Toggle Resume Roast mode"
+                        style={{ cursor: 'pointer' }}
+                      />
+                      🔥 Roast Mode {roastMode ? 'ON' : 'OFF'}
+                    </label>
+                  </div>
                   {suggestions.length > 0 && (
                     <button
                       type="button"
@@ -554,11 +583,24 @@ function App() {
                   )}
                 </div>
 
-                {suggestions.map((s: string, i: number) => (
-                  <div key={i} className="suggestion-item">
-                    📌 {s}
-                  </div>
-                ))}
+                {suggestions.map((s: string, i: number) => {
+                  let displayText = s
+                  if (roastMode) {
+                    if (s.startsWith('Add projects or experience with ')) {
+                      const skill = s.replace('Add projects or experience with ', '')
+                      displayText = `Ghosting recruiters because ${skill} is nowhere to be found? Time to build a project with ${skill}!`
+                    } else if (s.startsWith('Quantify bullet: ')) {
+                      displayText = `Where are the numbers? '${s.replace('Quantify bullet: ', '')}' needs real impact stats, not vague fairy tales!`
+                    } else {
+                      displayText = `Spill the tea: ${s}`
+                    }
+                  }
+                  return (
+                    <div key={i} className="suggestion-item">
+                      {roastMode ? '🔥' : '📌'} {displayText}
+                    </div>
+                  )
+                })}
 
                 {/* Reset Button */}
                 <div style={{ marginTop: '24px', textAlign: 'center' }}>
