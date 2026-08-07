@@ -384,7 +384,7 @@ function App() {
             <input
               type="file"
               id="fileUpload"
-              hidden
+              className="sr-only"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 if (e.target.files) setFile(e.target.files[0])
               }}
