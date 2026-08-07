@@ -1,4 +1,3 @@
-import {} from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { FaGithub, FaLinkedin } from "react-icons/fa"
 
@@ -105,6 +104,20 @@ export const Footer: React.FC = () => {
               >
                 Career Tracks
               </a>
+            </li>
+            <li>
+              <Link
+                to="/privacy"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s',
+                }}
+                className="footer-link"
+              >
+                🔒 Privacy Policy
+              </Link>
             </li>
           </ul>
         </div>
