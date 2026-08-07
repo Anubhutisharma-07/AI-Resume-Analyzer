@@ -46,16 +46,14 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 }
 
 import { Routes, Route } from 'react-router-dom'
-import { FAQPage } from './pages/FAQPage'
-import { UnsubscribePage } from './pages/UnsubscribePage'
+import { TermsOfService } from './pages/TermsOfService'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
         <Routes>
-          <Route path="/faq" element={<FAQPage />} />
-          <Route path="/unsubscribe" element={<UnsubscribePage />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="/*" element={<App />} />
         </Routes>
       </BrowserRouter>
