@@ -94,6 +94,16 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     }
   }, [isOpen, onMarkAllAsViewed])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onToggle()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onToggle])
+
   const handleToggleClick = () => {
     if (!isOpen && onMarkAllAsViewed) {
       onMarkAllAsViewed()

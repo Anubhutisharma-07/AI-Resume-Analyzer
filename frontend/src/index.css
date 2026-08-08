@@ -2221,6 +2221,23 @@ input {
   outline: 2px solid #2563eb;
 }
 
+/* Global focus-visible indicator for keyboard-only navigation QA (#498) */
+:focus-visible {
+  outline: 3px solid var(--color-primary, #3b82f6) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
 @media print {
   .navbar,
   header,
