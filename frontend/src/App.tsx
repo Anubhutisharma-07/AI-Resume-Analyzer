@@ -63,6 +63,8 @@ function App() {
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [skills, setSkills] = useState<string[]>([])
@@ -221,6 +223,10 @@ function App() {
       alert('Please upload resume')
       return
     }
+    if (uploadError) {
+      alert(uploadError)
+      return
+    }
     if (cooldownRemaining > 0) {
       return // Prevent retry during cooldown
     }
@@ -377,16 +383,55 @@ function App() {
               e.preventDefault()
               setIsDragging(false)
               if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                setFile(e.dataTransfer.files[0])
+                const f = e.dataTransfer.files[0]
+                setUploadError(null)
+                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
+                  setUploadError('Please upload a valid PDF file.')
+                  setFile(null)
+                  return
+                }
+                if (f.size === 0) {
+                  setUploadError('Uploaded file is empty.')
+                  setFile(null)
+                  return
+                }
+                if (f.size > MAX_FILE_SIZE) {
+                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                  setFile(null)
+                  return
+                }
+                setFile(f)
               }
             }}
           >
             <input
               type="file"
               id="fileUpload"
+              accept="application/pdf"
               hidden
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                if (e.target.files) setFile(e.target.files[0])
+                setUploadError(null)
+                const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
+                if (!f) {
+                  setFile(null)
+                  return
+                }
+                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
+                  setUploadError('Please upload a valid PDF file.')
+                  setFile(null)
+                  return
+                }
+                if (f.size === 0) {
+                  setUploadError('Uploaded file is empty.')
+                  setFile(null)
+                  return
+                }
+                if (f.size > MAX_FILE_SIZE) {
+                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                  setFile(null)
+                  return
+                }
+                setFile(f)
               }}
             />
             <label htmlFor="fileUpload" className="upload-label">
@@ -400,8 +445,12 @@ function App() {
                 <span className="upload-text-secondary" style={{ display: 'block', marginTop: '4px' }}>
                   Selected: {file.name}
                 </span>
+              ) : uploadError ? (
+                <span className="upload-text-error" style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}>
+                  {uploadError}
+                </span>
               ) : (
-                <span className="upload-text-secondary">Supports PDF, DOCX, TXT up to 10MB</span>
+                <span className="upload-text-secondary">PDF only, up to 5MB</span>
               )}
             </label>
           </div>
@@ -460,7 +509,9 @@ function App() {
 
               <ResumePreview text={resumeText} skills={skills} />
 
-              <h5 className="analysis-done">✅ Resume Analysis Complete</h5>
+              <h5 className="analysis-done" role="status" aria-live="polite">
+                ✅ Resume Analysis Complete
+              </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
                   📄 {activeFileName}
