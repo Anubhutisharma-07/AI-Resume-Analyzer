@@ -3,23 +3,22 @@ import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
 
-const mockAxiosResponse = {
-  data: {
-    score: 85,
-    skills_found: ['React', 'TypeScript'],
-    suggestions: [
-      'Add projects or experience with Python',
-      'Quantify bullet: Increased revenue',
-      'General suggestion test',
-    ],
-    matched_skills: ['React'],
-    missing_skills: ['Python'],
-    resume_text: 'Sample Resume Content',
-  },
-}
-
 vi.mock('axios', () => {
-  const mockPost = vi.fn().mockResolvedValue(mockAxiosResponse)
+  const mockResponse = {
+    data: {
+      score: 85,
+      skills_found: ['React', 'TypeScript'],
+      suggestions: [
+        'Add projects or experience with Python',
+        'Quantify bullet: Increased revenue',
+        'General suggestion test',
+      ],
+      matched_skills: ['React'],
+      missing_skills: ['Python'],
+      resume_text: 'Sample Resume Content',
+    },
+  }
+  const mockPost = vi.fn().mockResolvedValue(mockResponse)
   const mockGet = vi.fn().mockResolvedValue({ data: [] })
   return {
     default: {
