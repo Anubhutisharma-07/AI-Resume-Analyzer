@@ -178,7 +178,7 @@ export const Footer: React.FC = () => {
           </ul>
         </div>
 
-        {/* Column 3b: FAQ */}
+        {/* Column 3b: Legal & Support */}
         <div>
           <h5
             style={{
@@ -189,7 +189,7 @@ export const Footer: React.FC = () => {
               letterSpacing: '0.5px',
             }}
           >
-            Support
+            Legal & Support
           </h5>
           <ul
             style={{
@@ -203,7 +203,33 @@ export const Footer: React.FC = () => {
           >
             <li>
               <Link
+                to="/terms"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                📋 Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/faq"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                ❓ FAQ
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/contact"
                 style={{
                   color: '#94a3b8',
                   fontSize: 'var(--font-size-sm)',
@@ -216,6 +242,8 @@ export const Footer: React.FC = () => {
             </li>
           </ul>
         </div>
+
+        {/* Column 4: Social Interfaces */}
         <div>
           <h5
             style={{

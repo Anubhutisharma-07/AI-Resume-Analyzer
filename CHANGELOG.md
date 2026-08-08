@@ -7,8 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+### Added
 - Opt-in playful "Resume Roast" alternate feedback tone switch in suggestions section with humorously constructive feedback while remaining constructive (#497).
 - Dedicated Privacy Policy page explaining data collection, immediate document deletion policy, user history control, and cookie usage, linked directly in the footer (#470).
+- Terms of Service page at `/terms` covering acceptable use, account terms, data handling, IP rights, disclaimers, and liability; linked from footer (#469).
+
 ### Changed
 - Comprehensive keyboard-only navigation QA pass: added visible focus rings, SR-only file upload input focusability, dialog ARIA attributes, and Escape key dismissal across modals and history panel (#498).
 - Exportable prioritized Action Plan checklist ranked by estimated ATS score impact in clean Markdown (.md) and PDF (.pdf) formats (#379).
