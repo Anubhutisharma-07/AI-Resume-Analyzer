@@ -508,7 +508,9 @@ function App() {
 
               <ResumePreview text={resumeText} skills={skills} />
 
-              <h5 className="analysis-done">✅ Resume Analysis Complete</h5>
+              <h5 className="analysis-done" role="status" aria-live="polite">
+                ✅ Resume Analysis Complete
+              </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
                   📄 {activeFileName}
