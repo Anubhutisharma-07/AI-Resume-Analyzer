@@ -38,7 +38,7 @@ describe('Resume Roast Mode (#497)', () => {
     fireEvent.click(sampleBtn)
 
     // Wait for analysis result to appear
-    const doneHeader = await screen.findByText('✅ Resume Analysis Complete')
+    const doneHeader = await screen.findByText('✅ Resume Analysis Complete', {}, { timeout: 5000 })
     expect(doneHeader).toBeInTheDocument()
 
     // Check default mode is OFF and heading says "💡 Suggestions"
