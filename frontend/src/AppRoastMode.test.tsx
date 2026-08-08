@@ -1,39 +1,32 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import axios from 'axios'
 import App from './App'
 
-vi.mock('axios', () => {
-  const mockResponse = {
-    data: {
-      score: 85,
-      skills_found: ['React', 'TypeScript'],
-      suggestions: [
-        'Add projects or experience with Python',
-        'Quantify bullet: Increased revenue',
-        'General suggestion test',
-      ],
-      matched_skills: ['React'],
-      missing_skills: ['Python'],
-      resume_text: 'Sample Resume Content',
-    },
-  }
-  const mockPost = vi.fn().mockResolvedValue(mockResponse)
-  const mockGet = vi.fn().mockResolvedValue({ data: [] })
-  return {
-    default: {
-      post: mockPost,
-      get: mockGet,
-      isAxiosError: () => false,
-    },
-    post: mockPost,
-    get: mockGet,
-    isAxiosError: () => false,
-  }
-})
+vi.mock('axios')
 
 describe('Resume Roast Mode (#497)', () => {
   it('toggles roast mode on and off for suggestions', async () => {
+    vi.mocked(axios.post).mockResolvedValue({
+      data: {
+        score: 85,
+        skills_found: ['React', 'TypeScript'],
+        suggestions: [
+          'Add projects or experience with Python',
+          'Quantify bullet: Increased revenue',
+          'General suggestion test',
+        ],
+        matched_skills: ['React'],
+        missing_skills: ['Python'],
+        resume_text: 'Sample Resume Content',
+      },
+    })
+    vi.mocked(axios.get).mockResolvedValue({ data: [] })
+    vi.mocked(axios.isAxiosError).mockReturnValue(false)
+
     render(
       <MemoryRouter>
         <App />
@@ -45,7 +38,7 @@ describe('Resume Roast Mode (#497)', () => {
     fireEvent.click(sampleBtn)
 
     // Wait for analysis result to appear
-    const doneHeader = await screen.findByText('✅ Resume Analysis Complete')
+    const doneHeader = await screen.findByText('✅ Resume Analysis Complete', {}, { timeout: 5000 })
     expect(doneHeader).toBeInTheDocument()
 
     // Check default mode is OFF and heading says "💡 Suggestions"
