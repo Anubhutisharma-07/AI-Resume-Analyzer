@@ -64,6 +64,52 @@ def verify_captcha_token(token_string):
     return False
 
 
+MAX_UPLOAD_SIZE = getattr(settings, "MAX_UPLOAD_SIZE_BYTES", 5 * 1024 * 1024)  # 5MB
+
+def is_pdf_file(f):
+    """Return True if uploaded file looks like a PDF (content-type or magic bytes)."""
+    try:
+        content_type = getattr(f, "content_type", "")
+        if content_type == "application/pdf":
+            return True
+        # Try reading magic bytes; preserve file position if possible
+        try:
+            pos = f.tell()
+        except Exception:
+            pos = None
+        try:
+            header = f.read(4)
+        except Exception:
+            header = b''
+        try:
+            if pos is not None:
+                f.seek(pos)
+            else:
+                f.seek(0)
+        except Exception:
+            pass
+        return isinstance(header, (bytes, bytearray)) and header.startswith(b"%PDF")
+    except Exception:
+        return False
+
+
+def validate_uploaded_file(f, allowed_exts=(".pdf",)):
+    """Validate uploaded file: non-empty, within size limit, allowed extension, and PDF magic bytes."""
+    if not f:
+        raise ValueError("No file uploaded")
+    size = getattr(f, "size", 0)
+    if size == 0:
+        raise ValueError("Uploaded file is empty")
+    if size > MAX_UPLOAD_SIZE:
+        raise ValueError(f"File exceeds maximum allowed size of {MAX_UPLOAD_SIZE // (1024*1024)}MB")
+    name = getattr(f, "name", "")
+    if not any(name.lower().endswith(ext) for ext in allowed_exts):
+        raise ValueError("Only PDF files are allowed")
+    if not is_pdf_file(f):
+        raise ValueError("Uploaded file is not a valid PDF")
+    return True
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def signup(request):
@@ -96,6 +142,13 @@ def upload_resume(request):
     url = request.data.get("url") or request.data.get("resume_url")
     target_role = request.data.get("role", "")
     job_desc = request.data.get("job_description", "")[:2000]
+
+    # Server-side validation for direct uploads (always enforce on backend)
+    if file and not url:
+        try:
+            validate_uploaded_file(file)
+        except ValueError as ve:
+            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     if not file and not url:
         return Response(

@@ -151,6 +151,8 @@ REST_FRAMEWORK = {
 
 # Rate limiting: resume upload endpoint
 RESUME_UPLOAD_RATE = os.environ.get('RESUME_UPLOAD_RATE', '10/hour')
+# Retention (in days) for uploaded resume files and temporary storage
+RESUME_RETENTION_DAYS = int(os.environ.get('RESUME_RETENTION_DAYS', '30'))
 
 SENTRY_DSN = os.environ.get('SENTRY_DSN')
 
