@@ -407,8 +407,7 @@ function App() {
             <input
               type="file"
               id="fileUpload"
-              accept="application/pdf"
-              hidden
+              className="sr-only"
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setUploadError(null)
                 const f = e.target.files && e.target.files[0] ? e.target.files[0] : null

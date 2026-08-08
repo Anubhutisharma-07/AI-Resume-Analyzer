@@ -18,6 +18,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -49,8 +59,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
 
   return (
     <div className="auth-overlay" onClick={onClose}>
-      <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>
+      <div
+        className="auth-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="auth-modal-title">
           {mode === 'login' ? (
             <>
               <Lock size={16} /> Login
