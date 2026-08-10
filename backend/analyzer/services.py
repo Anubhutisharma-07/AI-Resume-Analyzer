@@ -9,23 +9,17 @@ from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
 
-ROLE_SKILLS = {
-    "Frontend Developer": [
-        "html", "css", "javascript", "typescript", "react",
-        "next.js", "tailwind", "git", "github", "webpack",
-    ],
+from django.core.cache import cache
 
-    "Backend Developer": [
-        "python", "django", "flask", "fastapi", "node.js", "express.js",
-        "sql", "mysql", "postgresql", "mongodb", "docker", "git", "github",
-    ],
-
-    "Data Analyst": [
-        "python", "sql", "excel", "machine learning", "deep learning",
-        "data analysis", "pandas", "numpy", "matplotlib", "tensorflow",
-        "scikit-learn", "jupyter",
-    ],
-}
+def get_role_skills():
+    role_skills = cache.get("role_skills_dict")
+    if role_skills is None:
+        from .models import Role
+        role_skills = {}
+        for role in Role.objects.prefetch_related("skills").all():
+            role_skills[role.name] = [skill.name for skill in role.skills.all()]
+        cache.set("role_skills_dict", role_skills, timeout=60*60*24)
+    return role_skills
 
 PIPELINE_STAGES = [
     {"stage": "extracting", "label": "Extracting text from document", "percent": 25},
@@ -131,7 +125,7 @@ def analyze_cover_letter(text, target_role="", job_description=""):
         relevance_suggestions.append("Mention the target company name or refer to their team to show that the letter is personalized.")
         
     if job_description:
-        req_skills = ROLE_SKILLS.get(target_role, [])
+        req_skills = get_role_skills().get(target_role, [])
         cover_letter_skills = [s for s in req_skills if s in words_lower]
         
         if cover_letter_skills:
@@ -331,7 +325,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     if job_description and job_description.strip():
         required = extract_skills(job_description)
     else:
-        required = ROLE_SKILLS.get(target_role, [])
+        required = get_role_skills().get(target_role, [])
 
     for skill in required:
         if skill in detected:
@@ -395,7 +389,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     }
 
     track_comparisons = {}
-    for role, req_skills in ROLE_SKILLS.items():
+    for role, req_skills in get_role_skills().items():
         role_matched = [s for s in req_skills if s in detected]
         role_missing = [s for s in req_skills if s not in detected]
         role_score = (

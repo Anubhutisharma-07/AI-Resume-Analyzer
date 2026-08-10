@@ -509,9 +509,9 @@ def analyze_jd_view(request):
     counter = Counter(filtered_words)
     top_items = counter.most_common(30)
     
-    from analyzer.services import ROLE_SKILLS
+    from analyzer.services import get_role_skills
     all_skills = set()
-    for skills_list in ROLE_SKILLS.values():
+    for skills_list in get_role_skills().values():
         for s in skills_list:
             all_skills.add(s.lower())
             
