@@ -89,7 +89,7 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false)
 
   // History
-  const { entries, deleteEntry, clearHistory, setEntries } = useAnalysisHistory()
+  const { entries, deleteEntry, clearHistory, setEntries, unreadCount, lastViewedTimestamp, markAllAsViewed } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [activeFileName, setActiveFileName] = useState('')
 
@@ -321,6 +321,9 @@ function App() {
         onClear={clearHistory}
         isOpen={historyOpen}
         onToggle={() => setHistoryOpen((v) => !v)}
+        unreadCount={unreadCount}
+        lastViewedTimestamp={lastViewedTimestamp}
+        onMarkAllAsViewed={markAllAsViewed}
       />
       <div className="container mt-5">
         <div className="main-card text-center">
