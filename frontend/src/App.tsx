@@ -176,13 +176,26 @@ function App() {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
       const headers = user ? { Authorization: `Bearer ${user.token}` } : {}
       const res = await axios.post(`${backendUrl}/api/upload/`, formData, { headers })
+      const taskId = res.data.task_id
 
-      setScore(res.data.score)
-      setSkills(res.data.skills_found || [])
-      setSuggestions(res.data.suggestions || [])
-      setMatchedSkills(res.data.matched_skills || [])
-      setMissingSkills(res.data.missing_skills || [])
-      setResumeText(res.data.resume_text || '')
+      let result = null
+      while (true) {
+        const statusRes = await axios.get(`${backendUrl}/api/status/${taskId}/`)
+        if (statusRes.data.state === 'SUCCESS') {
+          result = statusRes.data.result
+          break
+        } else if (statusRes.data.state === 'FAILURE') {
+          throw new Error(statusRes.data.error || 'Analysis failed')
+        }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+
+      setScore(result.score)
+      setSkills(result.skills_found || [])
+      setSuggestions(result.suggestions || [])
+      setMatchedSkills(result.matched_skills || [])
+      setMissingSkills(result.missing_skills || [])
+      setResumeText(result.resume_text || '')
       setActiveFileName(fileToAnalyze.name)
 
       setLoading(false)

@@ -31,6 +31,8 @@ from .serializers import (
     UserProfileSerializer,
 )
 from .services import analyze_resume, extract_text_from_file
+from .tasks import analyze_resume_task
+from celery.result import AsyncResult
 from .skill_matcher import extract_skills
 from .url_fetcher import download_and_validate_url
 from django.shortcuts import get_object_or_404
@@ -192,7 +194,7 @@ def upload_resume(request):
             else None
         )
 
-        result = analyze_resume(
+        task = analyze_resume_task.delay(
             file_path=file_path,
             target_role=target_role,
             file_name=file_name,
@@ -202,7 +204,7 @@ def upload_resume(request):
             cover_letter_name=cover_letter_name,
         )
 
-        return Response(result)
+        return Response({"task_id": task.id})
 
     except Exception as e:
         import traceback
@@ -211,6 +213,17 @@ def upload_resume(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def task_status(request, task_id):
+    task = AsyncResult(task_id)
+    if task.state == 'FAILURE':
+        return Response({"state": task.state, "error": str(task.info)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    elif task.state == 'SUCCESS':
+        return Response({"state": task.state, "result": task.result})
+    else:
+        return Response({"state": task.state})
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
