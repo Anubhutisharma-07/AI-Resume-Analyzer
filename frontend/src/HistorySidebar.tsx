@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, ClipboardList, BookOpen, Trash2, GitCompare, Archive } from 'lucide-react'
+import { X, ClipboardList, BookOpen, Trash2, GitCompare, Archive, Check } from 'lucide-react'
 import type { AnalysisEntry } from './hooks/useAnalysisHistory'
 import { ScoreHistoryChart } from './components/ScoreHistoryChart'
 import { downloadBulkReportsZip, type BulkReportItem } from './utils/exportZipReports'
@@ -89,12 +89,6 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   }, [entries])
 
   useEffect(() => {
-    if (isOpen && onMarkAllAsViewed) {
-      onMarkAllAsViewed()
-    }
-  }, [isOpen, onMarkAllAsViewed])
-
-  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onToggle()
@@ -105,9 +99,6 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   }, [isOpen, onToggle])
 
   const handleToggleClick = () => {
-    if (!isOpen && onMarkAllAsViewed) {
-      onMarkAllAsViewed()
-    }
     onToggle()
   }
 
@@ -205,6 +196,15 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 title="Compare two resume versions"
               >
                 <GitCompare size={14} /> Compare
+              </button>
+            )}
+            {unreadCount > 0 && onMarkAllAsViewed && (
+              <button
+                className="history-compare-btn"
+                onClick={onMarkAllAsViewed}
+                title="Mark all as read"
+              >
+                <Check size={14} /> Mark Read
               </button>
             )}
             {entries.length > 0 && (
