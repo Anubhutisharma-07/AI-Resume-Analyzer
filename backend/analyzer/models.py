@@ -42,3 +42,32 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
+
+
+class Skill(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Role(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    skills = models.ManyToManyField(Skill, related_name="roles")
+
+    def __str__(self):
+        return self.name
+
+
+from django.db.models.signals import post_save, post_delete, m2m_changed
+from django.dispatch import receiver
+from django.core.cache import cache
+
+@receiver([post_save, post_delete], sender=Role)
+@receiver([post_save, post_delete], sender=Skill)
+def invalidate_role_skills_cache(sender, **kwargs):
+    cache.delete("role_skills_dict")
+
+@receiver(m2m_changed, sender=Role.skills.through)
+def invalidate_m2m_cache(sender, **kwargs):
+    cache.delete("role_skills_dict")
