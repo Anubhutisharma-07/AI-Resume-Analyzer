@@ -25,6 +25,7 @@ from .views import (
     skills_leaderboard_view,
     unsubscribe_digest_view,
     task_status,
+    export_user_data,
 )
 
 urlpatterns = [
@@ -37,6 +38,7 @@ urlpatterns = [
     path("contact/", contact_us_view),
     path("skills-leaderboard/", skills_leaderboard_view),
     path("unsubscribe/", unsubscribe_digest_view),
+    path("account/export/", export_user_data, name="export_user_data"),
 
     path("auth/signup/", signup),
     path("auth/login/", CustomTokenObtainPairView.as_view()),
@@ -52,4 +54,5 @@ urlpatterns = [
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path("admin/stats/", admin_stats_view, name="admin_stats"),
+
 ]
