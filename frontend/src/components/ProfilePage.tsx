@@ -5,18 +5,19 @@ import { useAuth } from '../hooks/useAuth'
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
 export const ProfilePage: React.FC = () => {
-  const { user, updateProfileSession } = useAuth()
+  const { user, updateProfileSession, exportUserData } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  
+
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
   const [originalOptIn, setOriginalOptIn] = useState(false)
-  
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
@@ -58,6 +59,23 @@ export const ProfilePage: React.FC = () => {
     setSuccessMsg(null)
   }
 
+  const handleExportData = async () => {
+    try {
+      setExporting(true)
+      setError(null)
+      setSuccessMsg(null)
+
+      await exportUserData()
+
+      setSuccessMsg('Your account data has been downloaded successfully.')
+    } catch (err: any) {
+      setError(err.response?.data?.error || err.message || 'Failed to export your data.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
@@ -81,7 +99,7 @@ export const ProfilePage: React.FC = () => {
       setSaving(true)
       setError(null)
       setSuccessMsg(null)
-      
+
       const response = await axios.put(
         `${BACKEND}/api/profile/`,
         { username, email, weekly_digest_opt_in: weeklyDigestOptIn },
@@ -99,7 +117,7 @@ export const ProfilePage: React.FC = () => {
       setOriginalUsername(updated.username)
       setOriginalEmail(updated.email)
       setOriginalOptIn(!!updated.weekly_digest_opt_in)
-      
+
       // Update global context session
       updateProfileSession(updated.username)
 
@@ -262,6 +280,28 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--surface-border)', paddingTop: '20px' }}>
+              <button
+                type="button"
+                className="app-btn app-btn--secondary"
+                onClick={handleExportData}
+                disabled={exporting || saving}
+                style={{ minWidth: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                {exporting ? (
+                  <>
+                    <span
+                      className="spinner-border spinner-border-sm"
+                      role="status"
+                      aria-hidden="true"
+                      style={{ width: '1rem', height: '1rem' }}
+                    />
+                    Exporting...
+                  </>
+                ) : (
+                  'Export My Data'
+                )}
+              </button>
+
               {!isEditing ? (
                 <button
                   type="button"
