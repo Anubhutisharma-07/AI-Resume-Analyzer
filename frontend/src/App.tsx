@@ -3,6 +3,11 @@ import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
+import {
+  RESUME_ACCEPT_ATTRIBUTE,
+  describeUploadLimits,
+  validateResumeFile,
+} from './utils/fileValidation'
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { useAuth } from './hooks/useAuth'
@@ -403,18 +408,12 @@ function App() {
               if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const f = e.dataTransfer.files[0]
                 setUploadError(null)
-                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
-                  setUploadError('Please upload a valid PDF file.')
-                  setFile(null)
-                  return
-                }
-                if (f.size === 0) {
-                  setUploadError('Uploaded file is empty.')
-                  setFile(null)
-                  return
-                }
-                if (f.size > MAX_FILE_SIZE) {
-                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                const result = validateResumeFile(f, {
+                  maxSizeBytes: MAX_FILE_SIZE,
+                  label: 'resume',
+                })
+                if (!result.ok) {
+                  setUploadError(result.error)
                   setFile(null)
                   return
                 }
@@ -426,6 +425,7 @@ function App() {
               type="file"
               id="fileUpload"
               className="sr-only"
+              accept={RESUME_ACCEPT_ATTRIBUTE}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setUploadError(null)
                 const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
@@ -433,18 +433,12 @@ function App() {
                   setFile(null)
                   return
                 }
-                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
-                  setUploadError('Please upload a valid PDF file.')
-                  setFile(null)
-                  return
-                }
-                if (f.size === 0) {
-                  setUploadError('Uploaded file is empty.')
-                  setFile(null)
-                  return
-                }
-                if (f.size > MAX_FILE_SIZE) {
-                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                const result = validateResumeFile(f, {
+                  maxSizeBytes: MAX_FILE_SIZE,
+                  label: 'resume',
+                })
+                if (!result.ok) {
+                  setUploadError(result.error)
                   setFile(null)
                   return
                 }
@@ -467,7 +461,7 @@ function App() {
                   {uploadError}
                 </span>
               ) : (
-                <span className="upload-text-secondary">PDF only, up to 5MB</span>
+                <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
               )}
             </label>
           </div>
