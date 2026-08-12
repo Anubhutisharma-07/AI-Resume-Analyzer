@@ -5,6 +5,7 @@ import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
 from .skill_matcher import extract_skills
+from .scoring import compute_score_breakdown
 from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
@@ -408,9 +409,24 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
 
     quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
 
+    # Multi-factor view of the same resume. `score` above stays the keyword
+    # ratio — it is persisted on ResumeAnalysis and read by the leaderboard,
+    # version comparison and digest, so redefining it would change the meaning
+    # of every historical row.
+    score_breakdown = compute_score_breakdown(
+        text=raw_text,
+        matched_skills=matched,
+        required_skills=required,
+        detected_skills=detected,
+        readability_score=readability_score,
+        readability_label=readability_label,
+        quantify_nudges=quantify_nudges,
+    )
+
     return {
         "id": analysis_id,
         "score": score,
+        "score_breakdown": score_breakdown.as_dict(),
         "readability_score": readability_score,
         "readability_label": readability_label,
         "skills_found": detected,
