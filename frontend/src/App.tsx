@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
@@ -354,7 +354,9 @@ function App() {
           <div className="auth-bar">
             {user ? (
               <>
-                <span className="auth-username">👤 {user.username}</span>
+                <Link to="/profile" className="auth-username" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  👤 {user.username}
+                </Link>
                 <button className="auth-bar-btn" onClick={logout}>
                   Logout
                 </button>

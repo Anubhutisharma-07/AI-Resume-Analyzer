@@ -73,5 +73,29 @@ export function useAuth() {
     }
   }, [user])
 
-  return { user, signup, login, logout, updateProfileSession, updateUserAvatar }
+  const exportUserData = useCallback(async () => {
+    if (!user?.token) {
+      throw new Error('You must be logged in to export your data.')
+    }
+
+    const response = await axios.get(`${BACKEND}/api/account/export/`, {
+      headers: {
+        Authorization: `Bearer ${user.token}`,
+      },
+      responseType: 'blob',
+    })
+
+    const url = window.URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+
+    link.href = url
+    link.download = 'ai-resume-analyzer-data.json'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    window.URL.revokeObjectURL(url)
+  }, [user])
+
+  return { user, signup, login, logout, updateProfileSession, updateUserAvatar, exportUserData }
 }

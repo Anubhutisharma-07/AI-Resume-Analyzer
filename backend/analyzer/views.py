@@ -36,6 +36,9 @@ from celery.result import AsyncResult
 from .skill_matcher import extract_skills
 from .url_fetcher import download_and_validate_url
 from django.shortcuts import get_object_or_404
+import json
+from django.http import HttpResponse
+from django.utils import timezone
 
 
 class UploadRateThrottle(SimpleRateThrottle):
@@ -392,6 +395,74 @@ def get_shared_result(request, share_id):
     analysis = get_object_or_404(ResumeAnalysis, share_id=share_id)
     serializer = ResumeAnalysisSerializer(analysis)
     return Response(serializer.data)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_user_data(request):
+    """Export the authenticated user's account data and analysis history."""
+    user = request.user
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    analyses = ResumeAnalysis.objects.filter(
+        user=user
+    ).order_by("-created_at")
+
+    data = {
+        "export_version": 1,
+        "exported_at": timezone.now().isoformat(),
+        "account": {
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "date_joined": (
+                user.date_joined.isoformat()
+                if user.date_joined
+                else None
+            ),
+            "last_login": (
+                user.last_login.isoformat()
+                if user.last_login
+                else None
+            ),
+            "weekly_digest_opt_in": profile.weekly_digest_opt_in,
+            "avatar": profile.avatar.name if profile.avatar else None,
+        },
+        "analysis_history": [
+            {
+                "id": analysis.id,
+                "share_id": str(analysis.share_id),
+                "file_name": analysis.file_name,
+                "score": analysis.score,
+                "skills_found": analysis.skills_found,
+                "suggestions": analysis.suggestions,
+                "matched_skills": analysis.matched_skills,
+                "missing_skills": analysis.missing_skills,
+                "target_role": analysis.target_role,
+                "created_at": analysis.created_at.isoformat(),
+                "job_description": analysis.job_description,
+                "resume_text": analysis.resume_text,
+                "cover_letter_text": analysis.cover_letter_text,
+                "cover_letter_feedback": analysis.cover_letter_feedback,
+                "interview_questions": analysis.interview_questions,
+            }
+            for analysis in analyses
+        ],
+    }
+
+    response = HttpResponse(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        content_type="application/json",
+    )
+
+    response["Content-Disposition"] = (
+        'attachment; filename="ai-resume-analyzer-data.json"'
+    )
+
+    return response
+
+
 
 User = get_user_model()
 
