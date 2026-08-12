@@ -47,6 +47,8 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 
 import { Routes, Route } from 'react-router-dom'
 import { TermsOfService } from './pages/TermsOfService'
+import { ProfilePage } from './components/ProfilePage'
+
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -55,6 +57,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/*" element={<App />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
