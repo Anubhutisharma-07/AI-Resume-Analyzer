@@ -294,35 +294,120 @@ def compare_uploads(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+from .serializers import ResumeAnalysisListSerializer
+
+#: Rows per page when the caller does not ask for a size.
+HISTORY_DEFAULT_PAGE_SIZE = 20
+
+#: Hard ceiling, so ``?page_size=100000`` cannot rebuild the old behaviour.
+HISTORY_MAX_PAGE_SIZE = 100
+
+
+def _positive_int(raw, default, maximum=None):
+    """Parse a query param as a positive int, falling back on anything odd."""
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    if value < 1:
+        return default
+    if maximum is not None:
+        return min(value, maximum)
+    return value
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def analysis_history(request):
+    """List the requesting user's analyses, newest first.
 
-    analyses = ResumeAnalysis.objects.filter(
-        user=request.user
+    The list is slim by design: ``resume_text`` and the other long fields are
+    several KB per row, and the history sidebar discards them. Fetch a single
+    analysis from ``/api/history/<id>/`` when the full text is needed.
+
+    Pass ``?page=`` (optionally with ``?page_size=``) to page through the
+    results and get a ``{count, next, previous, results}`` envelope back.
+    Without those params the response stays a bare array, so an already
+    deployed frontend keeps working.
+    """
+    analyses = (
+        ResumeAnalysis.objects.filter(user=request.user)
+        # Explicit rather than relying on Meta.ordering, so a later .distinct()
+        # or .annotate() elsewhere cannot silently reshuffle the sidebar.
+        .order_by("-created_at", "-id")
+        .only(
+            "id", "share_id", "file_name", "score", "skills_found", "suggestions",
+            "matched_skills", "missing_skills", "target_role", "created_at",
+        )
     )
 
-    serializer = ResumeAnalysisSerializer(
-        analyses,
-        many=True,
+    page_param = request.query_params.get("page")
+    size_param = request.query_params.get("page_size")
+
+    if page_param is None and size_param is None:
+        serializer = ResumeAnalysisListSerializer(analyses, many=True)
+        return Response(serializer.data)
+
+    page_size = _positive_int(size_param, HISTORY_DEFAULT_PAGE_SIZE, HISTORY_MAX_PAGE_SIZE)
+    page_number = _positive_int(page_param, 1)
+
+    total = analyses.count()
+    start = (page_number - 1) * page_size
+    end = start + page_size
+    rows = analyses[start:end]
+
+    def page_url(number):
+        if number is None:
+            return None
+        query = request.query_params.copy()
+        query["page"] = number
+        query["page_size"] = page_size
+        return request.build_absolute_uri(f"{request.path}?{query.urlencode()}")
+
+    serializer = ResumeAnalysisListSerializer(rows, many=True)
+    return Response(
+        {
+            "count": total,
+            "page": page_number,
+            "page_size": page_size,
+            "next": page_url(page_number + 1) if end < total else None,
+            "previous": page_url(page_number - 1) if page_number > 1 and start <= total else None,
+            "results": serializer.data,
+        }
     )
 
-    return Response(serializer.data)
-@api_view(['DELETE'])
+
+@api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_single_history(request, pk):
+def history_detail(request, pk):
+    """Fetch or delete one of the requesting user's analyses.
+
+    ``GET`` returns the full record, including ``resume_text`` — the fields the
+    list endpoint leaves out.
+    """
     try:
         entry = ResumeAnalysis.objects.get(pk=pk, user=request.user)
-        entry.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
     except ResumeAnalysis.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(ResumeAnalysisSerializer(entry).data)
+
+    entry.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+#: Kept so existing imports of the old name keep resolving.
+delete_single_history = history_detail
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def clear_user_history(request):
     ResumeAnalysis.objects.filter(user=request.user).delete()
-    return Response({"message": "All history cleared"}, status=status.HTTP_204_NO_CONTENT)
+    # 204 must not carry a body — the old response sent one, which some proxies
+    # and HTTP clients treat as a protocol error.
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET'])

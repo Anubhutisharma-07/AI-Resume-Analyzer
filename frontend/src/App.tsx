@@ -48,6 +48,50 @@ function highlightSkills(text: string, skills: string[]): React.ReactNode[] {
   )
 }
 
+/** Rows per request from `/api/history/`. */
+const HISTORY_PAGE_SIZE = 20
+
+interface HistoryRow {
+  id: number
+  file_name: string
+  score: number
+  skills_found: string[]
+  suggestions: string[]
+  matched_skills: string[]
+  missing_skills: string[]
+  target_role: string
+  created_at: string
+}
+
+interface HistoryPage {
+  count: number
+  next: string | null
+  results: HistoryRow[]
+}
+
+/** `/api/history/` answers with a bare array, or an envelope when paginated. */
+function historyRowsOf(payload: HistoryRow[] | HistoryPage): HistoryRow[] {
+  return Array.isArray(payload) ? payload : (payload?.results ?? [])
+}
+
+function nextPageUrl(payload: HistoryRow[] | HistoryPage): string | null {
+  return Array.isArray(payload) ? null : (payload?.next ?? null)
+}
+
+function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[] {
+  return historyRowsOf(payload).map((item) => ({
+    id: String(item.id),
+    timestamp: new Date(item.created_at).getTime(),
+    score: item.score,
+    skills: item.skills_found,
+    suggestions: item.suggestions,
+    matchedSkills: item.matched_skills,
+    missingSkills: item.missing_skills,
+    targetRole: item.target_role,
+    fileName: item.file_name,
+  }))
+}
+
 function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
   if (!text) return null
   return (
@@ -91,6 +135,7 @@ function App() {
   // History
   const { entries, deleteEntry, clearHistory, setEntries, unreadCount, lastViewedTimestamp, markAllAsViewed } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
@@ -98,39 +143,38 @@ function App() {
   const fetchDbHistory = useCallback(
     async (token: string) => {
       try {
-        const res = await axios.get(`${backendUrl}/api/history/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const dbEntries: AnalysisEntry[] = res.data.map(
-          (item: {
-            id: number
-            file_name: string
-            score: number
-            skills_found: string[]
-            suggestions: string[]
-            matched_skills: string[]
-            missing_skills: string[]
-            target_role: string
-            created_at: string
-          }) => ({
-            id: String(item.id),
-            timestamp: new Date(item.created_at).getTime(),
-            score: item.score,
-            skills: item.skills_found,
-            suggestions: item.suggestions,
-            matchedSkills: item.matched_skills,
-            missingSkills: item.missing_skills,
-            targetRole: item.target_role,
-            fileName: item.file_name,
-          })
+        const res = await axios.get(
+          `${backendUrl}/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         )
-        setEntries(dbEntries)
+        // The endpoint returns a bare array when asked for no particular page,
+        // and a {count, next, results} envelope otherwise. Handle both so this
+        // keeps working against a backend that has not been updated yet.
+        setEntries(toAnalysisEntries(res.data))
+        setHistoryNextUrl(nextPageUrl(res.data))
       } catch {
         /* silently ignore */
       }
     },
     [backendUrl, setEntries]
   )
+
+  const loadMoreDbHistory = useCallback(async () => {
+    if (!historyNextUrl || !user) return
+    try {
+      const res = await axios.get(historyNextUrl, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      const older = toAnalysisEntries(res.data)
+      setEntries((previous) => {
+        const seen = new Set(previous.map((entry) => entry.id))
+        return [...previous, ...older.filter((entry) => !seen.has(entry.id))]
+      })
+      setHistoryNextUrl(nextPageUrl(res.data))
+    } catch {
+      /* silently ignore */
+    }
+  }, [historyNextUrl, setEntries, user])
 
   useEffect(() => {
     if (user) fetchDbHistory(user.token)
@@ -337,6 +381,8 @@ function App() {
         unreadCount={unreadCount}
         lastViewedTimestamp={lastViewedTimestamp}
         onMarkAllAsViewed={markAllAsViewed}
+        hasMoreOnServer={historyNextUrl !== null}
+        onLoadMoreFromServer={loadMoreDbHistory}
       />
       <div className="container mt-5">
         <div className="main-card text-center">
