@@ -7,6 +7,7 @@ import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHisto
 import { HistorySidebar } from './HistorySidebar'
 import { useAuth } from './hooks/useAuth'
 import { AuthModal } from './AuthModal'
+import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 
@@ -70,6 +71,10 @@ function App() {
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [roastMode, setRoastMode] = useState<boolean>(false)
+  // Server-side id of the current analysis. Only set for signed-in users —
+  // anonymous analyses are not persisted, so there is nothing to attach a vote to.
+  const [analysisId, setAnalysisId] = useState<number | null>(null)
+  const [suggestionVotes, setSuggestionVotes] = useState<Record<string, VoteValue>>({})
 
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
@@ -196,6 +201,8 @@ function App() {
       setMatchedSkills(result.matched_skills || [])
       setMissingSkills(result.missing_skills || [])
       setResumeText(result.resume_text || '')
+      setAnalysisId(typeof result.id === 'number' ? result.id : null)
+      setSuggestionVotes({})
       setActiveFileName(fileToAnalyze.name)
 
       setLoading(false)
@@ -286,10 +293,78 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setAnalysisSource(null)
+    setAnalysisId(null)
+    setSuggestionVotes({})
     setActiveFileName('')
     setRetryCount(0)
     setCooldownRemaining(0)
   }
+
+  const submitSuggestionVote = useCallback(
+    async (suggestion: string, vote: VoteValue | null) => {
+      if (!user || analysisId === null) return
+
+      // Update locally first so the control responds immediately, and roll
+      // back if the request fails — a vote that silently vanishes is exactly
+      // what this endpoint used to do.
+      const previous = suggestionVotes[suggestion] ?? null
+      setSuggestionVotes((current) => {
+        const next = { ...current }
+        if (vote === null) delete next[suggestion]
+        else next[suggestion] = vote
+        return next
+      })
+
+      const config = { headers: { Authorization: `Bearer ${user.token}` } }
+      const payload = { analysis_id: analysisId, suggestion_text: suggestion }
+
+      try {
+        if (vote === null) {
+          await axios.delete(`${backendUrl}/api/suggestion-feedback/`, {
+            ...config,
+            data: payload,
+          })
+        } else {
+          await axios.post(`${backendUrl}/api/suggestion-feedback/`, { ...payload, vote }, config)
+        }
+      } catch {
+        setSuggestionVotes((current) => {
+          const rolledBack = { ...current }
+          if (previous === null) delete rolledBack[suggestion]
+          else rolledBack[suggestion] = previous
+          return rolledBack
+        })
+      }
+    },
+    [analysisId, backendUrl, suggestionVotes, user]
+  )
+
+  // Restore votes already cast against this analysis, so returning to it does
+  // not reset every control to neutral.
+  useEffect(() => {
+    if (!user || analysisId === null) return
+
+    let cancelled = false
+    axios
+      .get(`${backendUrl}/api/suggestion-feedback/?analysis_id=${analysisId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      .then((res) => {
+        if (cancelled) return
+        const stored: Record<string, VoteValue> = {}
+        for (const row of res.data?.results ?? []) {
+          stored[row.suggestion_text] = row.vote
+        }
+        setSuggestionVotes(stored)
+      })
+      .catch(() => {
+        /* votes are a nice-to-have; leave the controls neutral */
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [analysisId, backendUrl, user])
 
   const copySuggestionsToClipboard = () => {
     if (suggestions.length === 0) return
@@ -310,6 +385,10 @@ function App() {
     setMatchedSkills(entry.matchedSkills)
     setMissingSkills(entry.missingSkills)
     setTargetRole(entry.targetRole)
+    // History entries carry a client-side id, not the analysis id, so there is
+    // nothing safe to attach a vote to when one is replayed.
+    setAnalysisId(null)
+    setSuggestionVotes({})
     setActiveFileName(entry.fileName)
     setShowAllSkills(false)
     setCopied(false)
@@ -666,6 +745,13 @@ function App() {
                   return (
                     <div key={i} className="suggestion-item">
                       {roastMode ? '🔥' : '📌'} {displayText}
+                      {user && analysisId !== null && (
+                        <SuggestionVote
+                          suggestion={s}
+                          vote={suggestionVotes[s] ?? null}
+                          onVote={(vote) => submitSuggestionVote(s, vote)}
+                        />
+                      )}
                     </div>
                   )
                 })}

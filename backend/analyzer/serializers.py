@@ -116,3 +116,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A user with this username already exists.")
         return value
 
+
+from .models import SuggestionFeedback
+
+
+class SuggestionFeedbackSerializer(serializers.ModelSerializer):
+    """Read representation of one stored vote."""
+
+    class Meta:
+        model = SuggestionFeedback
+        fields = ("id", "analysis", "suggestion_text", "vote", "comment", "updated_at")
+        read_only_fields = fields
