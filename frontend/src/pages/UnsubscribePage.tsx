@@ -4,18 +4,25 @@ import axios from 'axios'
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
+const MISSING_TOKEN_MESSAGE =
+  'This page needs the unsubscribe link from one of your digest emails. Open the ' +
+  'most recent one and use the link at the bottom, or sign in and turn the digest ' +
+  'off from your profile.'
+
 export const UnsubscribePage: React.FC = () => {
   const [searchParams] = useSearchParams()
-  const emailParam = searchParams.get('email') || ''
-  
-  const [email, setEmail] = useState(emailParam)
+  const tokenParam = searchParams.get('token') || ''
+
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState<string | null>(null)
 
-  const handleUnsubscribe = async (targetEmail: string) => {
-    if (!targetEmail.trim()) {
+  const handleUnsubscribe = async (token: string) => {
+    // The backend identifies the account from the signed token in the link.
+    // An email address typed into this page proves nothing, so it is no
+    // longer sent — and no longer accepted.
+    if (!token) {
       setStatus('error')
-      setMessage('Please enter a valid email address.')
+      setMessage(MISSING_TOKEN_MESSAGE)
       return
     }
 
@@ -23,24 +30,29 @@ export const UnsubscribePage: React.FC = () => {
     setMessage(null)
 
     try {
-      const response = await axios.post(`${BACKEND}/api/unsubscribe/`, {
-        email: targetEmail.trim(),
-      })
+      const response = await axios.post(`${BACKEND}/api/unsubscribe/`, { token })
       setStatus('success')
       setMessage(response.data.message || 'Successfully unsubscribed from weekly resume tips.')
     } catch (err: any) {
       setStatus('error')
       setMessage(
-        err.response?.data?.detail || err.response?.data?.error || 'Failed to unsubscribe. User might not exist or is already unsubscribed.'
+        err.response?.data?.error ||
+          err.response?.data?.detail ||
+          'We could not process that unsubscribe link. Please try the link in your most recent digest email.'
       )
     }
   }
 
   useEffect(() => {
-    if (emailParam) {
-      handleUnsubscribe(emailParam)
+    if (tokenParam) {
+      handleUnsubscribe(tokenParam)
+    } else {
+      // Older digest emails linked here with ?email=..., which the backend no
+      // longer honours. Explain what to do instead of silently doing nothing.
+      setStatus('error')
+      setMessage(MISSING_TOKEN_MESSAGE)
     }
-  }, [emailParam])
+  }, [tokenParam])
 
   return (
     <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
@@ -88,39 +100,25 @@ export const UnsubscribePage: React.FC = () => {
           </div>
         )}
 
-        {status !== 'success' && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleUnsubscribe(email)
-            }}
-            style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}
+        {status === 'error' && tokenParam && (
+          <button
+            type="button"
+            className="app-btn app-btn--primary"
+            onClick={() => handleUnsubscribe(tokenParam)}
+            style={{ width: '100%', marginBottom: '20px' }}
           >
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={status === 'loading'}
-              style={{
-                padding: '10px 14px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--control-border)',
-                background: 'var(--control-bg)',
-                color: 'var(--control-text)',
-                fontSize: '0.95rem',
-                outline: 'none'
-              }}
-            />
-            <button
-              type="submit"
-              className="app-btn app-btn--primary"
-              disabled={status === 'loading'}
-              style={{ width: '100%' }}
-            >
-              Unsubscribe Me
-            </button>
-          </form>
+            Try Again
+          </button>
+        )}
+
+        {status === 'error' && !tokenParam && (
+          <Link
+            to="/#profile"
+            className="app-btn app-btn--primary"
+            style={{ display: 'block', width: '100%', marginBottom: '20px', textDecoration: 'none' }}
+          >
+            Manage Preferences in My Profile
+          </Link>
         )}
 
         <div style={{ marginTop: '20px' }}>
