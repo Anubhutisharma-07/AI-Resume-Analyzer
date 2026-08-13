@@ -1031,41 +1031,68 @@ def contact_us_view(request):
     )
 
 
+from .unsubscribe_tokens import read_unsubscribe_token
+
+UNSUBSCRIBE_SUCCESS_MESSAGE = (
+    "You have successfully unsubscribed from the weekly resume-tips email digest."
+)
+
+UNSUBSCRIBE_MISSING_TOKEN_MESSAGE = (
+    "This unsubscribe link is missing its token. Please use the link from your "
+    "most recent digest email, or sign in and turn the digest off from your profile."
+)
+
+UNSUBSCRIBE_INVALID_TOKEN_MESSAGE = (
+    "This unsubscribe link is no longer valid — it may have expired. Please use "
+    "the link from your most recent digest email, or sign in and turn the digest "
+    "off from your profile."
+)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([AllowAny])
 def unsubscribe_digest_view(request):
-    email = request.query_params.get("email") or request.data.get("email")
-    username = request.query_params.get("username") or request.data.get("username")
+    """Turn off the weekly digest for the account a signed token identifies.
 
-    if not email and not username:
+    The endpoint used to act on a bare email address, so anyone could
+    unsubscribe anyone, and its 404-vs-200 responses revealed which addresses
+    were registered. It now requires either a signed token from a digest email
+    or an authenticated session, and the response no longer depends on whether
+    a given account exists.
+    """
+    token = request.query_params.get("token") or request.data.get("token")
+
+    if token:
+        user = read_unsubscribe_token(token)
+        if user is None:
+            return Response(
+                {"error": UNSUBSCRIBE_INVALID_TOKEN_MESSAGE},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif request.user.is_authenticated:
+        user = request.user
+    else:
+        # No token and no session. Whatever the caller typed — an email, a
+        # username — is unverified, so nothing is looked up and the answer is
+        # the same whether or not that account exists.
         return Response(
-            {"error": "Please provide your email address or username to unsubscribe."},
+            {"error": UNSUBSCRIBE_MISSING_TOKEN_MESSAGE},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    users = User.objects.all()
-    if email:
-        users = users.filter(email__iexact=email.strip())
-    elif username:
-        users = users.filter(username__iexact=username.strip())
-
-    if not users.exists():
-        return Response(
-            {"detail": "User not found or already unsubscribed."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    updated_count = 0
-    for u in users:
-        profile, _ = UserProfile.objects.get_or_create(user=u)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    already_unsubscribed = not profile.weekly_digest_opt_in
+    if not already_unsubscribed:
         profile.weekly_digest_opt_in = False
-        profile.save()
-        updated_count += 1
+        profile.save(update_fields=["weekly_digest_opt_in"])
 
     return Response(
         {
-            "message": "You have successfully unsubscribed from the weekly resume-tips email digest.",
-            "unsubscribed_count": updated_count,
+            "message": UNSUBSCRIBE_SUCCESS_MESSAGE,
+            # Kept for the existing frontend. Unsubscribing twice is a no-op
+            # rather than an error, so a repeated click still reads as success.
+            "unsubscribed_count": 0 if already_unsubscribed else 1,
+            "already_unsubscribed": already_unsubscribed,
         },
         status=status.HTTP_200_OK,
     )

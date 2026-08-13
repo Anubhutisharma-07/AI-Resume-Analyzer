@@ -752,11 +752,15 @@ class WeeklyDigestTests(TestCase):
 
     def test_unsubscribe_endpoint(self):
         from rest_framework import status
+        from analyzer.unsubscribe_tokens import make_unsubscribe_token
+
         self.profile.weekly_digest_opt_in = True
         self.profile.save()
 
-        # Call unsubscribe via GET with email param
-        resp = self.client.get("/api/unsubscribe/?email=digest@example.com")
+        # Unsubscribe with the signed token that digest emails now carry. A
+        # bare ?email= param no longer works — see tests_unsubscribe.py.
+        token = make_unsubscribe_token(self.user)
+        resp = self.client.get(f"/api/unsubscribe/?token={token}")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["unsubscribed_count"], 1)
 

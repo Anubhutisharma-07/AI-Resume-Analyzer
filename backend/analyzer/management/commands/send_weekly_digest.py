@@ -4,6 +4,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.models import User
 from analyzer.models import ResumeAnalysis
+from analyzer.unsubscribe_tokens import build_unsubscribe_url
 
 RESUME_TIPS_CATALOG = [
     {
@@ -40,7 +41,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        dry_run = options.get("dry-run", False)
+        # argparse stores --dry-run under "dry_run"; the old "dry-run" lookup
+        # was always None, so --dry-run sent real email.
+        dry_run = options.get("dry_run", False)
         opted_in_users = User.objects.filter(profile__weekly_digest_opt_in=True)
 
         count = 0
@@ -64,8 +67,9 @@ class Command(BaseCommand):
                 nudge = f"💡 Nudge: Your current ATS score is {recent_score}%. Incorporate missing skills from target job descriptions to hit 80%+!"
 
             tip_item = random.choice(RESUME_TIPS_CATALOG)
-            frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
-            unsubscribe_link = f"{frontend_url}/unsubscribe?email={user.email}"
+            # Signed, expiring token instead of a bare email address, so a link
+            # only unsubscribes the account it was issued for.
+            unsubscribe_link = build_unsubscribe_url(user)
 
             subject = "Your Weekly Resume Tips & Insights Digest"
             body = (
