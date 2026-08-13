@@ -10,6 +10,7 @@ import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 
 type Theme = 'light' | 'dark'
 
@@ -68,6 +69,7 @@ function App() {
   const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [roastMode, setRoastMode] = useState<boolean>(false)
@@ -196,6 +198,7 @@ function App() {
       }
 
       setScore(result.score)
+      setScoreBreakdown(result.score_breakdown || null)
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
@@ -285,6 +288,7 @@ function App() {
   const resetAnalysis = () => {
     setFile(null)
     setScore(null)
+    setScoreBreakdown(null)
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
@@ -380,6 +384,8 @@ function App() {
 
   const selectHistoryEntry = (entry: AnalysisEntry) => {
     setScore(entry.score)
+    // History entries predate the breakdown and do not carry one.
+    setScoreBreakdown(null)
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
@@ -602,6 +608,8 @@ function App() {
               )}
 
               <AtsScore score={score} />
+
+              <ScoreBreakdown breakdown={scoreBreakdown} />
 
               <ResumePreview text={resumeText} skills={skills} />
 
