@@ -69,49 +69,35 @@ def verify_captcha_token(token_string):
     return False
 
 
-MAX_UPLOAD_SIZE = getattr(settings, "MAX_UPLOAD_SIZE_BYTES", 5 * 1024 * 1024)  # 5MB
+from .file_validation import (
+    PDF,
+    RESUME_FORMATS,
+    detect_format,
+    get_max_upload_size,
+    validate_optional_upload,
+    validate_upload,
+)
+
+MAX_UPLOAD_SIZE = get_max_upload_size()
+
 
 def is_pdf_file(f):
-    """Return True if uploaded file looks like a PDF (content-type or magic bytes)."""
-    try:
-        content_type = getattr(f, "content_type", "")
-        if content_type == "application/pdf":
-            return True
-        # Try reading magic bytes; preserve file position if possible
-        try:
-            pos = f.tell()
-        except Exception:
-            pos = None
-        try:
-            header = f.read(4)
-        except Exception:
-            header = b''
-        try:
-            if pos is not None:
-                f.seek(pos)
-            else:
-                f.seek(0)
-        except Exception:
-            pass
-        return isinstance(header, (bytes, bytearray)) and header.startswith(b"%PDF")
-    except Exception:
-        return False
+    """Return True if the uploaded file really is a PDF.
+
+    Kept as a thin wrapper so callers outside this module keep working; the
+    format table now lives in :mod:`analyzer.file_validation`.
+    """
+    return detect_format(f, formats=(PDF,)) is not None
 
 
-def validate_uploaded_file(f, allowed_exts=(".pdf",)):
-    """Validate uploaded file: non-empty, within size limit, allowed extension, and PDF magic bytes."""
-    if not f:
-        raise ValueError("No file uploaded")
-    size = getattr(f, "size", 0)
-    if size == 0:
-        raise ValueError("Uploaded file is empty")
-    if size > MAX_UPLOAD_SIZE:
-        raise ValueError(f"File exceeds maximum allowed size of {MAX_UPLOAD_SIZE // (1024*1024)}MB")
-    name = getattr(f, "name", "")
-    if not any(name.lower().endswith(ext) for ext in allowed_exts):
-        raise ValueError("Only PDF files are allowed")
-    if not is_pdf_file(f):
-        raise ValueError("Uploaded file is not a valid PDF")
+def validate_uploaded_file(f, formats=RESUME_FORMATS, field_label="resume"):
+    """Validate an uploaded resume (or cover letter).
+
+    Accepts every format the parser can read — PDF, DOCX and TXT — and checks
+    size, extension and file signature. Raises ``UploadValidationError`` (a
+    ``ValueError``) with a message that can be shown to the user.
+    """
+    validate_upload(f, formats=formats, field_label=field_label)
     return True
 
 
@@ -148,12 +134,17 @@ def upload_resume(request):
     target_role = request.data.get("role", "")
     job_desc = request.data.get("job_description", "")[:2000]
 
-    # Server-side validation for direct uploads (always enforce on backend)
-    if file and not url:
-        try:
-            validate_uploaded_file(file)
-        except ValueError as ve:
-            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+    cover_letter = request.FILES.get("cover_letter")
+
+    # Server-side validation for direct uploads (always enforce on backend).
+    # The cover letter goes through the same checks — it used to be written to
+    # disk unvalidated, so the size ceiling did not apply to it.
+    try:
+        if file and not url:
+            validate_upload(file, field_label="resume")
+        validate_optional_upload(cover_letter, field_label="cover letter")
+    except ValueError as ve:
+        return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     if not file and not url:
         return Response(
@@ -179,7 +170,6 @@ def upload_resume(request):
             saved_name = storage.save(unique_name, file)
             file_path = storage.path(saved_name)
 
-        cover_letter = request.FILES.get("cover_letter")
         cover_letter_path = None
         cover_letter_name = None
         if cover_letter:
@@ -240,6 +230,12 @@ def compare_uploads(request):
 
     if not file1 or not file2:
         return Response({"error": "Please provide two resume files."}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        validate_upload(file1, field_label="first resume")
+        validate_upload(file2, field_label="second resume")
+    except ValueError as ve:
+        return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     def process_file(f):
         temp_dir = os.path.join(settings.BASE_DIR, "tmp")
@@ -839,15 +835,16 @@ def profile_avatar_view(request):
         file_obj = request.FILES.get("avatar")
         if not file_obj:
             return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         ext = os.path.splitext(file_obj.name)[1].lower()
         if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
             return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         max_size = 2 * 1024 * 1024
         if file_obj.size > max_size:
             return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+
         if profile.avatar:
             try:
                 if os.path.exists(profile.avatar.path):
@@ -902,6 +899,12 @@ def compare_bulk_jds_view(request):
             {"error": "Please provide a resume file or shareable link."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    if file and not url:
+        try:
+            validate_upload(file, field_label="resume")
+        except ValueError as ve:
+            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     # limit up to 5 JDs
     job_descriptions = [jd.strip() for jd in job_descriptions if jd and jd.strip()][:5]
