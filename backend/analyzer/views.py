@@ -367,23 +367,99 @@ def compare_versions_view(request):
     return Response(serializer.data)
 
 
-@api_view(["POST"])
+from .models import SuggestionFeedback
+from .serializers import SuggestionFeedbackSerializer
+
+#: Keeps a stray paste from filling the column.
+MAX_FEEDBACK_COMMENT_LENGTH = 2000
+
+
+def _owned_analysis(request, analysis_id):
+    """Return the caller's analysis with this id, or ``None``."""
+    if analysis_id in (None, ""):
+        return None
+    try:
+        return ResumeAnalysis.objects.get(pk=analysis_id, user=request.user)
+    except (ResumeAnalysis.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+@api_view(["GET", "POST", "DELETE"])
 @permission_classes([IsAuthenticated])
 def suggestion_feedback(request):
-    """
-    Handle upvote/downvote or comments on a specific suggestion.
-    In a real app, you'd store this in a SuggestionFeedback model.
-    """
-    analysis_id = request.data.get("analysis_id")
-    suggestion_text = request.data.get("suggestion_text")
-    vote = request.data.get("vote")  # 'up' or 'down'
+    """Record, read back or withdraw a vote on a generated suggestion.
 
-    if not analysis_id or not suggestion_text or not vote:
+    This endpoint used to validate its input, answer "Feedback recorded
+    successfully" and discard everything — there was no model behind it.
+
+    ``GET  ?analysis_id=`` returns the caller's votes for that analysis, so the
+    UI can restore its state after a reload.
+    ``POST`` upserts one vote; voting again replaces the previous value.
+    ``DELETE`` withdraws a vote.
+    """
+    if request.method == "GET":
+        analysis = _owned_analysis(request, request.query_params.get("analysis_id"))
+        if analysis is None:
+            return Response(
+                {"detail": "Analysis not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        feedback = SuggestionFeedback.objects.filter(user=request.user, analysis=analysis)
+        return Response({"results": SuggestionFeedbackSerializer(feedback, many=True).data})
+
+    analysis_id = request.data.get("analysis_id")
+    suggestion_text = (request.data.get("suggestion_text") or "").strip()
+
+    if not analysis_id or not suggestion_text:
         return Response(
-            {"detail": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST
+            {"detail": "analysis_id and suggestion_text are required."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({"detail": "Feedback recorded successfully."})
+    # Ownership is checked before anything is written: the endpoint used to
+    # accept feedback against any id, including ids that did not exist.
+    analysis = _owned_analysis(request, analysis_id)
+    if analysis is None:
+        return Response(
+            {"detail": "Analysis not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    lookup = {
+        "user": request.user,
+        "analysis": analysis,
+        "suggestion_hash": SuggestionFeedback.hash_suggestion(suggestion_text),
+    }
+
+    if request.method == "DELETE":
+        deleted, _ = SuggestionFeedback.objects.filter(**lookup).delete()
+        return Response(
+            {"detail": "Feedback withdrawn.", "removed": bool(deleted)},
+            status=status.HTTP_200_OK,
+        )
+
+    vote = request.data.get("vote")
+    valid_votes = [choice for choice, _ in SuggestionFeedback.VOTE_CHOICES]
+    if vote not in valid_votes:
+        return Response(
+            {"detail": f"vote must be one of: {', '.join(valid_votes)}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    comment = (request.data.get("comment") or "").strip()[:MAX_FEEDBACK_COMMENT_LENGTH]
+
+    feedback, created = SuggestionFeedback.objects.update_or_create(
+        defaults={"vote": vote, "comment": comment, "suggestion_text": suggestion_text},
+        **lookup,
+    )
+
+    return Response(
+        {
+            "detail": "Feedback recorded successfully.",
+            "created": created,
+            "feedback": SuggestionFeedbackSerializer(feedback).data,
+        },
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
