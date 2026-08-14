@@ -623,37 +623,115 @@ def export_user_data(request):
 
 User = get_user_model()
 
+import logging
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.throttling import AnonRateThrottle
+
+logger = logging.getLogger(__name__)
+
+#: Same answer whether or not the username exists, so this endpoint cannot be
+#: used to find out which accounts are registered.
+PASSWORD_RESET_REQUESTED_MESSAGE = (
+    "If an account with that username exists and has an email address on file, "
+    "a password reset link has been sent to it."
+)
+
+
+class PasswordResetRequestThrottle(AnonRateThrottle):
+    """Caps reset requests so the endpoint cannot be used to spray email."""
+
+    scope = "password_reset"
+
+
+class PasswordResetConfirmThrottle(AnonRateThrottle):
+    """Caps confirm attempts so reset tokens cannot be guessed at speed."""
+
+    scope = "password_reset_confirm"
+
+
+def build_password_reset_link(user):
+    """Return the URL that goes into the reset email.
+
+    Built from ``settings.FRONTEND_URL`` rather than a hardcoded host — the
+    link used to point at ``http://localhost:5173`` no matter where the backend
+    was deployed. The setting already exists and the weekly digest uses it.
+    """
+    base = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    return f"{base}/reset-password/{uid}/{token}/"
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
-    
+    throttle_classes = [PasswordResetRequestThrottle]
+
     def post(self, request):
-        username = request.data.get('username')
-        
-        user = User.objects.filter(username=username).first()
-        if user:
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            token = default_token_generator.make_token(user)
-            
-            frontend_url = "http://localhost:5173" 
-            reset_link = f"{frontend_url}/reset-password/{uid}/{token}/"
-            
-            print("\n" + "="*50)
-            print(f"PASSWORD RESET LINK FOR USERNAME: {user.username}")
-            print(reset_link)
-            print("="*50 + "\n")
-            
+        """Email a reset link to the account, if there is one to email.
+
+        This used to ``print()`` the link to the server console and never call
+        ``send_mail`` at all, so on any deployed instance the link went to a log
+        file the user could not read — nobody could complete a reset.
+        """
+        username = (request.data.get("username") or "").strip()
+
+        user = User.objects.filter(username=username).first() if username else None
+
+        if user is not None and user.email:
+            reset_link = build_password_reset_link(user)
+            send_mail(
+                subject="Reset your AI Resume Analyzer password",
+                message=(
+                    f"Hello {user.username},\n\n"
+                    "We received a request to reset your password. Open the link "
+                    "below to choose a new one:\n\n"
+                    f"{reset_link}\n\n"
+                    "If you did not ask for this, you can ignore this email — "
+                    "your password will not change.\n"
+                ),
+                from_email=getattr(
+                    settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"
+                ),
+                recipient_list=[user.email],
+                # Not silent: a mail backend that is down should be visible in
+                # the logs rather than looking like a delivered reset.
+                fail_silently=False,
+            )
+        elif user is not None:
+            # Signup only collects a username and a password, so plenty of
+            # accounts have no address to send to. Logged rather than reported,
+            # because telling the caller would confirm the account exists.
+            logger.info(
+                "Password reset requested for user %s, which has no email address.",
+                user.pk,
+            )
+
+        # Identical response in all three cases — sent, no address, no such user.
         return Response(
-            {"message": "If an account exists, a reset link has been generated in the console."}, 
-            status=status.HTTP_200_OK
+            {"message": PASSWORD_RESET_REQUESTED_MESSAGE},
+            status=status.HTTP_200_OK,
         )
+
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
-    
+    throttle_classes = [PasswordResetConfirmThrottle]
+
     def post(self, request):
-        uidb64 = request.data.get('uid')
-        token = request.data.get('token')
-        new_password = request.data.get('new_password')
+        """Set a new password, given a valid reset token.
+
+        The new password is now checked against ``AUTH_PASSWORD_VALIDATORS``.
+        It previously went straight into ``set_password()``, which does not
+        validate — so ``"1"`` and ``"password"`` were both accepted, and
+        omitting the field entirely called ``set_password(None)``. That marks
+        the password unusable, which locked the account out permanently while
+        answering "Password has been reset successfully."
+        """
+        uidb64 = request.data.get("uid")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
 
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
@@ -661,18 +739,35 @@ class PasswordResetConfirmView(APIView):
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
 
-        if user is not None and default_token_generator.check_token(user, token):
-            user.set_password(new_password)
-            user.save()
+        # The token is checked before the password so an invalid link cannot be
+        # used to probe the password policy.
+        if user is None or not default_token_generator.check_token(user, token):
             return Response(
-                {"message": "Password has been reset successfully."}, 
-                status=status.HTTP_200_OK
+                {"error": "Invalid or expired token."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        else:
+
+        if not isinstance(new_password, str) or not new_password:
             return Response(
-                {"error": "Invalid or expired token."}, 
-                status=status.HTTP_400_BAD_REQUEST
+                {"new_password": ["This field is required."]},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as exc:
+            return Response(
+                {"new_password": list(exc.messages)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Password has been reset successfully."},
+            status=status.HTTP_200_OK,
+        )
 
 from collections import Counter
 

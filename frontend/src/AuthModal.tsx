@@ -46,7 +46,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
         await onLogin(username, password, rememberMe, captchaToken)
         onClose()
       } else if (mode === 'forgot_password') {
-        await axios.post('http://localhost:8000/api/password-reset/', { username: username })
+        // Was hardcoded to http://localhost:8000, so "forgot password" only
+        // ever worked on a developer's own machine.
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+        await axios.post(`${backendUrl}/api/password-reset/`, { username })
         onClose()
       }
     } catch (err: unknown) {
