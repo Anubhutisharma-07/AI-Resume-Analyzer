@@ -11,6 +11,7 @@ import {
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { useAuth } from './hooks/useAuth'
+import { api } from './api/client'
 import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
@@ -155,30 +156,34 @@ function App() {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   const fetchDbHistory = useCallback(
-    async (token: string) => {
+    async () => {
       try {
-        const res = await axios.get(
-          `${backendUrl}/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        )
+        // Via `api`: it attaches the current access token and, on a 401,
+        // refreshes and retries. This call used to pass a token that had
+        // usually expired, and then swallow the 401 -- so the sidebar just
+        // silently stopped updating with no clue as to why.
+        const res = await api.get(`/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`)
         // The endpoint returns a bare array when asked for no particular page,
         // and a {count, next, results} envelope otherwise. Handle both so this
         // keeps working against a backend that has not been updated yet.
         setEntries(toAnalysisEntries(res.data))
         setHistoryNextUrl(nextPageUrl(res.data))
-      } catch {
-        /* silently ignore */
+      } catch (error) {
+        // A 401 that survives the refresh means the session is genuinely gone;
+        // useAuth surfaces that separately. Anything else is worth seeing in
+        // the console rather than vanishing.
+        if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+          console.error('Could not load analysis history', error)
+        }
       }
     },
-    [backendUrl, setEntries]
+    [setEntries]
   )
 
   const loadMoreDbHistory = useCallback(async () => {
     if (!historyNextUrl || !user) return
     try {
-      const res = await axios.get(historyNextUrl, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      })
+      const res = await api.get(historyNextUrl)
       const older = toAnalysisEntries(res.data)
       setEntries((previous) => {
         const seen = new Set(previous.map((entry) => entry.id))
@@ -191,7 +196,7 @@ function App() {
   }, [historyNextUrl, setEntries, user])
 
   useEffect(() => {
-    if (user) fetchDbHistory(user.token)
+    if (user) fetchDbHistory()
   }, [user, fetchDbHistory])
 
   useEffect(() => {
@@ -267,7 +272,7 @@ function App() {
       setCooldownRemaining(0)
 
       if (user) {
-        await fetchDbHistory(user.token)
+        await fetchDbHistory()
       }
     } catch (error: unknown) {
       console.error(error)
