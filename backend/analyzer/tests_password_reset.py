@@ -19,6 +19,7 @@ from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from analyzer.serializers import SignupSerializer
 from analyzer.views import (
     PASSWORD_RESET_REQUESTED_MESSAGE,
     PasswordResetRequestThrottle,
@@ -258,47 +259,53 @@ class PasswordResetConfirmTests(TestCase):
 
 
 class SignupPasswordPolicyTests(TestCase):
-    """Signup and reset must agree on what a valid password is."""
+    """Signup and reset must agree on what a valid password is.
 
-    def setUp(self):
-        cache.clear()
-        self.client = APIClient()
+    Exercises SignupSerializer directly rather than POSTing to /api/auth/signup/.
+    The endpoint also gates on a CAPTCHA, which is a separate concern with its
+    own tests; going through it would make these fail for the wrong reason the
+    moment that check changes, and would obscure which rule actually rejected
+    the password.
+    """
 
-    def _signup(self, password):
-        return self.client.post(
-            "/api/auth/signup/",
-            {
-                "username": "brandnew",
-                "password": password,
-                # The CAPTCHA is a separate concern; this is what the current
-                # check on main accepts.
-                "captcha_token": "CAP-VERIFIED-1699999999999-abc12345",
-            },
-            format="json",
-        )
+    def _errors_for(self, password, username="brandnew"):
+        serializer = SignupSerializer(data={"username": username, "password": password})
+        is_valid = serializer.is_valid()
+        return is_valid, serializer.errors
 
     def test_accepts_a_strong_password(self):
-        resp = self._signup(GOOD_PASSWORD)
+        is_valid, errors = self._errors_for(GOOD_PASSWORD)
 
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(User.objects.filter(username="brandnew").exists())
+        self.assertTrue(is_valid, errors)
 
     def test_rejects_a_common_password(self):
         """`password123` passed the old min_length=6 check."""
-        resp = self._signup("password123")
+        is_valid, errors = self._errors_for("password123")
 
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("password", resp.data)
-        self.assertFalse(User.objects.filter(username="brandnew").exists())
+        self.assertFalse(is_valid)
+        self.assertIn("password", errors)
 
     def test_rejects_an_all_numeric_password(self):
-        resp = self._signup("29384756102")
+        is_valid, errors = self._errors_for("29384756102")
 
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(User.objects.filter(username="brandnew").exists())
+        self.assertFalse(is_valid)
+        self.assertIn("password", errors)
 
     def test_rejects_a_password_similar_to_the_username(self):
-        resp = self._signup("brandnew1")
+        is_valid, errors = self._errors_for("brandnew1", username="brandnew")
 
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(User.objects.filter(username="brandnew").exists())
+        self.assertFalse(is_valid)
+        self.assertIn("password", errors)
+
+    def test_rejects_a_short_password(self):
+        is_valid, errors = self._errors_for("ab3!x")
+
+        self.assertFalse(is_valid)
+        self.assertIn("password", errors)
+
+    def test_a_valid_password_actually_creates_the_user(self):
+        serializer = SignupSerializer(data={"username": "brandnew", "password": GOOD_PASSWORD})
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        self.assertTrue(User.objects.filter(username="brandnew").exists())
