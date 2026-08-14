@@ -34,17 +34,28 @@ import {
   pollAnalysisTask,
 } from './utils/pollAnalysisTask'
 
-/** The subset of the analysis payload this screen reads. */
+/**
+ * The subset of the analysis payload this screen reads.
+ *
+ * Not the full response — the point is that every field `runAnalysis` pulls
+ * off the result is declared, so adding a `setX(result.y)` line for an
+ * undeclared `y` is a compile error rather than an `undefined` at runtime.
+ * `timeline` and `partial_skills` landed on `main` while this branch was open
+ * and were caught exactly that way on the rebase.
+ */
 interface AnalysisResult {
   id?: number
   score: number
   score_breakdown?: ScoreBreakdownData | null
   formatting_checks?: FormattingChecksData | null
+  timeline?: TimelineData | null
   skills_found?: string[]
   suggestions?: string[]
   matched_skills?: string[]
+  partial_skills?: PartialSkillItem[]
   missing_skills?: string[]
   resume_text?: string
+  interview_questions?: string[]
 }
 
 type Theme = 'light' | 'dark'
