@@ -44,6 +44,20 @@ class UserProfile(models.Model):
         return f"{self.user.username}'s Profile"
 
 
+# ==========================================
+# NEW WEBHOOK MODEL ADDED HERE
+# ==========================================
+class Webhook(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="webhooks")
+    url = models.URLField(max_length=500)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.url}"
+# ==========================================
+
+
 class SuggestionFeedback(models.Model):
     """A user's up/down vote on one suggestion from one of their analyses.
 
