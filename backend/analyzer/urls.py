@@ -10,7 +10,7 @@ from .views import (
     compare_uploads,
     signup,
     analysis_history,
-    delete_single_history,
+    history_detail,
     clear_user_history,
     compare_versions_view,
     suggestion_feedback,
@@ -26,6 +26,7 @@ from .views import (
     unsubscribe_digest_view,
     task_status,
     mock_interview_view,
+    export_user_data,
 )
 
 urlpatterns = [
@@ -39,6 +40,7 @@ urlpatterns = [
     path("contact/", contact_us_view),
     path("skills-leaderboard/", skills_leaderboard_view),
     path("unsubscribe/", unsubscribe_digest_view),
+    path("account/export/", export_user_data, name="export_user_data"),
 
     path("auth/signup/", signup),
     path("auth/login/", CustomTokenObtainPairView.as_view()),
@@ -46,7 +48,7 @@ urlpatterns = [
 
     path("history/", analysis_history),
     path("history/clear/", clear_user_history),
-    path("history/<int:pk>/", delete_single_history),
+    path("history/<int:pk>/", history_detail),
 
     path("compare/", compare_versions_view),
     path("suggestion-feedback/", suggestion_feedback),
@@ -54,4 +56,5 @@ urlpatterns = [
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path("admin/stats/", admin_stats_view, name="admin_stats"),
+
 ]

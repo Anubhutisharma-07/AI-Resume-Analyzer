@@ -168,7 +168,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from analyzer.comparison import compare_versions
-from analyzer.models import ResumeAnalysis
+from analyzer.models import ResumeAnalysis, UserProfile
 
 
 def _make_analysis(user, **overrides):
@@ -752,11 +752,15 @@ class WeeklyDigestTests(TestCase):
 
     def test_unsubscribe_endpoint(self):
         from rest_framework import status
+        from analyzer.unsubscribe_tokens import make_unsubscribe_token
+
         self.profile.weekly_digest_opt_in = True
         self.profile.save()
 
-        # Call unsubscribe via GET with email param
-        resp = self.client.get("/api/unsubscribe/?email=digest@example.com")
+        # Unsubscribe with the signed token that digest emails now carry. A
+        # bare ?email= param no longer works — see tests_unsubscribe.py.
+        token = make_unsubscribe_token(self.user)
+        resp = self.client.get(f"/api/unsubscribe/?token={token}")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["unsubscribed_count"], 1)
 
@@ -780,3 +784,113 @@ class WeeklyDigestTests(TestCase):
         self.assertTrue(self.profile.weekly_digest_opt_in)
 
 
+class ExportUserDataTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="exportuser",
+            password="password123",
+            email="export@example.com",
+            first_name="Export",
+            last_name="User",
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            password="password123",
+            email="other@example.com",
+        )
+
+        self.profile, _ = UserProfile.objects.get_or_create(user=self.user)
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+    def test_export_requires_authentication(self):
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_export_returns_user_account_and_analysis_history(self):
+        analysis = _make_analysis(
+            self.user,
+            file_name="my_resume.pdf",
+            score=85,
+            target_role="Backend Developer",
+            resume_text="Python Django developer",
+            job_description="Looking for a Python developer",
+            cover_letter_text="I am excited to apply.",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/json",
+        )
+        self.assertIn(
+            'attachment; filename="ai-resume-analyzer-data.json"',
+            response["Content-Disposition"],
+        )
+
+        data = response.json()
+
+        self.assertEqual(data["export_version"], 1)
+        self.assertIn("exported_at", data)
+
+        self.assertEqual(data["account"]["username"], "exportuser")
+        self.assertEqual(data["account"]["email"], "export@example.com")
+        self.assertEqual(data["account"]["first_name"], "Export")
+        self.assertEqual(data["account"]["last_name"], "User")
+        self.assertTrue(data["account"]["weekly_digest_opt_in"])
+        self.assertIsNone(data["account"]["avatar"])
+
+        self.assertEqual(len(data["analysis_history"]), 1)
+
+        exported_analysis = data["analysis_history"][0]
+
+        self.assertEqual(exported_analysis["id"], analysis.id)
+        self.assertEqual(exported_analysis["file_name"], "my_resume.pdf")
+        self.assertEqual(exported_analysis["score"], 85)
+        self.assertEqual(
+            exported_analysis["target_role"],
+            "Backend Developer",
+        )
+        self.assertEqual(
+            exported_analysis["resume_text"],
+            "Python Django developer",
+        )
+        self.assertEqual(
+            exported_analysis["job_description"],
+            "Looking for a Python developer",
+        )
+        self.assertEqual(
+            exported_analysis["cover_letter_text"],
+            "I am excited to apply.",
+        )
+
+    def test_export_does_not_include_other_users_analysis(self):
+        own_analysis = _make_analysis(
+            self.user,
+            file_name="my_resume.pdf",
+        )
+        foreign_analysis = _make_analysis(
+            self.other_user,
+            file_name="other_resume.pdf",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        exported_ids = {
+            analysis["id"]
+            for analysis in data["analysis_history"]
+        }
+
+        self.assertIn(own_analysis.id, exported_ids)
+        self.assertNotIn(foreign_analysis.id, exported_ids)

@@ -47,11 +47,28 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class ResumeAnalysisSerializer(serializers.ModelSerializer):
+    """Full record, including the extracted text. Used for a single analysis."""
+
     class Meta:
         model = ResumeAnalysis
         fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
                   "matched_skills", "missing_skills", "target_role", "created_at", "resume_text",
                   "cover_letter_text", "cover_letter_feedback", "interview_questions")
+
+
+class ResumeAnalysisListSerializer(serializers.ModelSerializer):
+    """Slim record for history listings.
+
+    Drops ``resume_text``, ``cover_letter_text``, ``cover_letter_feedback`` and
+    ``interview_questions`` — several KB per row that the history sidebar
+    fetches and immediately discards. Fetch a single analysis from
+    ``/api/history/<id>/`` when the full text is actually needed.
+    """
+
+    class Meta:
+        model = ResumeAnalysis
+        fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
+                  "matched_skills", "missing_skills", "target_role", "created_at")
 
 
 class VersionComparisonSerializer(serializers.Serializer):
@@ -116,3 +133,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A user with this username already exists.")
         return value
 
+
+from .models import SuggestionFeedback
+
+
+class SuggestionFeedbackSerializer(serializers.ModelSerializer):
+    """Read representation of one stored vote."""
+
+    class Meta:
+        model = SuggestionFeedback
+        fields = ("id", "analysis", "suggestion_text", "vote", "comment", "updated_at")
+        read_only_fields = fields

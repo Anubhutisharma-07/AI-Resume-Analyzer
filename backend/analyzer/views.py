@@ -36,6 +36,9 @@ from celery.result import AsyncResult
 from .skill_matcher import extract_skills
 from .url_fetcher import download_and_validate_url
 from django.shortcuts import get_object_or_404
+import json
+from django.http import HttpResponse
+from django.utils import timezone
 
 
 class UploadRateThrottle(SimpleRateThrottle):
@@ -66,49 +69,35 @@ def verify_captcha_token(token_string):
     return False
 
 
-MAX_UPLOAD_SIZE = getattr(settings, "MAX_UPLOAD_SIZE_BYTES", 5 * 1024 * 1024)  # 5MB
+from .file_validation import (
+    PDF,
+    RESUME_FORMATS,
+    detect_format,
+    get_max_upload_size,
+    validate_optional_upload,
+    validate_upload,
+)
+
+MAX_UPLOAD_SIZE = get_max_upload_size()
+
 
 def is_pdf_file(f):
-    """Return True if uploaded file looks like a PDF (content-type or magic bytes)."""
-    try:
-        content_type = getattr(f, "content_type", "")
-        if content_type == "application/pdf":
-            return True
-        # Try reading magic bytes; preserve file position if possible
-        try:
-            pos = f.tell()
-        except Exception:
-            pos = None
-        try:
-            header = f.read(4)
-        except Exception:
-            header = b''
-        try:
-            if pos is not None:
-                f.seek(pos)
-            else:
-                f.seek(0)
-        except Exception:
-            pass
-        return isinstance(header, (bytes, bytearray)) and header.startswith(b"%PDF")
-    except Exception:
-        return False
+    """Return True if the uploaded file really is a PDF.
+
+    Kept as a thin wrapper so callers outside this module keep working; the
+    format table now lives in :mod:`analyzer.file_validation`.
+    """
+    return detect_format(f, formats=(PDF,)) is not None
 
 
-def validate_uploaded_file(f, allowed_exts=(".pdf",)):
-    """Validate uploaded file: non-empty, within size limit, allowed extension, and PDF magic bytes."""
-    if not f:
-        raise ValueError("No file uploaded")
-    size = getattr(f, "size", 0)
-    if size == 0:
-        raise ValueError("Uploaded file is empty")
-    if size > MAX_UPLOAD_SIZE:
-        raise ValueError(f"File exceeds maximum allowed size of {MAX_UPLOAD_SIZE // (1024*1024)}MB")
-    name = getattr(f, "name", "")
-    if not any(name.lower().endswith(ext) for ext in allowed_exts):
-        raise ValueError("Only PDF files are allowed")
-    if not is_pdf_file(f):
-        raise ValueError("Uploaded file is not a valid PDF")
+def validate_uploaded_file(f, formats=RESUME_FORMATS, field_label="resume"):
+    """Validate an uploaded resume (or cover letter).
+
+    Accepts every format the parser can read — PDF, DOCX and TXT — and checks
+    size, extension and file signature. Raises ``UploadValidationError`` (a
+    ``ValueError``) with a message that can be shown to the user.
+    """
+    validate_upload(f, formats=formats, field_label=field_label)
     return True
 
 
@@ -145,12 +134,17 @@ def upload_resume(request):
     target_role = request.data.get("role", "")
     job_desc = request.data.get("job_description", "")[:2000]
 
-    # Server-side validation for direct uploads (always enforce on backend)
-    if file and not url:
-        try:
-            validate_uploaded_file(file)
-        except ValueError as ve:
-            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+    cover_letter = request.FILES.get("cover_letter")
+
+    # Server-side validation for direct uploads (always enforce on backend).
+    # The cover letter goes through the same checks — it used to be written to
+    # disk unvalidated, so the size ceiling did not apply to it.
+    try:
+        if file and not url:
+            validate_upload(file, field_label="resume")
+        validate_optional_upload(cover_letter, field_label="cover letter")
+    except ValueError as ve:
+        return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     if not file and not url:
         return Response(
@@ -176,7 +170,6 @@ def upload_resume(request):
             saved_name = storage.save(unique_name, file)
             file_path = storage.path(saved_name)
 
-        cover_letter = request.FILES.get("cover_letter")
         cover_letter_path = None
         cover_letter_name = None
         if cover_letter:
@@ -238,6 +231,12 @@ def compare_uploads(request):
     if not file1 or not file2:
         return Response({"error": "Please provide two resume files."}, status=status.HTTP_400_BAD_REQUEST)
 
+    try:
+        validate_upload(file1, field_label="first resume")
+        validate_upload(file2, field_label="second resume")
+    except ValueError as ve:
+        return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+
     def process_file(f):
         temp_dir = os.path.join(settings.BASE_DIR, "tmp")
         os.makedirs(temp_dir, exist_ok=True)
@@ -291,35 +290,120 @@ def compare_uploads(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+from .serializers import ResumeAnalysisListSerializer
+
+#: Rows per page when the caller does not ask for a size.
+HISTORY_DEFAULT_PAGE_SIZE = 20
+
+#: Hard ceiling, so ``?page_size=100000`` cannot rebuild the old behaviour.
+HISTORY_MAX_PAGE_SIZE = 100
+
+
+def _positive_int(raw, default, maximum=None):
+    """Parse a query param as a positive int, falling back on anything odd."""
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    if value < 1:
+        return default
+    if maximum is not None:
+        return min(value, maximum)
+    return value
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def analysis_history(request):
+    """List the requesting user's analyses, newest first.
 
-    analyses = ResumeAnalysis.objects.filter(
-        user=request.user
+    The list is slim by design: ``resume_text`` and the other long fields are
+    several KB per row, and the history sidebar discards them. Fetch a single
+    analysis from ``/api/history/<id>/`` when the full text is needed.
+
+    Pass ``?page=`` (optionally with ``?page_size=``) to page through the
+    results and get a ``{count, next, previous, results}`` envelope back.
+    Without those params the response stays a bare array, so an already
+    deployed frontend keeps working.
+    """
+    analyses = (
+        ResumeAnalysis.objects.filter(user=request.user)
+        # Explicit rather than relying on Meta.ordering, so a later .distinct()
+        # or .annotate() elsewhere cannot silently reshuffle the sidebar.
+        .order_by("-created_at", "-id")
+        .only(
+            "id", "share_id", "file_name", "score", "skills_found", "suggestions",
+            "matched_skills", "missing_skills", "target_role", "created_at",
+        )
     )
 
-    serializer = ResumeAnalysisSerializer(
-        analyses,
-        many=True,
+    page_param = request.query_params.get("page")
+    size_param = request.query_params.get("page_size")
+
+    if page_param is None and size_param is None:
+        serializer = ResumeAnalysisListSerializer(analyses, many=True)
+        return Response(serializer.data)
+
+    page_size = _positive_int(size_param, HISTORY_DEFAULT_PAGE_SIZE, HISTORY_MAX_PAGE_SIZE)
+    page_number = _positive_int(page_param, 1)
+
+    total = analyses.count()
+    start = (page_number - 1) * page_size
+    end = start + page_size
+    rows = analyses[start:end]
+
+    def page_url(number):
+        if number is None:
+            return None
+        query = request.query_params.copy()
+        query["page"] = number
+        query["page_size"] = page_size
+        return request.build_absolute_uri(f"{request.path}?{query.urlencode()}")
+
+    serializer = ResumeAnalysisListSerializer(rows, many=True)
+    return Response(
+        {
+            "count": total,
+            "page": page_number,
+            "page_size": page_size,
+            "next": page_url(page_number + 1) if end < total else None,
+            "previous": page_url(page_number - 1) if page_number > 1 and start <= total else None,
+            "results": serializer.data,
+        }
     )
 
-    return Response(serializer.data)
-@api_view(['DELETE'])
+
+@api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_single_history(request, pk):
+def history_detail(request, pk):
+    """Fetch or delete one of the requesting user's analyses.
+
+    ``GET`` returns the full record, including ``resume_text`` — the fields the
+    list endpoint leaves out.
+    """
     try:
         entry = ResumeAnalysis.objects.get(pk=pk, user=request.user)
-        entry.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
     except ResumeAnalysis.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(ResumeAnalysisSerializer(entry).data)
+
+    entry.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+#: Kept so existing imports of the old name keep resolving.
+delete_single_history = history_detail
+
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def clear_user_history(request):
     ResumeAnalysis.objects.filter(user=request.user).delete()
-    return Response({"message": "All history cleared"}, status=status.HTTP_204_NO_CONTENT)
+    # 204 must not carry a body — the old response sent one, which some proxies
+    # and HTTP clients treat as a protocol error.
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET'])
@@ -364,23 +448,99 @@ def compare_versions_view(request):
     return Response(serializer.data)
 
 
-@api_view(["POST"])
+from .models import SuggestionFeedback
+from .serializers import SuggestionFeedbackSerializer
+
+#: Keeps a stray paste from filling the column.
+MAX_FEEDBACK_COMMENT_LENGTH = 2000
+
+
+def _owned_analysis(request, analysis_id):
+    """Return the caller's analysis with this id, or ``None``."""
+    if analysis_id in (None, ""):
+        return None
+    try:
+        return ResumeAnalysis.objects.get(pk=analysis_id, user=request.user)
+    except (ResumeAnalysis.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+@api_view(["GET", "POST", "DELETE"])
 @permission_classes([IsAuthenticated])
 def suggestion_feedback(request):
-    """
-    Handle upvote/downvote or comments on a specific suggestion.
-    In a real app, you'd store this in a SuggestionFeedback model.
-    """
-    analysis_id = request.data.get("analysis_id")
-    suggestion_text = request.data.get("suggestion_text")
-    vote = request.data.get("vote")  # 'up' or 'down'
+    """Record, read back or withdraw a vote on a generated suggestion.
 
-    if not analysis_id or not suggestion_text or not vote:
+    This endpoint used to validate its input, answer "Feedback recorded
+    successfully" and discard everything — there was no model behind it.
+
+    ``GET  ?analysis_id=`` returns the caller's votes for that analysis, so the
+    UI can restore its state after a reload.
+    ``POST`` upserts one vote; voting again replaces the previous value.
+    ``DELETE`` withdraws a vote.
+    """
+    if request.method == "GET":
+        analysis = _owned_analysis(request, request.query_params.get("analysis_id"))
+        if analysis is None:
+            return Response(
+                {"detail": "Analysis not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        feedback = SuggestionFeedback.objects.filter(user=request.user, analysis=analysis)
+        return Response({"results": SuggestionFeedbackSerializer(feedback, many=True).data})
+
+    analysis_id = request.data.get("analysis_id")
+    suggestion_text = (request.data.get("suggestion_text") or "").strip()
+
+    if not analysis_id or not suggestion_text:
         return Response(
-            {"detail": "Missing required fields."}, status=status.HTTP_400_BAD_REQUEST
+            {"detail": "analysis_id and suggestion_text are required."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
-    return Response({"detail": "Feedback recorded successfully."})
+    # Ownership is checked before anything is written: the endpoint used to
+    # accept feedback against any id, including ids that did not exist.
+    analysis = _owned_analysis(request, analysis_id)
+    if analysis is None:
+        return Response(
+            {"detail": "Analysis not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    lookup = {
+        "user": request.user,
+        "analysis": analysis,
+        "suggestion_hash": SuggestionFeedback.hash_suggestion(suggestion_text),
+    }
+
+    if request.method == "DELETE":
+        deleted, _ = SuggestionFeedback.objects.filter(**lookup).delete()
+        return Response(
+            {"detail": "Feedback withdrawn.", "removed": bool(deleted)},
+            status=status.HTTP_200_OK,
+        )
+
+    vote = request.data.get("vote")
+    valid_votes = [choice for choice, _ in SuggestionFeedback.VOTE_CHOICES]
+    if vote not in valid_votes:
+        return Response(
+            {"detail": f"vote must be one of: {', '.join(valid_votes)}."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    comment = (request.data.get("comment") or "").strip()[:MAX_FEEDBACK_COMMENT_LENGTH]
+
+    feedback, created = SuggestionFeedback.objects.update_or_create(
+        defaults={"vote": vote, "comment": comment, "suggestion_text": suggestion_text},
+        **lookup,
+    )
+
+    return Response(
+        {
+            "detail": "Feedback recorded successfully.",
+            "created": created,
+            "feedback": SuggestionFeedbackSerializer(feedback).data,
+        },
+        status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+    )
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -392,6 +552,74 @@ def get_shared_result(request, share_id):
     analysis = get_object_or_404(ResumeAnalysis, share_id=share_id)
     serializer = ResumeAnalysisSerializer(analysis)
     return Response(serializer.data)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def export_user_data(request):
+    """Export the authenticated user's account data and analysis history."""
+    user = request.user
+
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    analyses = ResumeAnalysis.objects.filter(
+        user=user
+    ).order_by("-created_at")
+
+    data = {
+        "export_version": 1,
+        "exported_at": timezone.now().isoformat(),
+        "account": {
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "date_joined": (
+                user.date_joined.isoformat()
+                if user.date_joined
+                else None
+            ),
+            "last_login": (
+                user.last_login.isoformat()
+                if user.last_login
+                else None
+            ),
+            "weekly_digest_opt_in": profile.weekly_digest_opt_in,
+            "avatar": profile.avatar.name if profile.avatar else None,
+        },
+        "analysis_history": [
+            {
+                "id": analysis.id,
+                "share_id": str(analysis.share_id),
+                "file_name": analysis.file_name,
+                "score": analysis.score,
+                "skills_found": analysis.skills_found,
+                "suggestions": analysis.suggestions,
+                "matched_skills": analysis.matched_skills,
+                "missing_skills": analysis.missing_skills,
+                "target_role": analysis.target_role,
+                "created_at": analysis.created_at.isoformat(),
+                "job_description": analysis.job_description,
+                "resume_text": analysis.resume_text,
+                "cover_letter_text": analysis.cover_letter_text,
+                "cover_letter_feedback": analysis.cover_letter_feedback,
+                "interview_questions": analysis.interview_questions,
+            }
+            for analysis in analyses
+        ],
+    }
+
+    response = HttpResponse(
+        json.dumps(data, indent=2, ensure_ascii=False),
+        content_type="application/json",
+    )
+
+    response["Content-Disposition"] = (
+        'attachment; filename="ai-resume-analyzer-data.json"'
+    )
+
+    return response
+
+
 
 User = get_user_model()
 
@@ -607,15 +835,16 @@ def profile_avatar_view(request):
         file_obj = request.FILES.get("avatar")
         if not file_obj:
             return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         ext = os.path.splitext(file_obj.name)[1].lower()
         if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
             return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         max_size = 2 * 1024 * 1024
         if file_obj.size > max_size:
             return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
-            
+
+
         if profile.avatar:
             try:
                 if os.path.exists(profile.avatar.path):
@@ -670,6 +899,12 @@ def compare_bulk_jds_view(request):
             {"error": "Please provide a resume file or shareable link."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    if file and not url:
+        try:
+            validate_upload(file, field_label="resume")
+        except ValueError as ve:
+            return Response({"error": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
 
     # limit up to 5 JDs
     job_descriptions = [jd.strip() for jd in job_descriptions if jd and jd.strip()][:5]
@@ -799,41 +1034,68 @@ def contact_us_view(request):
     )
 
 
+from .unsubscribe_tokens import read_unsubscribe_token
+
+UNSUBSCRIBE_SUCCESS_MESSAGE = (
+    "You have successfully unsubscribed from the weekly resume-tips email digest."
+)
+
+UNSUBSCRIBE_MISSING_TOKEN_MESSAGE = (
+    "This unsubscribe link is missing its token. Please use the link from your "
+    "most recent digest email, or sign in and turn the digest off from your profile."
+)
+
+UNSUBSCRIBE_INVALID_TOKEN_MESSAGE = (
+    "This unsubscribe link is no longer valid — it may have expired. Please use "
+    "the link from your most recent digest email, or sign in and turn the digest "
+    "off from your profile."
+)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([AllowAny])
 def unsubscribe_digest_view(request):
-    email = request.query_params.get("email") or request.data.get("email")
-    username = request.query_params.get("username") or request.data.get("username")
+    """Turn off the weekly digest for the account a signed token identifies.
 
-    if not email and not username:
+    The endpoint used to act on a bare email address, so anyone could
+    unsubscribe anyone, and its 404-vs-200 responses revealed which addresses
+    were registered. It now requires either a signed token from a digest email
+    or an authenticated session, and the response no longer depends on whether
+    a given account exists.
+    """
+    token = request.query_params.get("token") or request.data.get("token")
+
+    if token:
+        user = read_unsubscribe_token(token)
+        if user is None:
+            return Response(
+                {"error": UNSUBSCRIBE_INVALID_TOKEN_MESSAGE},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif request.user.is_authenticated:
+        user = request.user
+    else:
+        # No token and no session. Whatever the caller typed — an email, a
+        # username — is unverified, so nothing is looked up and the answer is
+        # the same whether or not that account exists.
         return Response(
-            {"error": "Please provide your email address or username to unsubscribe."},
+            {"error": UNSUBSCRIBE_MISSING_TOKEN_MESSAGE},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    users = User.objects.all()
-    if email:
-        users = users.filter(email__iexact=email.strip())
-    elif username:
-        users = users.filter(username__iexact=username.strip())
-
-    if not users.exists():
-        return Response(
-            {"detail": "User not found or already unsubscribed."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    updated_count = 0
-    for u in users:
-        profile, _ = UserProfile.objects.get_or_create(user=u)
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    already_unsubscribed = not profile.weekly_digest_opt_in
+    if not already_unsubscribed:
         profile.weekly_digest_opt_in = False
-        profile.save()
-        updated_count += 1
+        profile.save(update_fields=["weekly_digest_opt_in"])
 
     return Response(
         {
-            "message": "You have successfully unsubscribed from the weekly resume-tips email digest.",
-            "unsubscribed_count": updated_count,
+            "message": UNSUBSCRIBE_SUCCESS_MESSAGE,
+            # Kept for the existing frontend. Unsubscribing twice is a no-op
+            # rather than an error, so a repeated click still reads as success.
+            "unsubscribed_count": 0 if already_unsubscribed else 1,
+            "already_unsubscribed": already_unsubscribed,
         },
         status=status.HTTP_200_OK,
     )

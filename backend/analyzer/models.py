@@ -44,6 +44,59 @@ class UserProfile(models.Model):
         return f"{self.user.username}'s Profile"
 
 
+class SuggestionFeedback(models.Model):
+    """A user's up/down vote on one suggestion from one of their analyses.
+
+    Suggestions are generated from a template, so votes are the only signal
+    available for whether the recommendations are worth reading. One row per
+    (user, analysis, suggestion): voting again updates the existing row rather
+    than stacking duplicates.
+    """
+
+    UP = "up"
+    DOWN = "down"
+    VOTE_CHOICES = [(UP, "Helpful"), (DOWN, "Not helpful")]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="suggestion_feedback"
+    )
+    analysis = models.ForeignKey(
+        ResumeAnalysis, on_delete=models.CASCADE, related_name="suggestion_feedback"
+    )
+    suggestion_text = models.TextField()
+    #: SHA-256 of the suggestion text. The uniqueness constraint keys on this
+    #: rather than the text itself, because databases limit how many bytes an
+    #: index entry may hold and suggestions have no length bound.
+    suggestion_hash = models.CharField(max_length=64, db_index=True)
+    vote = models.CharField(max_length=4, choices=VOTE_CHOICES)
+    comment = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "analysis", "suggestion_hash"],
+                name="unique_feedback_per_suggestion",
+            )
+        ]
+
+    @staticmethod
+    def hash_suggestion(text: str) -> str:
+        import hashlib
+
+        return hashlib.sha256((text or "").strip().encode("utf-8")).hexdigest()
+
+    def save(self, *args, **kwargs):
+        # Keep the hash in step with the text no matter who writes the row.
+        self.suggestion_hash = self.hash_suggestion(self.suggestion_text)
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.username} voted {self.vote} on \"{self.suggestion_text[:40]}\""
+
+
 class Skill(models.Model):
     name = models.CharField(max_length=100, unique=True)
 

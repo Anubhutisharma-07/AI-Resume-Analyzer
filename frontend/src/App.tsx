@@ -1,15 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
+import {
+  RESUME_ACCEPT_ATTRIBUTE,
+  describeUploadLimits,
+  validateResumeFile,
+} from './utils/fileValidation'
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { useAuth } from './hooks/useAuth'
 import { AuthModal } from './AuthModal'
+import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
+import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 
 type Theme = 'light' | 'dark'
 
@@ -49,6 +56,50 @@ function highlightSkills(text: string, skills: string[]): React.ReactNode[] {
   )
 }
 
+/** Rows per request from `/api/history/`. */
+const HISTORY_PAGE_SIZE = 20
+
+interface HistoryRow {
+  id: number
+  file_name: string
+  score: number
+  skills_found: string[]
+  suggestions: string[]
+  matched_skills: string[]
+  missing_skills: string[]
+  target_role: string
+  created_at: string
+}
+
+interface HistoryPage {
+  count: number
+  next: string | null
+  results: HistoryRow[]
+}
+
+/** `/api/history/` answers with a bare array, or an envelope when paginated. */
+function historyRowsOf(payload: HistoryRow[] | HistoryPage): HistoryRow[] {
+  return Array.isArray(payload) ? payload : (payload?.results ?? [])
+}
+
+function nextPageUrl(payload: HistoryRow[] | HistoryPage): string | null {
+  return Array.isArray(payload) ? null : (payload?.next ?? null)
+}
+
+function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[] {
+  return historyRowsOf(payload).map((item) => ({
+    id: String(item.id),
+    timestamp: new Date(item.created_at).getTime(),
+    score: item.score,
+    skills: item.skills_found,
+    suggestions: item.suggestions,
+    matchedSkills: item.matched_skills,
+    missingSkills: item.missing_skills,
+    targetRole: item.target_role,
+    fileName: item.file_name,
+  }))
+}
+
 function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
   if (!text) return null
   return (
@@ -68,9 +119,14 @@ function App() {
   const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [roastMode, setRoastMode] = useState<boolean>(false)
+  // Server-side id of the current analysis. Only set for signed-in users —
+  // anonymous analyses are not persisted, so there is nothing to attach a vote to.
+  const [analysisId, setAnalysisId] = useState<number | null>(null)
+  const [suggestionVotes, setSuggestionVotes] = useState<Record<string, VoteValue>>({})
 
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
@@ -93,6 +149,7 @@ function App() {
   // History
   const { entries, deleteEntry, clearHistory, setEntries, unreadCount, lastViewedTimestamp, markAllAsViewed } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
@@ -100,39 +157,38 @@ function App() {
   const fetchDbHistory = useCallback(
     async (token: string) => {
       try {
-        const res = await axios.get(`${backendUrl}/api/history/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const dbEntries: AnalysisEntry[] = res.data.map(
-          (item: {
-            id: number
-            file_name: string
-            score: number
-            skills_found: string[]
-            suggestions: string[]
-            matched_skills: string[]
-            missing_skills: string[]
-            target_role: string
-            created_at: string
-          }) => ({
-            id: String(item.id),
-            timestamp: new Date(item.created_at).getTime(),
-            score: item.score,
-            skills: item.skills_found,
-            suggestions: item.suggestions,
-            matchedSkills: item.matched_skills,
-            missingSkills: item.missing_skills,
-            targetRole: item.target_role,
-            fileName: item.file_name,
-          })
+        const res = await axios.get(
+          `${backendUrl}/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         )
-        setEntries(dbEntries)
+        // The endpoint returns a bare array when asked for no particular page,
+        // and a {count, next, results} envelope otherwise. Handle both so this
+        // keeps working against a backend that has not been updated yet.
+        setEntries(toAnalysisEntries(res.data))
+        setHistoryNextUrl(nextPageUrl(res.data))
       } catch {
         /* silently ignore */
       }
     },
     [backendUrl, setEntries]
   )
+
+  const loadMoreDbHistory = useCallback(async () => {
+    if (!historyNextUrl || !user) return
+    try {
+      const res = await axios.get(historyNextUrl, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      const older = toAnalysisEntries(res.data)
+      setEntries((previous) => {
+        const seen = new Set(previous.map((entry) => entry.id))
+        return [...previous, ...older.filter((entry) => !seen.has(entry.id))]
+      })
+      setHistoryNextUrl(nextPageUrl(res.data))
+    } catch {
+      /* silently ignore */
+    }
+  }, [historyNextUrl, setEntries, user])
 
   useEffect(() => {
     if (user) fetchDbHistory(user.token)
@@ -193,12 +249,15 @@ function App() {
       }
 
       setScore(result.score)
+      setScoreBreakdown(result.score_breakdown || null)
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
       setMissingSkills(result.missing_skills || [])
       setResumeText(result.resume_text || '')
       setInterviewQuestions(result.interview_questions || [])
+      setAnalysisId(typeof result.id === 'number' ? result.id : null)
+      setSuggestionVotes({})
       setActiveFileName(fileToAnalyze.name)
 
       setLoading(false)
@@ -281,6 +340,7 @@ function App() {
   const resetAnalysis = () => {
     setFile(null)
     setScore(null)
+    setScoreBreakdown(null)
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
@@ -290,10 +350,78 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setAnalysisSource(null)
+    setAnalysisId(null)
+    setSuggestionVotes({})
     setActiveFileName('')
     setRetryCount(0)
     setCooldownRemaining(0)
   }
+
+  const submitSuggestionVote = useCallback(
+    async (suggestion: string, vote: VoteValue | null) => {
+      if (!user || analysisId === null) return
+
+      // Update locally first so the control responds immediately, and roll
+      // back if the request fails — a vote that silently vanishes is exactly
+      // what this endpoint used to do.
+      const previous = suggestionVotes[suggestion] ?? null
+      setSuggestionVotes((current) => {
+        const next = { ...current }
+        if (vote === null) delete next[suggestion]
+        else next[suggestion] = vote
+        return next
+      })
+
+      const config = { headers: { Authorization: `Bearer ${user.token}` } }
+      const payload = { analysis_id: analysisId, suggestion_text: suggestion }
+
+      try {
+        if (vote === null) {
+          await axios.delete(`${backendUrl}/api/suggestion-feedback/`, {
+            ...config,
+            data: payload,
+          })
+        } else {
+          await axios.post(`${backendUrl}/api/suggestion-feedback/`, { ...payload, vote }, config)
+        }
+      } catch {
+        setSuggestionVotes((current) => {
+          const rolledBack = { ...current }
+          if (previous === null) delete rolledBack[suggestion]
+          else rolledBack[suggestion] = previous
+          return rolledBack
+        })
+      }
+    },
+    [analysisId, backendUrl, suggestionVotes, user]
+  )
+
+  // Restore votes already cast against this analysis, so returning to it does
+  // not reset every control to neutral.
+  useEffect(() => {
+    if (!user || analysisId === null) return
+
+    let cancelled = false
+    axios
+      .get(`${backendUrl}/api/suggestion-feedback/?analysis_id=${analysisId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      })
+      .then((res) => {
+        if (cancelled) return
+        const stored: Record<string, VoteValue> = {}
+        for (const row of res.data?.results ?? []) {
+          stored[row.suggestion_text] = row.vote
+        }
+        setSuggestionVotes(stored)
+      })
+      .catch(() => {
+        /* votes are a nice-to-have; leave the controls neutral */
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [analysisId, backendUrl, user])
 
   const copySuggestionsToClipboard = () => {
     if (suggestions.length === 0) return
@@ -309,11 +437,17 @@ function App() {
 
   const selectHistoryEntry = (entry: AnalysisEntry) => {
     setScore(entry.score)
+    // History entries predate the breakdown and do not carry one.
+    setScoreBreakdown(null)
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
     setMissingSkills(entry.missingSkills)
     setTargetRole(entry.targetRole)
+    // History entries carry a client-side id, not the analysis id, so there is
+    // nothing safe to attach a vote to when one is replayed.
+    setAnalysisId(null)
+    setSuggestionVotes({})
     setActiveFileName(entry.fileName)
     setShowAllSkills(false)
     setCopied(false)
@@ -341,6 +475,8 @@ function App() {
         unreadCount={unreadCount}
         lastViewedTimestamp={lastViewedTimestamp}
         onMarkAllAsViewed={markAllAsViewed}
+        hasMoreOnServer={historyNextUrl !== null}
+        onLoadMoreFromServer={loadMoreDbHistory}
       />
       <div className="container mt-5">
         <div className="main-card text-center">
@@ -358,7 +494,9 @@ function App() {
           <div className="auth-bar">
             {user ? (
               <>
-                <span className="auth-username">👤 {user.username}</span>
+                <Link to="/profile" className="auth-username" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  👤 {user.username}
+                </Link>
                 <button className="auth-bar-btn" onClick={logout}>
                   Logout
                 </button>
@@ -405,18 +543,12 @@ function App() {
               if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
                 const f = e.dataTransfer.files[0]
                 setUploadError(null)
-                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
-                  setUploadError('Please upload a valid PDF file.')
-                  setFile(null)
-                  return
-                }
-                if (f.size === 0) {
-                  setUploadError('Uploaded file is empty.')
-                  setFile(null)
-                  return
-                }
-                if (f.size > MAX_FILE_SIZE) {
-                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                const result = validateResumeFile(f, {
+                  maxSizeBytes: MAX_FILE_SIZE,
+                  label: 'resume',
+                })
+                if (!result.ok) {
+                  setUploadError(result.error)
                   setFile(null)
                   return
                 }
@@ -428,6 +560,7 @@ function App() {
               type="file"
               id="fileUpload"
               className="sr-only"
+              accept={RESUME_ACCEPT_ATTRIBUTE}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setUploadError(null)
                 const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
@@ -435,18 +568,12 @@ function App() {
                   setFile(null)
                   return
                 }
-                if (!f.name.toLowerCase().endsWith('.pdf') || f.type !== 'application/pdf') {
-                  setUploadError('Please upload a valid PDF file.')
-                  setFile(null)
-                  return
-                }
-                if (f.size === 0) {
-                  setUploadError('Uploaded file is empty.')
-                  setFile(null)
-                  return
-                }
-                if (f.size > MAX_FILE_SIZE) {
-                  setUploadError('File is too large. Maximum allowed size is 5MB.')
+                const result = validateResumeFile(f, {
+                  maxSizeBytes: MAX_FILE_SIZE,
+                  label: 'resume',
+                })
+                if (!result.ok) {
+                  setUploadError(result.error)
                   setFile(null)
                   return
                 }
@@ -469,7 +596,7 @@ function App() {
                   {uploadError}
                 </span>
               ) : (
-                <span className="upload-text-secondary">PDF only, up to 5MB</span>
+                <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
               )}
             </label>
           </div>
@@ -525,6 +652,8 @@ function App() {
               )}
 
               <AtsScore score={score} />
+
+              <ScoreBreakdown breakdown={scoreBreakdown} />
 
               <ResumePreview text={resumeText} skills={skills} />
 
@@ -668,6 +797,13 @@ function App() {
                   return (
                     <div key={i} className="suggestion-item">
                       {roastMode ? '🔥' : '📌'} {displayText}
+                      {user && analysisId !== null && (
+                        <SuggestionVote
+                          suggestion={s}
+                          vote={suggestionVotes[s] ?? null}
+                          onVote={(vote) => submitSuggestionVote(s, vote)}
+                        />
+                      )}
                     </div>
                   )
                 })}

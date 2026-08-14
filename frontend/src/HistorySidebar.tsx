@@ -19,6 +19,10 @@ interface HistorySidebarProps {
   isOpen: boolean
   onToggle: () => void
   onCompare?: () => void
+  /** True when the server has older analyses that have not been fetched yet. */
+  hasMoreOnServer?: boolean
+  /** Fetches the next page from the server; resolves once entries are appended. */
+  onLoadMoreFromServer?: () => Promise<void> | void
 }
 
 const SORT_MODE_STORAGE_KEY = "history_sort_mode";
@@ -35,6 +39,8 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   isOpen,
   onToggle,
   onCompare,
+  hasMoreOnServer = false,
+  onLoadMoreFromServer,
 }) => {
   const [confirmClear, setConfirmClear] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -102,12 +108,27 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     onToggle()
   }
 
-  const handleLoadMore = () => {
+  const handleLoadMore = async () => {
+    // Reveal what has already been fetched first; only go back to the server
+    // once every locally held entry is on screen.
+    if (visibleCount < entries.length) {
+      setIsLoadingMore(true)
+      setTimeout(() => {
+        setVisibleCount((prev) => prev + PAGE_SIZE)
+        setIsLoadingMore(false)
+      }, 300)
+      return
+    }
+
+    if (!onLoadMoreFromServer) return
+
     setIsLoadingMore(true)
-    setTimeout(() => {
+    try {
+      await onLoadMoreFromServer()
       setVisibleCount((prev) => prev + PAGE_SIZE)
+    } finally {
       setIsLoadingMore(false)
-    }, 300)
+    }
   }
 
   const formatDate = (ts: number) => {
@@ -310,7 +331,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 )
               })}
             </ul>
-            {visibleCount < entries.length && (
+            {(visibleCount < entries.length || hasMoreOnServer) && (
               <div
                 className="history-load-more-container"
                 style={{ textAlign: 'center', margin: '1rem 0' }}

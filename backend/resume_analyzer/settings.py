@@ -160,6 +160,14 @@ RESUME_UPLOAD_RATE = os.environ.get('RESUME_UPLOAD_RATE', '10/hour')
 # Retention (in days) for uploaded resume files and temporary storage
 RESUME_RETENTION_DAYS = int(os.environ.get('RESUME_RETENTION_DAYS', '30'))
 
+# Public URL of the frontend, used to build links that go out by email
+# (currently the weekly digest unsubscribe link).
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
+# How long a signed unsubscribe link stays usable. Digests are weekly and
+# people read email late, so this is deliberately generous.
+UNSUBSCRIBE_TOKEN_MAX_AGE_DAYS = int(os.environ.get('UNSUBSCRIBE_TOKEN_MAX_AGE_DAYS', '90'))
+
 SENTRY_DSN = os.environ.get('SENTRY_DSN')
 
 if SENTRY_DSN:

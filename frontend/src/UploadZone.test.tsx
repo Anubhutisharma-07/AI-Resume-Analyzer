@@ -21,7 +21,7 @@ describe('Drag and Drop Zone Contrast & Visual Pairing (#258)', () => {
     expect(browseText).toBeInTheDocument()
     expect(browseText.className).toContain('upload-text-browse')
 
-    const secondaryText = screen.getByText(/Supports PDF, DOCX, TXT up to 10MB/i)
+    const secondaryText = screen.getByText(/Supports PDF, DOCX or TXT up to 5MB/i)
     expect(secondaryText).toBeInTheDocument()
     expect(secondaryText.className).toContain('upload-text-secondary')
 
