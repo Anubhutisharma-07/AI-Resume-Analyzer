@@ -9,6 +9,7 @@ import { useAuth } from './hooks/useAuth'
 import { AuthModal } from './AuthModal'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 
 type Theme = 'light' | 'dark'
 
@@ -79,6 +80,7 @@ function App() {
   const [copied, setCopied] = useState(false)
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
+  const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
 
   // Retry state
   const [retryCount, setRetryCount] = useState(0)
@@ -196,6 +198,7 @@ function App() {
       setMatchedSkills(result.matched_skills || [])
       setMissingSkills(result.missing_skills || [])
       setResumeText(result.resume_text || '')
+      setInterviewQuestions(result.interview_questions || [])
       setActiveFileName(fileToAnalyze.name)
 
       setLoading(false)
@@ -283,6 +286,7 @@ function App() {
     setMatchedSkills([])
     setMissingSkills([])
     setResumeText('')
+    setInterviewQuestions([])
     setShowAllSkills(false)
     setCopied(false)
     setAnalysisSource(null)
@@ -679,6 +683,8 @@ function App() {
                   </button>
                 </div>
               </div>
+              
+              <InterviewQuestionsPanel questions={interviewQuestions} />
             </>
           )}{' '}
           {/* closes the conditional block */}
