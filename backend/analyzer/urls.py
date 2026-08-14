@@ -25,12 +25,14 @@ from .views import (
     skills_leaderboard_view,
     unsubscribe_digest_view,
     task_status,
+    mock_interview_view,
     export_user_data,
 )
 
 urlpatterns = [
     path("upload/", upload_resume),
     path("status/<str:task_id>/", task_status),
+    path("mock-interview/", mock_interview_view),
     path("compare-uploads/", compare_uploads),
     path("analyze-jd/", analyze_jd_view),
     path("compare-bulk-jds/", compare_bulk_jds_view),

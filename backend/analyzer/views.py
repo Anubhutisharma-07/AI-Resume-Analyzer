@@ -1101,3 +1101,39 @@ def unsubscribe_digest_view(request):
     )
 
 
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def mock_interview_view(request):
+    question = request.data.get("question", "").strip()
+    answer = request.data.get("answer", "").strip()
+
+    if not question or not answer:
+        return Response(
+            {"error": "Question and answer are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    word_count = len(answer.split())
+    feedback = ""
+
+    if word_count < 15:
+        feedback = (
+            f"Your answer is quite brief ({word_count} words). In a real interview, "
+            "you should elaborate more on your thought process and provide specific examples."
+        )
+    elif word_count > 150:
+        feedback = (
+            f"Your answer is very detailed ({word_count} words), which is great, but be careful not to ramble. "
+            "Try to keep your responses concise and focused on the core concept."
+        )
+    else:
+        feedback = (
+            f"Good effort! Your response length is solid ({word_count} words) and addresses the core concept. "
+            "To improve further, consider structuring your answer using the STAR method (Situation, Task, Action, Result) "
+            "and adding a concrete example from your past experience."
+        )
+
+    return Response({
+        "feedback": feedback,
+        "is_ai_generated": True
+    }, status=status.HTTP_200_OK)
