@@ -27,3 +27,24 @@ index 3f5a9b2..e6c1d4b 100644
 +        print(f"Resume: {result['resume']}, JD: {result['jd']}, Compatibility Score: {result['score']}")
 +
      return 0
+
++--- a/apps/cli/main.py
++@@ -10,6 +10,8 @@
++ def main():
++     parser = argparse.ArgumentParser(description="Job Application CLI")
++     subparsers = parser.add_subparsers(dest="command")
+++    parser.add_argument("--resume", help="Path to the candidate's resume")
+++    parser.add_argument("--jd", help="Path to the job description")
++ 
++     apply_parser = subparsers.add_parser("apply", help="Apply for a job")
++     apply_parser.add_argument("position", help="Job position to apply for")
++@@ -20,6 +22,10 @@
++     apply_args = parser.parse_args()
++ 
++     if apply_args.command == "apply":
+++        if not apply_args.resume or not apply_args.jd:
+++            print("Both resume and job description are required.")
+++            return
+++
++         position = apply_args.position
++         # Add code to handle the application process here
