@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from .models import Resume, ResumeAnalysis
 
 
@@ -93,7 +94,6 @@ class ResumeAnalysisListSerializer(serializers.ModelSerializer):
         fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
                   "matched_skills", "missing_skills", "target_role", "created_at")
 
-
 class VersionComparisonSerializer(serializers.Serializer):
     older_id = serializers.IntegerField()
     newer_id = serializers.IntegerField()
@@ -158,7 +158,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 
 from .models import SuggestionFeedback
-
 
 class SuggestionFeedbackSerializer(serializers.ModelSerializer):
     """Read representation of one stored vote."""

@@ -47,6 +47,13 @@ import threading
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    OpenApiTypes,
+)
 
 class UploadRateThrottle(SimpleRateThrottle):
     scope = "upload"
@@ -129,6 +136,41 @@ def signup(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(
+    summary="Upload and analyze a resume",
+    description=(
+        "Uploads a resume and starts the resume analysis process."
+    ),
+    request={
+        "multipart/form-data": {
+            "type": "object",
+            "properties": {
+                "resume": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Resume PDF/document to analyze.",
+                },
+            },
+            "required": ["resume"],
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description="Resume analysis task created.",
+            examples=[
+                OpenApiExample(
+                    "Success",
+                    value={
+                        "task_id": "abc123",
+                    },
+                )
+            ],
+        ),
+        400: OpenApiResponse(
+            description="Invalid resume upload."
+        ),
+    },
+)
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -318,7 +360,11 @@ def _positive_int(raw, default, maximum=None):
         return min(value, maximum)
     return value
 
-
+@extend_schema(
+    summary="Get analysis history",
+    description="Returns the authenticated user's resume analysis history.",
+    responses=ResumeAnalysisListSerializer(many=True),
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def analysis_history(request):
@@ -379,6 +425,16 @@ def analysis_history(request):
         }
     )
 
+@extend_schema(
+    summary="Get analysis details",
+    description="Returns a complete resume analysis.",
+    responses={
+        200: ResumeAnalysisSerializer,
+        404: OpenApiResponse(
+            description="Analysis not found."
+        ),
+    },
+)
 
 @api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
@@ -412,6 +468,19 @@ def clear_user_history(request):
     # and HTTP clients treat as a protocol error.
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+@extend_schema(
+    summary="Compare two resume versions",
+    description="Compares two previously analyzed resume versions.",
+    responses={
+        200: VersionComparisonSerializer,
+        400: OpenApiResponse(
+            description="Invalid comparison request."
+        ),
+        404: OpenApiResponse(
+            description="Analysis not found."
+        ),
+    },
+)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -924,6 +993,35 @@ def skills_leaderboard_view(request):
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
 
+@extend_schema(
+    summary="Authenticate user",
+    description=(
+        "Authenticates a user and returns JWT access and refresh tokens. "
+        "CAPTCHA verification is required."
+    ),
+    examples=[
+        OpenApiExample(
+            "Login request",
+            request_only=True,
+            value={
+                "username": "john",
+                "password": "SecurePassword123!",
+                "captcha_token": "captcha-token",
+            },
+        ),
+        OpenApiExample(
+            "Login response",
+            response_only=True,
+            value={
+                "access": "eyJhbGciOiJIUzI1NiIs...",
+                "refresh": "eyJhbGciOiJIUzI1NiIs...",
+                "avatar_url": None,
+            },
+        ),
+    ],
+)
+
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
@@ -1081,7 +1179,17 @@ def compare_bulk_jds_view(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-
+@extend_schema(
+    summary="Get or update user profile",
+    description=(
+        "Returns the authenticated user's profile or updates "
+        "their profile information."
+    ),
+    responses={
+        200: UserProfileSerializer,
+        400: OpenApiResponse(description="Invalid profile data."),
+    },
+)
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def user_profile_view(request):
@@ -1241,32 +1349,7 @@ def mock_interview_view(request):
     }, status=status.HTTP_200_OK)
 
 
-# ==========================================
-# WEBHOOK MANAGEMENT & DISPATCHER
-# ==========================================
 
-def fire_webhook(url, payload):
-    """Fires webhook with 3 retries and exponential backoff for 5xx errors."""
-    session = requests.Session()
-    retry_strategy = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
-    session.mount("http://", HTTPAdapter(max_retries=retry_strategy))
-    session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-    try:
-        session.post(url, json=payload, timeout=10)
-    except Exception as e:
-        print(f"Webhook failed for {url}: {e}")
-
-def trigger_webhooks_for_user(user, analysis_data):
-    """Finds active webhooks for a user and fires them in a background thread."""
-    if not user:
-        return
-    webhooks = Webhook.objects.filter(user=user, is_active=True)
-    if not webhooks.exists():
-        return
-        
-    payload = {"event": "resume_analysis.completed", "data": analysis_data}
-    for webhook in webhooks:
-        threading.Thread(target=fire_webhook, args=(webhook.url, payload)).start()
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])

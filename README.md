@@ -332,19 +332,52 @@ npm run test:coverage
 ---
 
 ## API Reference
+## API Reference
+
+The AI Resume Analyzer backend provides an OpenAPI-documented REST API.
+
+### Interactive API Documentation
+
+The API can be explored interactively using Swagger UI:
+
+- **Frontend Swagger UI:** `http://localhost:5173/docs`
+- **Backend Swagger UI:** `http://127.0.0.1:8000/api/docs/`
+
+### OpenAPI Specification
+
+The generated OpenAPI specification is available at:
+
+`http://127.0.0.1:8000/api/schema/`
+
+### Authentication
+
+Protected endpoints use JWT bearer authentication.
+
+After obtaining an access token from:
+
+`POST /api/auth/login/`
+
+provide it in the Swagger UI using the **Authorize** button:
+
+```text
+Bearer <access_token>
+```
 
 ### Parse Resume File
 
-Validates and parses an uploaded resume, matches standard technical keywords, calculates scores, and returns suggestions.
+Uploads a resume and starts the resume analysis process.
 
 - **Endpoint:** `/api/upload/`
 - **Method:** `POST`
 - **Payload Format:** `multipart/form-data`
 
 #### Parameters
+
 | Name | Type | Required | Description |
 | :--- | :--- | :---: | :--- |
-| `file` | `binary (PDF)` | **Yes** | The document to analyze |
+| `resume` | `binary (PDF/document)` | **Yes** | The resume document to analyze |
+
+--- 
 
 #### Sample Success JSON Response (`200 OK`)
 ```json
