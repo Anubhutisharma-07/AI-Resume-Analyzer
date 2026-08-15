@@ -155,6 +155,29 @@ REST_FRAMEWORK = {
     ),
 }
 
+# JWT lifetimes. These were previously inherited from SimpleJWT's defaults
+# rather than chosen, which meant a 5-minute access token — fine in itself, but
+# the frontend was discarding the refresh token, so a session simply stopped
+# working after five minutes. Stated explicitly so the values are visible and
+# reviewable rather than implied.
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=int(os.environ.get('ACCESS_TOKEN_LIFETIME_MINUTES', '15'))
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', '7'))
+    ),
+    # Each refresh issues a new refresh token. Limits how long a stolen one is
+    # useful; the client handles rotation because it stores whatever comes back.
+    'ROTATE_REFRESH_TOKENS': True,
+    # Blacklisting the old token on rotation needs the token_blacklist app and
+    # a migration, so it stays off here. Without it a rotated-away refresh
+    # token keeps working until it expires on its own.
+    'BLACKLIST_AFTER_ROTATION': False,
+}
+
 # Rate limiting: resume upload endpoint
 RESUME_UPLOAD_RATE = os.environ.get('RESUME_UPLOAD_RATE', '10/hour')
 # Retention (in days) for uploaded resume files and temporary storage

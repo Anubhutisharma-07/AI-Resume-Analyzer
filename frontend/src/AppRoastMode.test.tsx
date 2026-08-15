@@ -6,7 +6,39 @@ import { MemoryRouter } from 'react-router-dom'
 import axios from 'axios'
 import App from './App'
 
-vi.mock('axios')
+// The auto-mock leaves axios.create() returning undefined, and the shared API
+// client (src/api/client.ts) calls it at import time to build the instance it
+// attaches interceptors to. Supply a usable instance so importing App works.
+// Everything is defined inside the factory because vi.mock is hoisted above
+// module-level declarations.
+vi.mock('axios', () => {
+  const instance = {
+    get: vi.fn().mockResolvedValue({ data: [] }),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    put: vi.fn().mockResolvedValue({ data: {} }),
+    delete: vi.fn().mockResolvedValue({ data: {} }),
+    request: vi.fn().mockResolvedValue({ data: {} }),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+  }
+
+  const mockAxios = {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+    isAxiosError: vi.fn(),
+    create: vi.fn(() => instance),
+  }
+
+  return {
+    default: mockAxios,
+    ...mockAxios,
+    AxiosHeaders: { from: (headers: unknown) => headers },
+  }
+})
 
 describe('Resume Roast Mode (#497)', () => {
   it('toggles roast mode on and off for suggestions', async () => {
