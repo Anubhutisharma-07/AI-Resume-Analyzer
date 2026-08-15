@@ -120,6 +120,30 @@ AI-Resume-Analyzer
 
 ---
 
+## Cross-Browser Compatibility Testing
+
+Before submitting UI-related changes, verify the application in the following major browsers:
+
+- Chrome
+- Firefox
+- Safari
+- Microsoft Edge
+
+Pay particular attention to browser-sensitive functionality such as:
+
+- Drag-and-drop interactions
+- CSS animations and transitions
+- Custom scrollbars
+- Responsive layouts and interactive UI components
+
+Record the browser and version used during testing and confirm that the affected functionality works as expected.
+
+If a browser-specific issue is discovered, document it clearly and create a follow-up issue with the affected browser, feature, reproduction steps, and expected behavior.
+
+Cross-browser verification should be completed as part of the QA process before opening a pull request for relevant UI changes.
+
+---
+
 # Project Board
 
 Track development progress using our GitHub Project:
