@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import Resume, ResumeAnalysis
 
 
@@ -15,6 +17,27 @@ class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("username", "password")
+
+    def validate_password(self, value):
+        """Run the project's configured password validators.
+
+        ``AUTH_PASSWORD_VALIDATORS`` is set in settings but nothing was calling
+        it — ``min_length=6`` here was the only rule in force, and
+        ``set_password()`` does not validate. The length, common-password and
+        all-numeric checks the project believes it has were dead config on
+        every path that sets a password. The reset flow now runs the same
+        validators, so the two agree on what is acceptable.
+        """
+        # Passed in so UserAttributeSimilarityValidator can compare the
+        # password against the username being registered.
+        candidate = User(username=self.initial_data.get("username") or "")
+
+        try:
+            validate_password(value, user=candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+
+        return value
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)

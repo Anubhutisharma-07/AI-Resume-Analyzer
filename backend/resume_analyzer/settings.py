@@ -111,7 +111,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend'
+)
+
+# Address password-reset and support mail is sent from. Overridable because the
+# console backend ignores it but a real SMTP provider will not.
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL', 'noreply@ai-resume-analyzer.dev'
+)
+
 PASSWORD_RESET_TIMEOUT = 3600
 LANGUAGE_CODE = 'en-us'
 
@@ -153,6 +162,14 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
+    # Neither password-reset endpoint had any limit. Requesting a reset sends
+    # mail, and confirming one guesses at a token, so both need a ceiling.
+    'DEFAULT_THROTTLE_RATES': {
+        'password_reset': os.environ.get('PASSWORD_RESET_RATE', '5/hour'),
+        'password_reset_confirm': os.environ.get(
+            'PASSWORD_RESET_CONFIRM_RATE', '20/hour'
+        ),
+    },
 }
 
 # JWT lifetimes. These were previously inherited from SimpleJWT's defaults

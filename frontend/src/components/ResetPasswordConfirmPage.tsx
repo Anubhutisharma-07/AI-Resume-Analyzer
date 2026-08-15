@@ -25,8 +25,8 @@ export const ResetPasswordConfirmPage: React.FC = () => {
       return
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long')
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long')
       return
     }
 
@@ -45,7 +45,17 @@ export const ResetPasswordConfirmPage: React.FC = () => {
       }, 3000)
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || 'Invalid or expired reset token.')
+        const data = err.response?.data
+        // The backend now runs AUTH_PASSWORD_VALIDATORS and returns their
+        // messages under `new_password`. Reading only `error` swallowed them,
+        // leaving the user with "Invalid or expired reset token" when the real
+        // problem was that the password was too common or too short.
+        const fieldErrors = data?.new_password
+        if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+          setError(fieldErrors.join(' '))
+        } else {
+          setError(data?.error || 'Invalid or expired reset token.')
+        }
       } else {
         setError('An unexpected error occurred. Please try again.')
       }
@@ -80,7 +90,7 @@ export const ResetPasswordConfirmPage: React.FC = () => {
             <input
               className="auth-input"
               type="password"
-              placeholder="New Password (min 6 chars)"
+              placeholder="New Password (min 8 chars)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
