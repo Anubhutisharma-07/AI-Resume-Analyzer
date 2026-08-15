@@ -23,7 +23,8 @@ from django.core.mail import send_mail
 from rest_framework.throttling import SimpleRateThrottle
 
 from .comparison import compare_versions
-from .models import ResumeAnalysis, UserProfile
+# ADDED Webhook TO MODELS IMPORT
+from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
     ResumeAnalysisSerializer,
@@ -39,6 +40,12 @@ from django.shortcuts import get_object_or_404
 import json
 from django.http import HttpResponse
 from django.utils import timezone
+
+# ADDED IMPORTS FOR WEBHOOK DISPATCHING
+import requests
+import threading
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
 
 class UploadRateThrottle(SimpleRateThrottle):
@@ -1137,3 +1144,56 @@ def mock_interview_view(request):
         "feedback": feedback,
         "is_ai_generated": True
     }, status=status.HTTP_200_OK)
+
+
+# ==========================================
+# WEBHOOK MANAGEMENT & DISPATCHER
+# ==========================================
+
+def fire_webhook(url, payload):
+    """Fires webhook with 3 retries and exponential backoff for 5xx errors."""
+    session = requests.Session()
+    retry_strategy = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
+    session.mount("http://", HTTPAdapter(max_retries=retry_strategy))
+    session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
+    try:
+        session.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"Webhook failed for {url}: {e}")
+
+def trigger_webhooks_for_user(user, analysis_data):
+    """Finds active webhooks for a user and fires them in a background thread."""
+    if not user:
+        return
+    webhooks = Webhook.objects.filter(user=user, is_active=True)
+    if not webhooks.exists():
+        return
+        
+    payload = {"event": "resume_analysis.completed", "data": analysis_data}
+    for webhook in webhooks:
+        threading.Thread(target=fire_webhook, args=(webhook.url, payload)).start()
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def manage_webhooks(request):
+    if request.method == 'GET':
+        webhooks = Webhook.objects.filter(user=request.user).values('id', 'url', 'is_active')
+        return Response(list(webhooks))
+        
+    elif request.method == 'POST':
+        url = request.data.get('url')
+        if not url:
+            return Response({"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST)
+            
+        webhook = Webhook.objects.create(user=request.user, url=url)
+        return Response({"id": webhook.id, "url": webhook.url}, status=status.HTTP_201_CREATED)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_webhook(request, pk):
+    try:
+        webhook = Webhook.objects.get(pk=pk, user=request.user)
+        webhook.delete()
+        return Response({"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    except Webhook.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
