@@ -651,3 +651,7 @@ A huge thanks to all the developers who have contributed code, fixed bugs, and i
 <div align="center">
   Show your support by leaving a ⭐ on this repository!
 </div>
+
+## Community
+
+Join our [Discord Community](YOUR_DISCORD_URL) to ask questions, discuss the project, and connect with contributors.
