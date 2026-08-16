@@ -1,5 +1,6 @@
-import {} from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 
+const DISCORD_URL = 'YOUR_DISCORD_URL'
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
 
@@ -206,6 +207,21 @@ export const Footer: React.FC = () => {
               className="footer-icon-link"
             >
               💼
+            </a>
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Discord Community"
+              style={{
+                fontSize: '20px',
+                color: '#94a3b8',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+              }}
+              className="footer-icon-link"
+            >
+              <MessageCircle size={20} />
             </a>
           </div>
         </div>
