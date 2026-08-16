@@ -18,6 +18,7 @@ import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
+import { setResumeRoastConsent } from './utils/cookieConsent'
 
 type Theme = 'light' | 'dark'
 
@@ -769,7 +770,13 @@ function App() {
                       <input
                         type="checkbox"
                         checked={roastMode}
-                        onChange={(e) => setRoastMode(e.target.checked)}
+                        onChange={(e) => {
+                          const nextVal = e.target.checked
+                          setRoastMode(nextVal)
+                          if (nextVal) {
+                            setResumeRoastConsent(true)
+                          }
+                        }}
                         aria-label="Toggle Resume Roast mode"
                         style={{ cursor: 'pointer' }}
                       />
