@@ -88,6 +88,8 @@ export const ResetPasswordConfirmPage: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit}>
             <input
+              id="reset-new-password"
+              name="new-password"
               className="auth-input"
               type="password"
               placeholder="New Password (min 8 chars)"
@@ -95,15 +97,19 @@ export const ResetPasswordConfirmPage: React.FC = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoFocus
+              autoComplete="new-password"
             />
 
             <input
+              id="reset-confirm-password"
+              name="confirm-password"
               className="auth-input"
               type="password"
               placeholder="Confirm New Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              autoComplete="new-password"
             />
 
             {error && <p className="auth-error">{error}</p>}

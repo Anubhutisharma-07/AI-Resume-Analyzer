@@ -83,6 +83,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
         <form onSubmit={submit}>
           {mode === 'forgot_password' && (
             <input
+              id="auth-forgot-username"
+              name="username"
               className="auth-input"
               type="text"
               placeholder="Enter your username"
@@ -90,25 +92,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
               onChange={(e) => setUsername(e.target.value)}
               required
               autoFocus
+              autoComplete="username"
             />
           )}
           {mode !== 'forgot_password' && (
             <>
               <input
+                id="auth-username"
+                name="username"
                 className="auth-input"
+                type="text"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoFocus
+                autoComplete="username"
               />
               <input
+                id="auth-password"
+                name="password"
                 className="auth-input"
                 type="password"
                 placeholder="Password (min 6 chars)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
             </>
           )}
