@@ -23,7 +23,6 @@ from django.core.mail import send_mail
 from rest_framework.throttling import SimpleRateThrottle
 
 from .comparison import compare_versions
-# ADDED Webhook TO MODELS IMPORT
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -41,11 +40,9 @@ import json
 from django.http import HttpResponse
 from django.utils import timezone
 
-# ADDED IMPORTS FOR WEBHOOK DISPATCHING
-import requests
-import threading
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
+# `requests`, `threading`, `Retry` and `HTTPAdapter` used to be imported here
+# for webhook dispatch. Delivery now lives in analyzer.webhook_utils and runs as
+# a Celery task, so none of them belong in the view layer.
 
 from drf_spectacular.utils import (
     extend_schema,
@@ -1351,27 +1348,158 @@ def mock_interview_view(request):
 
 
 
-@api_view(['GET', 'POST'])
+from .serializers import WebhookSerializer
+
+#: How many webhooks one account may register. A webhook is an outbound request
+#: we make on the user's behalf, so an unbounded list is an unbounded amount of
+#: work per analysis.
+MAX_WEBHOOKS_PER_USER = 10
+
+
+@extend_schema(
+    summary="List or register webhooks",
+    description=(
+        "Webhooks are notified when one of your resume analyses completes. "
+        "The signing secret is returned only in the response to the POST that "
+        "creates the webhook — it cannot be read back afterwards."
+    ),
+    responses={200: WebhookSerializer(many=True), 201: WebhookSerializer},
+)
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def manage_webhooks(request):
-    if request.method == 'GET':
-        webhooks = Webhook.objects.filter(user=request.user).values('id', 'url', 'is_active')
-        return Response(list(webhooks))
-        
-    elif request.method == 'POST':
-        url = request.data.get('url')
-        if not url:
-            return Response({"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
-        webhook = Webhook.objects.create(user=request.user, url=url)
-        return Response({"id": webhook.id, "url": webhook.url}, status=status.HTTP_201_CREATED)
+    """List the caller's webhooks, or register a new one.
 
-@api_view(['DELETE'])
+    The previous version accepted any non-empty string as a URL and stored it
+    unchecked, which made this a way to point the server's HTTP client at
+    anything reachable from inside the network. Destinations now go through the
+    same validation as resume-import URLs.
+    """
+    if request.method == "GET":
+        webhooks = Webhook.objects.filter(user=request.user)
+        return Response(WebhookSerializer(webhooks, many=True).data)
+
+    if Webhook.objects.filter(user=request.user).count() >= MAX_WEBHOOKS_PER_USER:
+        return Response(
+            {
+                "detail": (
+                    f"You can register at most {MAX_WEBHOOKS_PER_USER} webhooks. "
+                    "Delete one you are no longer using first."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    serializer = WebhookSerializer(data=request.data, context={"request": request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    webhook = serializer.save(user=request.user)
+
+    # The only time the secret is ever sent. A receiver needs it to verify the
+    # X-Resume-Signature header on each delivery; we keep no way to show it
+    # again, so losing it means rotating the webhook.
+    body = dict(WebhookSerializer(webhook).data)
+    body["secret"] = webhook.secret
+    body["signature_help"] = (
+        "Verify deliveries with HMAC-SHA256 over "
+        "'<X-Resume-Timestamp>.<raw request body>' using this secret, and "
+        "compare against the X-Resume-Signature header with a constant-time "
+        "comparison. This secret is not retrievable later."
+    )
+
+    return Response(body, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    summary="Inspect, update or delete a webhook",
+    responses={
+        200: WebhookSerializer,
+        204: OpenApiResponse(description="Webhook deleted."),
+        404: OpenApiResponse(description="Webhook not found."),
+    },
+)
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_webhook(request, pk):
+def webhook_detail(request, pk):
+    """Read, edit or remove one of the caller's webhooks.
+
+    ``PATCH`` is what lets a user re-enable a webhook that was switched off
+    after repeated delivery failures; without it a failing endpoint could only
+    be deleted and recreated, which would change its secret.
+    """
     try:
         webhook = Webhook.objects.get(pk=pk, user=request.user)
-        webhook.delete()
-        return Response({"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     except Webhook.DoesNotExist:
-        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Deliberately the same answer as "belongs to someone else", so this
+        # cannot be used to find out which webhook ids exist.
+        return Response(
+            {"detail": "Webhook not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+        return Response(WebhookSerializer(webhook).data)
+
+    if request.method == "DELETE":
+        webhook.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = WebhookSerializer(
+        webhook, data=request.data, partial=True, context={"request": request}
+    )
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    updated = serializer.save()
+
+    # Turning a webhook back on clears the strike count, otherwise it would be
+    # disabled again by the very next failure.
+    if updated.is_active and updated.consecutive_failures:
+        updated.consecutive_failures = 0
+        updated.save(update_fields=["consecutive_failures"])
+
+    return Response(WebhookSerializer(updated).data)
+
+
+@extend_schema(
+    summary="Send a test delivery to a webhook",
+    description=(
+        "Delivers a `ping` event so you can confirm your receiver is reachable "
+        "and your signature check works, without waiting for an analysis."
+    ),
+    responses={
+        200: OpenApiResponse(description="Delivery attempted; see the result."),
+        404: OpenApiResponse(description="Webhook not found."),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def test_webhook(request, pk):
+    """Send a ``ping`` synchronously and report what happened.
+
+    Synchronous on purpose: the entire value of a test delivery is finding out
+    the result now. Real deliveries stay on the queue.
+    """
+    from .webhook_utils import deliver
+
+    try:
+        webhook = Webhook.objects.get(pk=pk, user=request.user)
+    except Webhook.DoesNotExist:
+        return Response(
+            {"detail": "Webhook not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    delivered = deliver(
+        webhook,
+        Webhook.EVENT_PING,
+        {"message": "This is a test delivery from AI Resume Analyzer."},
+    )
+    webhook.refresh_from_db()
+
+    return Response(
+        {
+            "delivered": delivered,
+            "status": WebhookSerializer(webhook).data["status"],
+        },
+        status=status.HTTP_200_OK,
+    )
