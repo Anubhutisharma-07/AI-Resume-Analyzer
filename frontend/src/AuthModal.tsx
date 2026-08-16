@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Lock, FileSignature, Loader2 } from 'lucide-react'
+import { Lock, FileSignature, Loader2, Eye, EyeOff } from 'lucide-react'
 import axios from 'axios'
 import { CaptchaChallenge } from './components/CaptchaChallenge'
 
@@ -17,6 +17,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
   const [captchaToken, setCaptchaToken] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -109,17 +110,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSignup, onLogin, onClose
                 autoFocus
                 autoComplete="username"
               />
-              <input
-                id="auth-password"
-                name="password"
-                className="auth-input"
-                type="password"
-                placeholder="Password (min 6 chars)"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              />
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  id="auth-password"
+                  name="password"
+                  className="auth-input"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password (min 6 chars)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  style={{ width: '100%', paddingRight: '40px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#666',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '4px',
+                  }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </>
           )}
           {mode === 'signup' &&
