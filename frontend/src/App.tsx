@@ -10,6 +10,7 @@ import {
 } from './utils/fileValidation'
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
+import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
 import { AuthModal } from './AuthModal'
@@ -152,6 +153,8 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
+  // Modal that diffs two saved uploads against each other.
+  const [showCompare, setShowCompare] = useState(false)
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
@@ -480,9 +483,17 @@ function App() {
         unreadCount={unreadCount}
         lastViewedTimestamp={lastViewedTimestamp}
         onMarkAllAsViewed={markAllAsViewed}
+        onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
       />
+      {showCompare && (
+        <CompareVersions
+          entries={entries}
+          token={user?.token}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
