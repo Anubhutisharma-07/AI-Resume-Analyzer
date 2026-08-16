@@ -1,4 +1,6 @@
 import { MessageCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { FaGithub, FaLinkedin } from "react-icons/fa"
 
 const DISCORD_URL = 'YOUR_DISCORD_URL'
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
@@ -105,6 +107,20 @@ export const Footer: React.FC = () => {
                 Career Tracks
               </a>
             </li>
+            <li>
+              <Link
+                to="/privacy"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s',
+                }}
+                className="footer-link"
+              >
+                🔒 Privacy Policy
+              </Link>
+            </li>
           </ul>
         </div>
 
@@ -164,6 +180,71 @@ export const Footer: React.FC = () => {
           </ul>
         </div>
 
+        {/* Column 3b: Legal & Support */}
+        <div>
+          <h5
+            style={{
+              margin: '0 0 16px 0',
+              fontSize: 'var(--font-size-sm)',
+              color: '#a5b4fc',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            Legal & Support
+          </h5>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+            }}
+          >
+            <li>
+              <Link
+                to="/terms"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                📋 Terms of Service
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/faq"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                ❓ FAQ
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/contact"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                }}
+                className="footer-link"
+              >
+                ❓ FAQ
+              </Link>
+            </li>
+          </ul>
+        </div>
+
         {/* Column 4: Social Interfaces */}
         <div>
           <h5
@@ -178,35 +259,11 @@ export const Footer: React.FC = () => {
             Connect
           </h5>
           <div style={{ display: 'flex', gap: '16px' }}>
-            <a
-              href={REPO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="GitHub Repository"
-              style={{
-                fontSize: '20px',
-                color: '#94a3b8',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-              className="footer-icon-link"
-            >
-              🐙
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+              <FaGithub size={24} color='white' />
             </a>
-            <a
-              href={LINKEDIN_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="LinkedIn Profile"
-              style={{
-                fontSize: '20px',
-                color: '#94a3b8',
-                textDecoration: 'none',
-                transition: 'color 0.2s',
-              }}
-              className="footer-icon-link"
-            >
-              💼
+            <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
+              <FaLinkedin size={24} color='white' />
             </a>
             <a
               href={DISCORD_URL}

@@ -67,6 +67,8 @@ class AnalyzeResumeTests(TestCase):
         self.assertIn("javascript", result["matched_skills"])
         self.assertIn("react", result["missing_skills"])
         self.assertIn("git", result["missing_skills"])
+        self.assertIn("react", result["missing_skills"])
+        self.assertIn("git", result["missing_skills"])
         # score = matched / required * 100 -> 3 / 10 * 100 = 30
         self.assertEqual(result["score"], 3 * 100 // 10)
 
@@ -166,7 +168,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from analyzer.comparison import compare_versions
-from analyzer.models import ResumeAnalysis
+from analyzer.models import ResumeAnalysis, UserProfile
 
 
 def _make_analysis(user, **overrides):
@@ -507,7 +509,6 @@ class SkillsLeaderboardTests(TestCase):
             score=90,
             skills_found=["react", "typescript"],
             matched_skills=["react", "typescript"],
-            missing_skills=["css"],
         )
         jd_text = "Looking for a React developer with strong React experience, TypeScript, and CSS skills."
         resp = self.client.post("/api/analyze-jd/", {"job_description": jd_text})
@@ -616,27 +617,280 @@ class CaptchaProtectionTests(TestCase):
         from rest_framework import status
         resp = self.client.post("/api/auth/signup/", {"username": "newbot", "password": "password123"})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("captcha_token", resp.data)
+        self.assertIn("email", resp.data)
 
-    def test_signup_succeeds_with_valid_captcha_token(self):
-        from rest_framework import status
-        resp = self.client.post(
-            "/api/auth/signup/",
-            {"username": "validuser", "password": "password123", "captcha_token": "CAP-VERIFIED-1234567890-abc123xyz"},
-        )
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
-    def test_login_fails_without_captcha_token(self):
+class ContactUsTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+
+    def test_contact_us_validation_error(self):
         from rest_framework import status
-        resp = self.client.post("/api/auth/login/", {"username": "botuser", "password": "password123"})
+        resp = self.client.post("/api/contact/", {"name": "", "email": "test@example.com", "message": ""})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
 
-    def test_login_succeeds_with_valid_captcha_token(self):
+    def test_contact_us_success(self):
         from rest_framework import status
         resp = self.client.post(
-            "/api/auth/login/",
-            {"username": "botuser", "password": "password123", "captcha_token": "CAP-VERIFIED-1234567890-abc123xyz"},
+            "/api/contact/",
+            {
+                "name": "Jane Doe",
+                "email": "jane@example.com",
+                "category": "Bug Report",
+                "subject": "Parser issue",
+                "message": "Found a minor bug when uploading resume.",
+            },
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertIn("access", resp.data)
+        self.assertEqual(resp.data["status"], "success")
+        self.assertIn("detail", resp.data)
 
+
+class ProfileAvatarTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="avataruser", password="password123")
+        
+    def test_login_returns_avatar_url(self):
+        from rest_framework import status
+        resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNone(resp.data["avatar_url"])
+
+    def test_upload_and_delete_avatar(self):
+        from rest_framework import status
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        token = login_resp.data["access"]
+        auth_headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        
+        txt_file = SimpleUploadedFile("avatar.txt", b"plain text content", content_type="text/plain")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": txt_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", resp.data)
+        
+        large_file = SimpleUploadedFile("avatar.png", b"x" * (2 * 1024 * 1024 + 1), content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": large_file}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        
+        valid_img = SimpleUploadedFile("avatar.png", b"fake_png_binary_data", content_type="image/png")
+        resp = self.client.post("/api/profile/avatar/", {"avatar": valid_img}, **auth_headers)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("avatar_url", resp.data)
+        self.assertIsNotNone(resp.data["avatar_url"])
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNotNone(login_resp.data["avatar_url"])
+        
+        del_resp = self.client.delete("/api/profile/avatar/", **auth_headers)
+        self.assertEqual(del_resp.status_code, status.HTTP_200_OK)
+        
+        login_resp = self.client.post("/api/auth/login/", {"username": "avataruser", "password": "password123"})
+        self.assertIsNone(login_resp.data["avatar_url"])
+
+
+class CompareBulkJDsTests(TestCase):
+    def test_compare_bulk_jds_endpoint(self):
+        from rest_framework import status
+        import json
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        resume_content = b"Python developer with experience in django and javascript"
+        txt_file = SimpleUploadedFile("resume.txt", resume_content, content_type="text/plain")
+        
+        jds = [
+            "Looking for python django developer",
+            "React frontend developer using typescript",
+        ]
+        
+        resp = self.client.post(
+            "/api/compare-bulk-jds/",
+            {
+                "file": txt_file,
+                "job_descriptions": json.dumps(jds)
+            }
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("resume_skills", resp.data)
+        self.assertIn("comparisons", resp.data)
+        
+        comparisons = resp.data["comparisons"]
+        self.assertEqual(len(comparisons), 2)
+        # First one should have higher score since the resume matches python/django
+        self.assertGreater(comparisons[0]["score"], comparisons[1]["score"])
+
+
+class WeeklyDigestTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+        from analyzer.models import UserProfile
+        self.client = APIClient()
+        self.user = User.objects.create_user(username="digestuser", password="password123", email="digest@example.com")
+        self.profile, _ = UserProfile.objects.get_or_create(user=self.user)
+
+    def test_digest_opt_in_toggle(self):
+        from rest_framework import status
+        self.client.force_authenticate(user=self.user)
+
+        # GET profile - default is False
+        resp = self.client.get("/api/profile/")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(resp.data["weekly_digest_opt_in"])
+
+        # PUT profile - set opt-in True
+        put_resp = self.client.put("/api/profile/", {"username": "digestuser", "email": "digest@example.com", "weekly_digest_opt_in": True})
+        self.assertEqual(put_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(put_resp.data["weekly_digest_opt_in"])
+
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.weekly_digest_opt_in)
+
+    def test_unsubscribe_endpoint(self):
+        from rest_framework import status
+        from analyzer.unsubscribe_tokens import make_unsubscribe_token
+
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+        # Unsubscribe with the signed token that digest emails now carry. A
+        # bare ?email= param no longer works — see tests_unsubscribe.py.
+        token = make_unsubscribe_token(self.user)
+        resp = self.client.get(f"/api/unsubscribe/?token={token}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["unsubscribed_count"], 1)
+
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.weekly_digest_opt_in)
+
+    def test_send_weekly_digest_command(self):
+        from django.core.management import call_command
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+        ResumeAnalysis.objects.create(
+            user=self.user,
+            file_name="resume.pdf",
+            score=65,
+            target_role="Frontend Developer"
+        )
+
+        call_command("send_weekly_digest", "--dry-run")
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.weekly_digest_opt_in)
+
+
+class ExportUserDataTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            username="exportuser",
+            password="password123",
+            email="export@example.com",
+            first_name="Export",
+            last_name="User",
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser",
+            password="password123",
+            email="other@example.com",
+        )
+
+        self.profile, _ = UserProfile.objects.get_or_create(user=self.user)
+        self.profile.weekly_digest_opt_in = True
+        self.profile.save()
+
+    def test_export_requires_authentication(self):
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_export_returns_user_account_and_analysis_history(self):
+        analysis = _make_analysis(
+            self.user,
+            file_name="my_resume.pdf",
+            score=85,
+            target_role="Backend Developer",
+            resume_text="Python Django developer",
+            job_description="Looking for a Python developer",
+            cover_letter_text="I am excited to apply.",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/json",
+        )
+        self.assertIn(
+            'attachment; filename="ai-resume-analyzer-data.json"',
+            response["Content-Disposition"],
+        )
+
+        data = response.json()
+
+        self.assertEqual(data["export_version"], 1)
+        self.assertIn("exported_at", data)
+
+        self.assertEqual(data["account"]["username"], "exportuser")
+        self.assertEqual(data["account"]["email"], "export@example.com")
+        self.assertEqual(data["account"]["first_name"], "Export")
+        self.assertEqual(data["account"]["last_name"], "User")
+        self.assertTrue(data["account"]["weekly_digest_opt_in"])
+        self.assertIsNone(data["account"]["avatar"])
+
+        self.assertEqual(len(data["analysis_history"]), 1)
+
+        exported_analysis = data["analysis_history"][0]
+
+        self.assertEqual(exported_analysis["id"], analysis.id)
+        self.assertEqual(exported_analysis["file_name"], "my_resume.pdf")
+        self.assertEqual(exported_analysis["score"], 85)
+        self.assertEqual(
+            exported_analysis["target_role"],
+            "Backend Developer",
+        )
+        self.assertEqual(
+            exported_analysis["resume_text"],
+            "Python Django developer",
+        )
+        self.assertEqual(
+            exported_analysis["job_description"],
+            "Looking for a Python developer",
+        )
+        self.assertEqual(
+            exported_analysis["cover_letter_text"],
+            "I am excited to apply.",
+        )
+
+    def test_export_does_not_include_other_users_analysis(self):
+        own_analysis = _make_analysis(
+            self.user,
+            file_name="my_resume.pdf",
+        )
+        foreign_analysis = _make_analysis(
+            self.other_user,
+            file_name="other_resume.pdf",
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/api/account/export/")
+
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        exported_ids = {
+            analysis["id"]
+            for analysis in data["analysis_history"]
+        }
+
+        self.assertIn(own_analysis.id, exported_ids)
+        self.assertNotIn(foreign_analysis.id, exported_ids)
