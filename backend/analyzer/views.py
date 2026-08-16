@@ -20,7 +20,20 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+
+from .request_input import (
+    MAX_CONTACT_EMAIL_LENGTH,
+    MAX_CONTACT_MESSAGE_LENGTH,
+    MAX_CONTACT_NAME_LENGTH,
+    MAX_CONTACT_SUBJECT_LENGTH,
+    MAX_INTERVIEW_ANSWER_LENGTH,
+    MAX_INTERVIEW_QUESTION_LENGTH,
+    MAX_JOB_DESCRIPTION_LENGTH,
+    MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    clean_text,
+    is_probably_an_email,
+)
 
 from .comparison import compare_versions
 # ADDED Webhook TO MODELS IMPORT
@@ -66,6 +79,38 @@ class UploadRateThrottle(SimpleRateThrottle):
             "scope": self.scope,
             "ident": ident,
         }
+
+
+class ContactThrottle(AnonRateThrottle):
+    """Caps /api/contact/, which sends an email on every accepted request.
+
+    Without this the endpoint is an unauthenticated way to put attacker-written
+    text into the project's support inbox as fast as it can be called, which
+    burns the sending domain's reputation as much as it annoys whoever reads it.
+    """
+
+    scope = "contact"
+
+
+class AnalyzeJdThrottle(AnonRateThrottle):
+    """Caps /api/analyze-jd/, which does unbounded text work per request."""
+
+    scope = "analyze_jd"
+
+
+class MockInterviewThrottle(AnonRateThrottle):
+    scope = "mock_interview"
+
+
+class SignupThrottle(AnonRateThrottle):
+    """Caps account creation.
+
+    Independent of how the CAPTCHA is fixed (#584): a rate limit is worth having
+    behind any bot check, because a bot check that is ever bypassed leaves
+    nothing else in the way.
+    """
+
+    scope = "signup"
 
 
 def verify_captcha_token(token_string):
@@ -117,6 +162,7 @@ def validate_uploaded_file(f, formats=RESUME_FORMATS, field_label="resume"):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([SignupThrottle])
 def signup(request):
     captcha_token = request.data.get("captcha_token") or request.data.get("captcha")
     if not verify_captcha_token(captcha_token):
@@ -180,8 +226,16 @@ def upload_resume(request):
 
     file = request.FILES.get("file")
     url = request.data.get("url") or request.data.get("resume_url")
-    target_role = request.data.get("role", "")
-    job_desc = request.data.get("job_description", "")[:2000]
+    target_role = clean_text(request.data.get("role"), max_length=100)
+    # `.get(key, "")` returns the stored value when the key is present, so a
+    # JSON body carrying `"job_description": null` produced None here and the
+    # slice raised TypeError. This line sits above the try/except, so that was
+    # an uncaught 500 rather than a 400 -- and a client posting a form object
+    # whole sends null for every field the user left blank.
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
 
     cover_letter = request.FILES.get("cover_letter")
 
@@ -274,8 +328,11 @@ def task_status(request, task_id):
 def compare_uploads(request):
     file1 = request.FILES.get("file1")
     file2 = request.FILES.get("file2")
-    target_role = request.data.get("role", "")
-    job_desc = request.data.get("job_description", "")[:2000]
+    target_role = clean_text(request.data.get("role"), max_length=100)
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
 
     if not file1 or not file2:
         return Response({"error": "Please provide two resume files."}, status=status.HTTP_400_BAD_REQUEST)
@@ -897,9 +954,15 @@ STOP_WORDS = {
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnalyzeJdThrottle])
 def analyze_jd_view(request):
-    job_description = request.data.get("job_description", "")
-    if not job_description or not job_description.strip():
+    # Capped before any work happens. Everything below walks the text, and then
+    # compares each of the top 30 words against the entire skill set, so an
+    # unbounded body was unbounded CPU on an endpoint anyone can call.
+    job_description = clean_text(
+        request.data.get("job_description"), max_length=MAX_JOB_DESCRIPTION_LENGTH
+    )
+    if not job_description:
         return Response({"error": "Job description cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
         
     words = re.findall(r"\b[a-zA-Z0-9\-\.\#\+\-]+\b", job_description.lower())
@@ -1206,18 +1269,56 @@ def user_profile_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+#: Categories the contact form offers. Anything else is filed as "Other" rather
+#: than echoed into the subject line, so the value cannot be used to write
+#: arbitrary text into the header of a mail the project sends.
+CONTACT_CATEGORIES = (
+    "General Inquiry",
+    "Bug Report",
+    "Feature Request",
+    "Account Support",
+    "Privacy",
+    "Other",
+)
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([ContactThrottle])
 def contact_us_view(request):
-    name = request.data.get("name", "").strip()
-    email = request.data.get("email", "").strip()
-    category = request.data.get("category", "General Inquiry").strip()
-    subject = request.data.get("subject", "").strip()
-    message = request.data.get("message", "").strip()
+    """Forward a support message to the project's inbox.
 
+    This endpoint sends an email on every accepted request and had no rate
+    limit, so it could be driven as a way to fill the support address with
+    attacker-written text — enough to damage the sending domain's reputation.
+    It is now throttled, its fields are bounded, and the address is checked to
+    be an address.
+    """
+    name = clean_text(request.data.get("name"), max_length=MAX_CONTACT_NAME_LENGTH)
+    email = clean_text(request.data.get("email"), max_length=MAX_CONTACT_EMAIL_LENGTH)
+    subject = clean_text(
+        request.data.get("subject"), max_length=MAX_CONTACT_SUBJECT_LENGTH
+    )
+    message = clean_text(
+        request.data.get("message"), max_length=MAX_CONTACT_MESSAGE_LENGTH
+    )
+
+    category = clean_text(request.data.get("category")) or "General Inquiry"
+    if category not in CONTACT_CATEGORIES:
+        category = "Other"
+
+    # Each of these used to be `.get(field, "").strip()`, which raises
+    # TypeError on a JSON null — the shape a client gets from posting a form
+    # object with blank fields.
     if not name or not email or not message:
         return Response(
             {"error": "Name, email, and message are required fields."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not is_probably_an_email(email):
+        return Response(
+            {"error": "Please provide a valid email address so we can reply."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -1230,10 +1331,23 @@ def contact_us_view(request):
             message=email_body,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"),
             recipient_list=[support_email],
-            fail_silently=True,
+            # Was fail_silently=True, so a mail backend that was down looked
+            # exactly like a delivered message: the user was told "your message
+            # has been received" and it had gone nowhere. Someone who is not
+            # told their support request vanished does not send it again.
+            fail_silently=False,
         )
-    except Exception as e:
-        print(f"Failed to send support email: {e}")
+    except Exception:
+        logger.exception("Failed to send support email")
+        return Response(
+            {
+                "error": (
+                    "We could not send your message right now. Please try again "
+                    "in a few minutes."
+                )
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
 
     return Response(
         {
@@ -1313,9 +1427,14 @@ def unsubscribe_digest_view(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([MockInterviewThrottle])
 def mock_interview_view(request):
-    question = request.data.get("question", "").strip()
-    answer = request.data.get("answer", "").strip()
+    question = clean_text(
+        request.data.get("question"), max_length=MAX_INTERVIEW_QUESTION_LENGTH
+    )
+    answer = clean_text(
+        request.data.get("answer"), max_length=MAX_INTERVIEW_ANSWER_LENGTH
+    )
 
     if not question or not answer:
         return Response(

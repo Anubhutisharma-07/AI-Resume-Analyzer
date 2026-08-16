@@ -195,13 +195,24 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.AllowAny',
     ),
-    # Neither password-reset endpoint had any limit. Requesting a reset sends
-    # mail, and confirming one guesses at a token, so both need a ceiling.
+    # Every AllowAny endpoint that does real work needs a ceiling. The two
+    # password-reset scopes came first (#585); the rest were added because they
+    # were entirely unlimited: /api/contact/ sends an email per request,
+    # /api/analyze-jd/ tokenises an unbounded body and then compares each of the
+    # top 30 words against the whole skill set, and signup had nothing but the
+    # CAPTCHA in front of it.
+    #
+    # All overridable by environment variable, because the right number depends
+    # on the deployment and nobody should have to edit code to raise one.
     'DEFAULT_THROTTLE_RATES': {
         'password_reset': os.environ.get('PASSWORD_RESET_RATE', '5/hour'),
         'password_reset_confirm': os.environ.get(
             'PASSWORD_RESET_CONFIRM_RATE', '20/hour'
         ),
+        'contact': os.environ.get('CONTACT_RATE', '5/hour'),
+        'analyze_jd': os.environ.get('ANALYZE_JD_RATE', '30/hour'),
+        'mock_interview': os.environ.get('MOCK_INTERVIEW_RATE', '30/hour'),
+        'signup': os.environ.get('SIGNUP_RATE', '10/hour'),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
