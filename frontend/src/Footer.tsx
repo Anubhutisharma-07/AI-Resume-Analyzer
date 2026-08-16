@@ -4,7 +4,11 @@ import { FaGithub, FaLinkedin } from "react-icons/fa"
 const REPO_URL = 'https://github.com/Muskankr/AI-Resume-Analyzer'
 const LINKEDIN_URL = 'https://www.linkedin.com/in/muskan-kumari-76361b378'
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onOpenWhatsNew?: () => void
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenWhatsNew }) => {
   const currentYear = new Date().getFullYear()
 
   return (
@@ -161,6 +165,43 @@ export const Footer: React.FC = () => {
               </a>
             </li>
             <li>
+              {onOpenWhatsNew ? (
+                <button
+                  type="button"
+                  onClick={onOpenWhatsNew}
+                  style={{
+                    color: '#94a3b8',
+                    fontSize: 'var(--font-size-sm)',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontFamily: 'inherit',
+                  }}
+                  className="footer-link"
+                >
+                  ✨ What's New (v2.4.0)
+                </button>
+              ) : (
+                <a
+                  href={`${REPO_URL}/blob/main/CHANGELOG.md`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: '#94a3b8',
+                    fontSize: 'var(--font-size-sm)',
+                    textDecoration: 'none',
+                  }}
+                  className="footer-link"
+                >
+                  ✨ What's New
+                </a>
+              )}
+            </li>
+            <li>
               <a
                 href={`${REPO_URL}/commits/main`}
                 target="_blank"
@@ -237,7 +278,7 @@ export const Footer: React.FC = () => {
                 }}
                 className="footer-link"
               >
-                ❓ FAQ
+                💬 Contact Us
               </Link>
             </li>
           </ul>
