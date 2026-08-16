@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, Link,} from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
@@ -112,6 +112,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
 }
 
 function App() {
+
   const location = useLocation()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
@@ -470,6 +471,7 @@ function App() {
 
   return (
     <>
+    
       <HistorySidebar
         entries={entries}
         onSelect={selectHistoryEntry}
@@ -485,6 +487,7 @@ function App() {
       />
       <div className="container mt-5">
         <div className="main-card text-center">
+
           {/* Theme toggle */}
           <button
             type="button"
@@ -824,7 +827,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              
+
               <InterviewQuestionsPanel questions={interviewQuestions} />
             </>
           )}{' '}

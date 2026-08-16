@@ -1,7 +1,7 @@
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from .services import analyze_resume
-from .views import trigger_webhooks_for_user
+from .webhook_utils import trigger_webhooks_for_user
 
 User = get_user_model()
 

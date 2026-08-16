@@ -39,6 +39,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     'analyzer',
     
 ]
@@ -75,6 +76,38 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'resume_analyzer.wsgi.application'
 
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Resume Analyzer API",
+    "DESCRIPTION": (
+        "REST API for resume analysis, job description analysis, "
+        "resume comparison, user profiles, analysis history, "
+        "and related services."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+
+    "SECURITY": [
+        {
+            "bearerAuth": [],
+        }
+    ],
+
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+    "COMPONENT_SPLIT_REQUEST": True,
+
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+    },
+    
+}
 
 DATABASES = {
     'default': {
@@ -170,6 +203,7 @@ REST_FRAMEWORK = {
             'PASSWORD_RESET_CONFIRM_RATE', '20/hour'
         ),
     },
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 # JWT lifetimes. These were previously inherited from SimpleJWT's defaults
