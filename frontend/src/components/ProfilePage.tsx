@@ -208,7 +208,9 @@ export const ProfilePage: React.FC = () => {
               <label htmlFor="profile-username" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Username</label>
               <input
                 id="profile-username"
+                name="username"
                 type="text"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={!isEditing || saving}
@@ -230,7 +232,9 @@ export const ProfilePage: React.FC = () => {
               <label htmlFor="profile-email" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Email Address</label>
               <input
                 id="profile-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={!isEditing || saving}
