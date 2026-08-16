@@ -239,6 +239,76 @@ class CompareVersionsEngineTests(TestCase):
         self.assertEqual(result["added_skills"], [])
         self.assertEqual(result["removed_skills"], [])
 
+    def test_substantially_different_resumes_do_not_crash(self):
+        """A completely restructured resume must diff without raising.
+
+        The diff engine is the last thing a user sees in the UI, so it has to
+        survive resumes that share almost no lines — different section order,
+        different length, mostly disjoint content.
+        """
+        older = _make_analysis(
+            self.user,
+            resume_text="\n".join(
+                [
+                    "JOHN DOE",
+                    "Senior Backend Developer | New York, NY",
+                    "",
+                    "SUMMARY",
+                    "Eight years building distributed services with Python and Go.",
+                    "",
+                    "EXPERIENCE",
+                    "Senior Engineer - Acme Corp (2019 - Present)",
+                    "Led migration of a monolith to microservices.",
+                    "Cut p95 latency by 40% across the payments API.",
+                    "",
+                    "SKILLS",
+                    "Python, Go, PostgreSQL, Redis, Kubernetes, Docker, gRPC",
+                    "",
+                    "EDUCATION",
+                    "B.S. Computer Science, State University",
+                ]
+            ),
+        )
+        newer = _make_analysis(
+            self.user,
+            resume_text="\n".join(
+                [
+                    "JANE SMITH",
+                    "Frontend Engineer",
+                    "jane@example.com | Seattle, WA",
+                    "",
+                    "TECHNICAL SKILLS",
+                    "TypeScript, React, Next.js, Tailwind, GraphQL, Cypress, Jest",
+                    "",
+                    "PROJECTS",
+                    "Realtime dashboard - rebuilt a legacy UI with React.",
+                    "Design system - authored 40+ shared components.",
+                    "Performance - improved Largest Contentful Paint by 35%.",
+                    "",
+                    "WORK HISTORY",
+                    "Senior Frontend Engineer - Initech (2021 - Present)",
+                    "Owned the checkout experience used by 2M monthly users.",
+                    "",
+                    "OPEN SOURCE",
+                    "Maintainer of a popular React state library.",
+                    "Speaker at CityJS and React Summit.",
+                ]
+            ),
+        )
+
+        result = compare_versions(older, newer).as_dict()
+
+        # No crash; diff entries are only ever of the two highlightable types.
+        self.assertTrue(isinstance(result["text_diff"], list))
+        self.assertGreater(len(result["text_diff"]), 0)
+        self.assertTrue(all(d["type"] in ("added", "removed") for d in result["text_diff"]))
+        # The payload is capped so a huge rewrite cannot balloon the response.
+        self.assertLessEqual(len(result["text_diff"]), 200)
+        # A full rewrite is reflected in the insights summary.
+        self.assertTrue(
+            any("Content changes" in insight for insight in result["insights"])
+        )
+
 
 class CompareVersionsAPITests(TestCase):
     def setUp(self):
