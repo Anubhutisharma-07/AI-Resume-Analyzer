@@ -224,6 +224,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 className="history-compare-btn"
                 onClick={onMarkAllAsViewed}
                 title="Mark all as read"
+                // The visible label is abbreviated to fit the toolbar, so the
+                // accessible name came out as "Mark Read" — `title` does not
+                // provide one when the button already has text content. Spell
+                // it out for screen readers.
+                aria-label="Mark all as read"
               >
                 <Check size={14} /> Mark Read
               </button>
