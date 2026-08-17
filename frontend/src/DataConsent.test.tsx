@@ -8,7 +8,6 @@ import {
   setResumeRoastConsent,
   getConsentPreferences,
   saveConsentPreferences,
-  saveCookieConsentChoice,
 } from './utils/cookieConsent'
 
 describe('Optional Data Collection Consent (#536)', () => {
