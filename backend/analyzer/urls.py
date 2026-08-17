@@ -27,6 +27,9 @@ from .views import (
     task_status,
     mock_interview_view,
     export_user_data,
+    manage_webhooks,
+    webhook_detail,
+    test_webhook,
 )
 
 urlpatterns = [
@@ -37,6 +40,9 @@ urlpatterns = [
     path("analyze-jd/", analyze_jd_view),
     path("compare-bulk-jds/", compare_bulk_jds_view),
     path("profile/", user_profile_view),
+    # `profile_avatar_view` was imported here but never given a path, so the
+    # avatar upload the profile modal has always called returned 404. See #632.
+    path("profile/avatar/", profile_avatar_view, name="profile_avatar"),
     path("contact/", contact_us_view),
     path("skills-leaderboard/", skills_leaderboard_view),
     path("unsubscribe/", unsubscribe_digest_view),
@@ -49,6 +55,12 @@ urlpatterns = [
     path("history/", analysis_history),
     path("history/clear/", clear_user_history),
     path("history/<int:pk>/", history_detail),
+
+    # Webhooks. The views for these have existed since #549 but were never
+    # given a path, so the feature has been unreachable.
+    path("webhooks/", manage_webhooks, name="manage_webhooks"),
+    path("webhooks/<int:pk>/", webhook_detail, name="webhook_detail"),
+    path("webhooks/<int:pk>/test/", test_webhook, name="test_webhook"),
 
     path("compare/", compare_versions_view),
     path("suggestion-feedback/", suggestion_feedback),

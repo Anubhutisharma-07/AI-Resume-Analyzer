@@ -2,19 +2,32 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import axios from 'axios'
 import { ProfilePage } from './ProfilePage'
 
-vi.mock('axios')
+// ProfilePage now talks to the shared `api` instance rather than bare axios,
+// so that the access token is attached from storage and a 401 is retried after
+// a refresh (#633). Mocking the client directly keeps these tests about the
+// page rather than about axios' interceptor plumbing.
+vi.mock('../api/client', () => ({
+    api: {
+        get: vi.fn(),
+        put: vi.fn(),
+        post: vi.fn(),
+        delete: vi.fn(),
+    },
+    BACKEND_URL: 'http://127.0.0.1:8000',
+    onSessionExpired: vi.fn(() => () => {}),
+}))
 
 vi.mock('../hooks/useAuth', () => ({
     useAuth: vi.fn(),
 }))
 
+import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 
-const mockedAxiosGet = vi.mocked(axios.get)
-const mockedAxiosPut = vi.mocked(axios.put)
+const mockedAxiosGet = vi.mocked(api.get)
+const mockedAxiosPut = vi.mocked(api.put)
 const mockedUseAuth = vi.mocked(useAuth)
 
 describe('ProfilePage', () => {
@@ -91,13 +104,11 @@ describe('ProfilePage', () => {
 
         expect(digestToggle).toBeChecked()
 
+        // No Authorization argument any more: the client's request
+        // interceptor attaches the current token, so the page does not build
+        // a header from a value captured on render.
         expect(mockedAxiosGet).toHaveBeenCalledWith(
-            expect.stringContaining('/api/profile/'),
-            {
-                headers: {
-                    Authorization: 'Bearer fake-token',
-                },
-            }
+            expect.stringContaining('/api/profile/')
         )
     })
 
@@ -196,11 +207,6 @@ describe('ProfilePage', () => {
                 username: 'updateduser',
                 email: 'updated@example.com',
                 weekly_digest_opt_in: true,
-            },
-            {
-                headers: {
-                    Authorization: 'Bearer fake-token',
-                },
             }
         )
 

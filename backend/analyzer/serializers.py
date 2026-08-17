@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from .models import Resume, ResumeAnalysis
 
 
@@ -93,7 +94,6 @@ class ResumeAnalysisListSerializer(serializers.ModelSerializer):
         fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
                   "matched_skills", "missing_skills", "target_role", "created_at")
 
-
 class VersionComparisonSerializer(serializers.Serializer):
     older_id = serializers.IntegerField()
     newer_id = serializers.IntegerField()
@@ -159,7 +159,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 from .models import SuggestionFeedback
 
-
 class SuggestionFeedbackSerializer(serializers.ModelSerializer):
     """Read representation of one stored vote."""
 
@@ -167,3 +166,79 @@ class SuggestionFeedbackSerializer(serializers.ModelSerializer):
         model = SuggestionFeedback
         fields = ("id", "analysis", "suggestion_text", "vote", "comment", "updated_at")
         read_only_fields = fields
+
+
+from .models import Webhook
+from .url_safety import UnsafeURLError, assert_url_is_safe
+
+
+class WebhookSerializer(serializers.ModelSerializer):
+    """Read/write representation of a registered webhook.
+
+    ``secret`` is never in the output. It is returned exactly once, by the
+    create view, in the response to the POST that generated it — the same
+    pattern every webhook provider uses, because a secret that can be re-read
+    from a list endpoint is only as protected as the weakest session that can
+    reach that endpoint.
+    """
+
+    #: Read-only summary of how the last attempt went, so a user can tell a
+    #: healthy webhook from one that has been failing since they set it up.
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Webhook
+        fields = (
+            "id",
+            "url",
+            "description",
+            "is_active",
+            "created_at",
+            "status",
+        )
+        read_only_fields = ("id", "created_at", "status")
+
+    def get_status(self, obj):
+        return {
+            "last_delivery_at": (
+                obj.last_delivery_at.isoformat() if obj.last_delivery_at else None
+            ),
+            "last_status_code": obj.last_status_code,
+            "last_error": obj.last_error,
+            "consecutive_failures": obj.consecutive_failures,
+        }
+
+    def validate_url(self, value):
+        """Reject anything the fetcher would not be allowed to reach.
+
+        This is the same check the resume-import path runs (#583). Registering
+        the URL is the point at which a user can be told *why* it was refused;
+        by delivery time the request is in a background task with nobody
+        watching, so that check — which also runs, because DNS changes — can
+        only log.
+        """
+        try:
+            assert_url_is_safe(value)
+        except UnsafeURLError as exc:
+            raise serializers.ValidationError(
+                "That URL cannot be used as a webhook destination. It must be a "
+                "public HTTPS or HTTP address on port 80 or 443 — internal, "
+                "loopback and cloud-metadata addresses are not permitted."
+            ) from exc
+        return value
+
+    def validate(self, attrs):
+        """Reject a duplicate before the database constraint has to."""
+        user = self.context["request"].user
+        url = attrs.get("url", getattr(self.instance, "url", None))
+
+        duplicates = Webhook.objects.filter(user=user, url=url)
+        if self.instance is not None:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+
+        if duplicates.exists():
+            raise serializers.ValidationError(
+                {"url": "You have already registered a webhook for that URL."}
+            )
+
+        return attrs

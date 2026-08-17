@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, Link } from 'react-router-dom'
+import { useLocation, Link,} from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
@@ -10,6 +10,7 @@ import {
 } from './utils/fileValidation'
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
+import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
 import { AuthModal } from './AuthModal'
@@ -113,6 +114,7 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
 }
 
 function App() {
+
   const location = useLocation()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
@@ -153,8 +155,8 @@ function App() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
-
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+  // Modal that diffs two saved uploads against each other.
+  const [showCompare, setShowCompare] = useState(false)
 
   const fetchDbHistory = useCallback(
     async () => {
@@ -237,14 +239,20 @@ function App() {
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
-      const headers = user ? { Authorization: `Bearer ${user.token}` } : {}
-      const res = await axios.post(`${backendUrl}/api/upload/`, formData, { headers })
+      // Through `api`, which attaches the current access token and, on a 401,
+      // refreshes once and retries. This used to build an Authorization header
+      // by hand from `user.token` — a value captured when the component
+      // rendered — so uploading anything more than 15 minutes after signing in
+      // failed with a 401 and an "Upload failed" alert. It also stayed stale
+      // even when something else had refreshed the token in the meantime.
+      // Anonymous uploads are unaffected: with no session the interceptor
+      // attaches nothing, exactly as before.
+      const res = await api.post('/api/upload/', formData)
       const taskId = res.data.task_id
 
       let result = null
       while (true) {
-        const statusRes = await axios.get(`${backendUrl}/api/status/${taskId}/`)
+        const statusRes = await api.get(`/api/status/${taskId}/`)
         if (statusRes.data.state === 'SUCCESS') {
           result = statusRes.data.result
           break
@@ -378,17 +386,13 @@ function App() {
         return next
       })
 
-      const config = { headers: { Authorization: `Bearer ${user.token}` } }
       const payload = { analysis_id: analysisId, suggestion_text: suggestion }
 
       try {
         if (vote === null) {
-          await axios.delete(`${backendUrl}/api/suggestion-feedback/`, {
-            ...config,
-            data: payload,
-          })
+          await api.delete('/api/suggestion-feedback/', { data: payload })
         } else {
-          await axios.post(`${backendUrl}/api/suggestion-feedback/`, { ...payload, vote }, config)
+          await api.post('/api/suggestion-feedback/', { ...payload, vote })
         }
       } catch {
         setSuggestionVotes((current) => {
@@ -399,7 +403,7 @@ function App() {
         })
       }
     },
-    [analysisId, backendUrl, suggestionVotes, user]
+    [analysisId, suggestionVotes, user]
   )
 
   // Restore votes already cast against this analysis, so returning to it does
@@ -408,10 +412,8 @@ function App() {
     if (!user || analysisId === null) return
 
     let cancelled = false
-    axios
-      .get(`${backendUrl}/api/suggestion-feedback/?analysis_id=${analysisId}`, {
-        headers: { Authorization: `Bearer ${user.token}` },
-      })
+    api
+      .get(`/api/suggestion-feedback/?analysis_id=${analysisId}`)
       .then((res) => {
         if (cancelled) return
         const stored: Record<string, VoteValue> = {}
@@ -427,7 +429,7 @@ function App() {
     return () => {
       cancelled = true
     }
-  }, [analysisId, backendUrl, user])
+  }, [analysisId, user])
 
   const copySuggestionsToClipboard = () => {
     if (suggestions.length === 0) return
@@ -471,6 +473,7 @@ function App() {
 
   return (
     <>
+    
       <HistorySidebar
         entries={entries}
         onSelect={selectHistoryEntry}
@@ -481,11 +484,20 @@ function App() {
         unreadCount={unreadCount}
         lastViewedTimestamp={lastViewedTimestamp}
         onMarkAllAsViewed={markAllAsViewed}
+        onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
       />
+      {showCompare && (
+        <CompareVersions
+          entries={entries}
+          token={user?.token}
+          onClose={() => setShowCompare(false)}
+        />
+      )}
       <div className="container mt-5">
         <div className="main-card text-center">
+
           {/* Theme toggle */}
           <button
             type="button"
@@ -831,7 +843,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              
+
               <InterviewQuestionsPanel questions={interviewQuestions} />
             </>
           )}{' '}
