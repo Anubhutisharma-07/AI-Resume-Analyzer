@@ -5,7 +5,9 @@ import './index.css'
 import App from './App.tsx'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import ErrorBoundary from './components/ErrorBoundary'
-import { BrowserRouter } from 'react-router-dom'
+import {  BrowserRouter } from 'react-router-dom'
+import ApiDocs from "./pages/Apidocs";
+
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({
@@ -57,6 +59,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/*" element={<App />} />
+          <Route path="/docs" element={<ApiDocs />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </BrowserRouter>

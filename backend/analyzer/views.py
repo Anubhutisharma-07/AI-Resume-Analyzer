@@ -20,10 +20,22 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import AnonRateThrottle, SimpleRateThrottle
+
+from .request_input import (
+    MAX_CONTACT_EMAIL_LENGTH,
+    MAX_CONTACT_MESSAGE_LENGTH,
+    MAX_CONTACT_NAME_LENGTH,
+    MAX_CONTACT_SUBJECT_LENGTH,
+    MAX_INTERVIEW_ANSWER_LENGTH,
+    MAX_INTERVIEW_QUESTION_LENGTH,
+    MAX_JOB_DESCRIPTION_LENGTH,
+    MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    clean_text,
+    is_probably_an_email,
+)
 
 from .comparison import compare_versions
-# ADDED Webhook TO MODELS IMPORT
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -41,12 +53,17 @@ import json
 from django.http import HttpResponse
 from django.utils import timezone
 
-# ADDED IMPORTS FOR WEBHOOK DISPATCHING
-import requests
-import threading
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
+# `requests`, `threading`, `Retry` and `HTTPAdapter` used to be imported here
+# for webhook dispatch. Delivery now lives in analyzer.webhook_utils and runs as
+# a Celery task, so none of them belong in the view layer.
 
+from drf_spectacular.utils import (
+    extend_schema,
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    OpenApiTypes,
+)
 
 class UploadRateThrottle(SimpleRateThrottle):
     scope = "upload"
@@ -59,6 +76,38 @@ class UploadRateThrottle(SimpleRateThrottle):
             "scope": self.scope,
             "ident": ident,
         }
+
+
+class ContactThrottle(AnonRateThrottle):
+    """Caps /api/contact/, which sends an email on every accepted request.
+
+    Without this the endpoint is an unauthenticated way to put attacker-written
+    text into the project's support inbox as fast as it can be called, which
+    burns the sending domain's reputation as much as it annoys whoever reads it.
+    """
+
+    scope = "contact"
+
+
+class AnalyzeJdThrottle(AnonRateThrottle):
+    """Caps /api/analyze-jd/, which does unbounded text work per request."""
+
+    scope = "analyze_jd"
+
+
+class MockInterviewThrottle(AnonRateThrottle):
+    scope = "mock_interview"
+
+
+class SignupThrottle(AnonRateThrottle):
+    """Caps account creation.
+
+    Independent of how the CAPTCHA is fixed (#584): a rate limit is worth having
+    behind any bot check, because a bot check that is ever bypassed leaves
+    nothing else in the way.
+    """
+
+    scope = "signup"
 
 
 def verify_captcha_token(token_string):
@@ -110,6 +159,7 @@ def validate_uploaded_file(f, formats=RESUME_FORMATS, field_label="resume"):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([SignupThrottle])
 def signup(request):
     captcha_token = request.data.get("captcha_token") or request.data.get("captcha")
     if not verify_captcha_token(captcha_token):
@@ -129,6 +179,41 @@ def signup(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@extend_schema(
+    summary="Upload and analyze a resume",
+    description=(
+        "Uploads a resume and starts the resume analysis process."
+    ),
+    request={
+        "multipart/form-data": {
+            "type": "object",
+            "properties": {
+                "resume": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Resume PDF/document to analyze.",
+                },
+            },
+            "required": ["resume"],
+        }
+    },
+    responses={
+        200: OpenApiResponse(
+            description="Resume analysis task created.",
+            examples=[
+                OpenApiExample(
+                    "Success",
+                    value={
+                        "task_id": "abc123",
+                    },
+                )
+            ],
+        ),
+        400: OpenApiResponse(
+            description="Invalid resume upload."
+        ),
+    },
+)
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -138,8 +223,16 @@ def upload_resume(request):
 
     file = request.FILES.get("file")
     url = request.data.get("url") or request.data.get("resume_url")
-    target_role = request.data.get("role", "")
-    job_desc = request.data.get("job_description", "")[:2000]
+    target_role = clean_text(request.data.get("role"), max_length=100)
+    # `.get(key, "")` returns the stored value when the key is present, so a
+    # JSON body carrying `"job_description": null` produced None here and the
+    # slice raised TypeError. This line sits above the try/except, so that was
+    # an uncaught 500 rather than a 400 -- and a client posting a form object
+    # whole sends null for every field the user left blank.
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
 
     cover_letter = request.FILES.get("cover_letter")
 
@@ -232,8 +325,11 @@ def task_status(request, task_id):
 def compare_uploads(request):
     file1 = request.FILES.get("file1")
     file2 = request.FILES.get("file2")
-    target_role = request.data.get("role", "")
-    job_desc = request.data.get("job_description", "")[:2000]
+    target_role = clean_text(request.data.get("role"), max_length=100)
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
 
     if not file1 or not file2:
         return Response({"error": "Please provide two resume files."}, status=status.HTTP_400_BAD_REQUEST)
@@ -318,7 +414,11 @@ def _positive_int(raw, default, maximum=None):
         return min(value, maximum)
     return value
 
-
+@extend_schema(
+    summary="Get analysis history",
+    description="Returns the authenticated user's resume analysis history.",
+    responses=ResumeAnalysisListSerializer(many=True),
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def analysis_history(request):
@@ -379,6 +479,16 @@ def analysis_history(request):
         }
     )
 
+@extend_schema(
+    summary="Get analysis details",
+    description="Returns a complete resume analysis.",
+    responses={
+        200: ResumeAnalysisSerializer,
+        404: OpenApiResponse(
+            description="Analysis not found."
+        ),
+    },
+)
 
 @api_view(["GET", "DELETE"])
 @permission_classes([IsAuthenticated])
@@ -412,6 +522,19 @@ def clear_user_history(request):
     # and HTTP clients treat as a protocol error.
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+@extend_schema(
+    summary="Compare two resume versions",
+    description="Compares two previously analyzed resume versions.",
+    responses={
+        200: VersionComparisonSerializer,
+        400: OpenApiResponse(
+            description="Invalid comparison request."
+        ),
+        404: OpenApiResponse(
+            description="Analysis not found."
+        ),
+    },
+)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -828,9 +951,15 @@ STOP_WORDS = {
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([AnalyzeJdThrottle])
 def analyze_jd_view(request):
-    job_description = request.data.get("job_description", "")
-    if not job_description or not job_description.strip():
+    # Capped before any work happens. Everything below walks the text, and then
+    # compares each of the top 30 words against the entire skill set, so an
+    # unbounded body was unbounded CPU on an endpoint anyone can call.
+    job_description = clean_text(
+        request.data.get("job_description"), max_length=MAX_JOB_DESCRIPTION_LENGTH
+    )
+    if not job_description:
         return Response({"error": "Job description cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
         
     words = re.findall(r"\b[a-zA-Z0-9\-\.\#\+\-]+\b", job_description.lower())
@@ -923,6 +1052,35 @@ def skills_leaderboard_view(request):
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
+
+@extend_schema(
+    summary="Authenticate user",
+    description=(
+        "Authenticates a user and returns JWT access and refresh tokens. "
+        "CAPTCHA verification is required."
+    ),
+    examples=[
+        OpenApiExample(
+            "Login request",
+            request_only=True,
+            value={
+                "username": "john",
+                "password": "SecurePassword123!",
+                "captcha_token": "captcha-token",
+            },
+        ),
+        OpenApiExample(
+            "Login response",
+            response_only=True,
+            value={
+                "access": "eyJhbGciOiJIUzI1NiIs...",
+                "refresh": "eyJhbGciOiJIUzI1NiIs...",
+                "avatar_url": None,
+            },
+        ),
+    ],
+)
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -1081,7 +1239,17 @@ def compare_bulk_jds_view(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-
+@extend_schema(
+    summary="Get or update user profile",
+    description=(
+        "Returns the authenticated user's profile or updates "
+        "their profile information."
+    ),
+    responses={
+        200: UserProfileSerializer,
+        400: OpenApiResponse(description="Invalid profile data."),
+    },
+)
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
 def user_profile_view(request):
@@ -1098,18 +1266,56 @@ def user_profile_view(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+#: Categories the contact form offers. Anything else is filed as "Other" rather
+#: than echoed into the subject line, so the value cannot be used to write
+#: arbitrary text into the header of a mail the project sends.
+CONTACT_CATEGORIES = (
+    "General Inquiry",
+    "Bug Report",
+    "Feature Request",
+    "Account Support",
+    "Privacy",
+    "Other",
+)
+
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([ContactThrottle])
 def contact_us_view(request):
-    name = request.data.get("name", "").strip()
-    email = request.data.get("email", "").strip()
-    category = request.data.get("category", "General Inquiry").strip()
-    subject = request.data.get("subject", "").strip()
-    message = request.data.get("message", "").strip()
+    """Forward a support message to the project's inbox.
 
+    This endpoint sends an email on every accepted request and had no rate
+    limit, so it could be driven as a way to fill the support address with
+    attacker-written text — enough to damage the sending domain's reputation.
+    It is now throttled, its fields are bounded, and the address is checked to
+    be an address.
+    """
+    name = clean_text(request.data.get("name"), max_length=MAX_CONTACT_NAME_LENGTH)
+    email = clean_text(request.data.get("email"), max_length=MAX_CONTACT_EMAIL_LENGTH)
+    subject = clean_text(
+        request.data.get("subject"), max_length=MAX_CONTACT_SUBJECT_LENGTH
+    )
+    message = clean_text(
+        request.data.get("message"), max_length=MAX_CONTACT_MESSAGE_LENGTH
+    )
+
+    category = clean_text(request.data.get("category")) or "General Inquiry"
+    if category not in CONTACT_CATEGORIES:
+        category = "Other"
+
+    # Each of these used to be `.get(field, "").strip()`, which raises
+    # TypeError on a JSON null — the shape a client gets from posting a form
+    # object with blank fields.
     if not name or not email or not message:
         return Response(
             {"error": "Name, email, and message are required fields."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not is_probably_an_email(email):
+        return Response(
+            {"error": "Please provide a valid email address so we can reply."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -1122,10 +1328,23 @@ def contact_us_view(request):
             message=email_body,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"),
             recipient_list=[support_email],
-            fail_silently=True,
+            # Was fail_silently=True, so a mail backend that was down looked
+            # exactly like a delivered message: the user was told "your message
+            # has been received" and it had gone nowhere. Someone who is not
+            # told their support request vanished does not send it again.
+            fail_silently=False,
         )
-    except Exception as e:
-        print(f"Failed to send support email: {e}")
+    except Exception:
+        logger.exception("Failed to send support email")
+        return Response(
+            {
+                "error": (
+                    "We could not send your message right now. Please try again "
+                    "in a few minutes."
+                )
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
 
     return Response(
         {
@@ -1205,9 +1424,14 @@ def unsubscribe_digest_view(request):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([MockInterviewThrottle])
 def mock_interview_view(request):
-    question = request.data.get("question", "").strip()
-    answer = request.data.get("answer", "").strip()
+    question = clean_text(
+        request.data.get("question"), max_length=MAX_INTERVIEW_QUESTION_LENGTH
+    )
+    answer = clean_text(
+        request.data.get("answer"), max_length=MAX_INTERVIEW_ANSWER_LENGTH
+    )
 
     if not question or not answer:
         return Response(
@@ -1241,54 +1465,160 @@ def mock_interview_view(request):
     }, status=status.HTTP_200_OK)
 
 
-# ==========================================
-# WEBHOOK MANAGEMENT & DISPATCHER
-# ==========================================
 
-def fire_webhook(url, payload):
-    """Fires webhook with 3 retries and exponential backoff for 5xx errors."""
-    session = requests.Session()
-    retry_strategy = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504])
-    session.mount("http://", HTTPAdapter(max_retries=retry_strategy))
-    session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
-    try:
-        session.post(url, json=payload, timeout=10)
-    except Exception as e:
-        print(f"Webhook failed for {url}: {e}")
 
-def trigger_webhooks_for_user(user, analysis_data):
-    """Finds active webhooks for a user and fires them in a background thread."""
-    if not user:
-        return
-    webhooks = Webhook.objects.filter(user=user, is_active=True)
-    if not webhooks.exists():
-        return
-        
-    payload = {"event": "resume_analysis.completed", "data": analysis_data}
-    for webhook in webhooks:
-        threading.Thread(target=fire_webhook, args=(webhook.url, payload)).start()
+from .serializers import WebhookSerializer
 
-@api_view(['GET', 'POST'])
+#: How many webhooks one account may register. A webhook is an outbound request
+#: we make on the user's behalf, so an unbounded list is an unbounded amount of
+#: work per analysis.
+MAX_WEBHOOKS_PER_USER = 10
+
+
+@extend_schema(
+    summary="List or register webhooks",
+    description=(
+        "Webhooks are notified when one of your resume analyses completes. "
+        "The signing secret is returned only in the response to the POST that "
+        "creates the webhook — it cannot be read back afterwards."
+    ),
+    responses={200: WebhookSerializer(many=True), 201: WebhookSerializer},
+)
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def manage_webhooks(request):
-    if request.method == 'GET':
-        webhooks = Webhook.objects.filter(user=request.user).values('id', 'url', 'is_active')
-        return Response(list(webhooks))
-        
-    elif request.method == 'POST':
-        url = request.data.get('url')
-        if not url:
-            return Response({"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
-        webhook = Webhook.objects.create(user=request.user, url=url)
-        return Response({"id": webhook.id, "url": webhook.url}, status=status.HTTP_201_CREATED)
+    """List the caller's webhooks, or register a new one.
 
-@api_view(['DELETE'])
+    The previous version accepted any non-empty string as a URL and stored it
+    unchecked, which made this a way to point the server's HTTP client at
+    anything reachable from inside the network. Destinations now go through the
+    same validation as resume-import URLs.
+    """
+    if request.method == "GET":
+        webhooks = Webhook.objects.filter(user=request.user)
+        return Response(WebhookSerializer(webhooks, many=True).data)
+
+    if Webhook.objects.filter(user=request.user).count() >= MAX_WEBHOOKS_PER_USER:
+        return Response(
+            {
+                "detail": (
+                    f"You can register at most {MAX_WEBHOOKS_PER_USER} webhooks. "
+                    "Delete one you are no longer using first."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    serializer = WebhookSerializer(data=request.data, context={"request": request})
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    webhook = serializer.save(user=request.user)
+
+    # The only time the secret is ever sent. A receiver needs it to verify the
+    # X-Resume-Signature header on each delivery; we keep no way to show it
+    # again, so losing it means rotating the webhook.
+    body = dict(WebhookSerializer(webhook).data)
+    body["secret"] = webhook.secret
+    body["signature_help"] = (
+        "Verify deliveries with HMAC-SHA256 over "
+        "'<X-Resume-Timestamp>.<raw request body>' using this secret, and "
+        "compare against the X-Resume-Signature header with a constant-time "
+        "comparison. This secret is not retrievable later."
+    )
+
+    return Response(body, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(
+    summary="Inspect, update or delete a webhook",
+    responses={
+        200: WebhookSerializer,
+        204: OpenApiResponse(description="Webhook deleted."),
+        404: OpenApiResponse(description="Webhook not found."),
+    },
+)
+@api_view(["GET", "PATCH", "DELETE"])
 @permission_classes([IsAuthenticated])
-def delete_webhook(request, pk):
+def webhook_detail(request, pk):
+    """Read, edit or remove one of the caller's webhooks.
+
+    ``PATCH`` is what lets a user re-enable a webhook that was switched off
+    after repeated delivery failures; without it a failing endpoint could only
+    be deleted and recreated, which would change its secret.
+    """
     try:
         webhook = Webhook.objects.get(pk=pk, user=request.user)
-        webhook.delete()
-        return Response({"message": "Deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
     except Webhook.DoesNotExist:
-        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Deliberately the same answer as "belongs to someone else", so this
+        # cannot be used to find out which webhook ids exist.
+        return Response(
+            {"detail": "Webhook not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == "GET":
+        return Response(WebhookSerializer(webhook).data)
+
+    if request.method == "DELETE":
+        webhook.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = WebhookSerializer(
+        webhook, data=request.data, partial=True, context={"request": request}
+    )
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    updated = serializer.save()
+
+    # Turning a webhook back on clears the strike count, otherwise it would be
+    # disabled again by the very next failure.
+    if updated.is_active and updated.consecutive_failures:
+        updated.consecutive_failures = 0
+        updated.save(update_fields=["consecutive_failures"])
+
+    return Response(WebhookSerializer(updated).data)
+
+
+@extend_schema(
+    summary="Send a test delivery to a webhook",
+    description=(
+        "Delivers a `ping` event so you can confirm your receiver is reachable "
+        "and your signature check works, without waiting for an analysis."
+    ),
+    responses={
+        200: OpenApiResponse(description="Delivery attempted; see the result."),
+        404: OpenApiResponse(description="Webhook not found."),
+    },
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def test_webhook(request, pk):
+    """Send a ``ping`` synchronously and report what happened.
+
+    Synchronous on purpose: the entire value of a test delivery is finding out
+    the result now. Real deliveries stay on the queue.
+    """
+    from .webhook_utils import deliver
+
+    try:
+        webhook = Webhook.objects.get(pk=pk, user=request.user)
+    except Webhook.DoesNotExist:
+        return Response(
+            {"detail": "Webhook not found."}, status=status.HTTP_404_NOT_FOUND
+        )
+
+    delivered = deliver(
+        webhook,
+        Webhook.EVENT_PING,
+        {"message": "This is a test delivery from AI Resume Analyzer."},
+    )
+    webhook.refresh_from_db()
+
+    return Response(
+        {
+            "delivered": delivered,
+            "status": WebhookSerializer(webhook).data["status"],
+        },
+        status=status.HTTP_200_OK,
+    )

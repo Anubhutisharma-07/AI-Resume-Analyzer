@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
+import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession, exportUserData } = useAuth()
@@ -28,11 +26,11 @@ export const ProfilePage: React.FC = () => {
       try {
         setLoading(true)
         setError(null)
-        const response = await axios.get(`${BACKEND}/api/profile/`, {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        })
+        // Through `api` so an expired access token is refreshed and the
+        // request retried. Building the header from `user.token` by hand meant
+        // the profile page was blank with "Failed to load profile details"
+        // fifteen minutes after signing in.
+        const response = await api.get('/api/profile/')
         const data = response.data
         setUsername(data.username)
         setEmail(data.email || '')
@@ -100,15 +98,11 @@ export const ProfilePage: React.FC = () => {
       setError(null)
       setSuccessMsg(null)
 
-      const response = await axios.put(
-        `${BACKEND}/api/profile/`,
-        { username, email, weekly_digest_opt_in: weeklyDigestOptIn },
-        {
-          headers: {
-            Authorization: `Bearer ${user.token}`,
-          },
-        }
-      )
+      const response = await api.put('/api/profile/', {
+        username,
+        email,
+        weekly_digest_opt_in: weeklyDigestOptIn,
+      })
 
       const updated = response.data
       setUsername(updated.username)
@@ -208,7 +202,9 @@ export const ProfilePage: React.FC = () => {
               <label htmlFor="profile-username" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Username</label>
               <input
                 id="profile-username"
+                name="username"
                 type="text"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={!isEditing || saving}
@@ -230,7 +226,9 @@ export const ProfilePage: React.FC = () => {
               <label htmlFor="profile-email" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Email Address</label>
               <input
                 id="profile-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={!isEditing || saving}
