@@ -43,11 +43,31 @@ def extract_text_from_file(file_path, file_name):
     text = ""
     if file_name.lower().endswith('.docx'):
         doc = docx.Document(file_path)
+        # Extract paragraph text
         for paragraph in doc.paragraphs:
             text += paragraph.text + "\n"
+        # Extract table text to capture nested tables/tabular resumes
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    text += cell.text + " "
+                text += "\n"
     elif file_name.lower().endswith('.txt'):
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            text = f.read()
+        # Robust multi-encoding fallback parsing
+        for encoding in ('utf-8-sig', 'utf-16', 'latin-1'):
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    text = f.read()
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        else:
+            # Final fallback in case none of the above succeeded
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    text = f.read()
+            except Exception:
+                pass
     else:
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
