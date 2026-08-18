@@ -1622,3 +1622,93 @@ def test_webhook(request, pk):
         },
         status=status.HTTP_200_OK,
     )
+
+
+# New Device / Location Login Email Alerts Helper Functions
+import requests
+from django.core.mail import send_mail
+from django.utils import timezone
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+def parse_user_agent(ua_string):
+    if not ua_string:
+        return "Unknown Device"
+
+    os_name = "Unknown OS"
+    if "Windows" in ua_string:
+        os_name = "Windows"
+    elif "Macintosh" in ua_string or "Mac OS X" in ua_string:
+        os_name = "macOS"
+    elif "iPhone" in ua_string or "iPad" in ua_string:
+        os_name = "iOS"
+    elif "Android" in ua_string:
+        os_name = "Android"
+    elif "Linux" in ua_string:
+        os_name = "Linux"
+
+    browser_name = "Unknown Browser"
+    if "Chrome" in ua_string and "Safari" in ua_string and "Edge" not in ua_string and "OPR" not in ua_string:
+        browser_name = "Chrome"
+    elif "Safari" in ua_string and "Chrome" not in ua_string:
+        browser_name = "Safari"
+    elif "Firefox" in ua_string:
+        browser_name = "Firefox"
+    elif "Edge" in ua_string or "Edg" in ua_string:
+        browser_name = "Edge"
+    elif "OPR" in ua_string or "Opera" in ua_string:
+        browser_name = "Opera"
+
+    return f"{browser_name} on {os_name}"
+
+def get_approximate_location(ip):
+    if not ip or ip in ('127.0.0.1', '::1'):
+        return "Localhost (Development)"
+    try:
+        resp = requests.get(f"https://ipapi.co/{ip}/json/", timeout=1.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            city = data.get("city")
+            region = data.get("region")
+            country = data.get("country_name")
+            if city and country:
+                return f"{city}, {region}, {country}" if region else f"{city}, {country}"
+            elif country:
+                return country
+    except Exception:
+        pass
+    return "Approximate Location"
+
+def send_new_device_login_alert(user, ip, device_info):
+    if not user.email:
+        return
+
+    location = get_approximate_location(ip)
+    login_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    reset_link = build_password_reset_link(user)
+
+    subject = "Security Alert: New login from unrecognized device or location"
+    message = (
+        f"Hello {user.username},\n\n"
+        "We detected a login to your account from a new, unrecognized device or location:\n\n"
+        f"  Device: {device_info}\n"
+        f"  Location: {location} (IP: {ip})\n"
+        f"  Time: {login_time}\n\n"
+        "If this was you, no action is needed.\n\n"
+        "If this wasn't you, your account may be compromised. Please reset your password immediately using the link below:\n"
+        f"{reset_link}\n"
+    )
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"),
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
