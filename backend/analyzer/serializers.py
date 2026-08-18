@@ -99,6 +99,37 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 data["avatar_url"] = profile.avatar.url
         else:
             data["avatar_url"] = None
+
+        if request:
+            from .models import KnownDevice
+            from .views import get_client_ip, parse_user_agent, send_new_device_login_alert
+
+            ip = get_client_ip(request)
+            ua = request.META.get('HTTP_USER_AGENT', '')
+            device = parse_user_agent(ua)
+
+            known_devices = KnownDevice.objects.filter(user=self.user)
+            has_existing = known_devices.exists()
+            device_exists = known_devices.filter(ip_address=ip, device_info=device).exists()
+
+            if not device_exists:
+                if has_existing:
+                    # Unrecognized login! Send email alert.
+                    try:
+                        send_new_device_login_alert(self.user, ip, device)
+                    except Exception:
+                        pass
+
+                # Save as a known device (registers initial silently, or adds new device)
+                try:
+                    KnownDevice.objects.get_or_create(
+                        user=self.user,
+                        ip_address=ip,
+                        device_info=device
+                    )
+                except Exception:
+                    pass
+
         return data
 
 

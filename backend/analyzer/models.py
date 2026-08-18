@@ -47,6 +47,19 @@ class UserProfile(models.Model):
         return f"{self.user.username}'s Profile"
 
 
+class KnownDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="known_devices")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    device_info = models.CharField(max_length=255)
+    last_login = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'ip_address', 'device_info')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.device_info} ({self.ip_address})"
+
+
 def generate_webhook_secret():
     """Return a fresh signing secret for a webhook.
 
