@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, Link,} from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
@@ -8,7 +8,8 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
+import { useAnalysisHistory } from './hooks/useAnalysisHistory'
+import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
@@ -57,8 +58,6 @@ function highlightSkills(text: string, skills: string[]): React.ReactNode[] {
     )
   )
 }
-
-import { useAnalysisHistory, AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
 
 /** Rows per request from `/api/history/`. */
 const HISTORY_PAGE_SIZE = 20
