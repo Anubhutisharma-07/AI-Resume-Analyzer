@@ -212,65 +212,65 @@ function App() {
     }
   }, [historyNextUrl, setEntries, user])
 
-  const handleUploadSuccess = async (taskId: string, fileToAnalyze: File) => {
-    try {
-      let result = null
-      while (true) {
-        const statusRes = await api.get(`/api/status/${taskId}/`)
-        if (statusRes.data.state === 'SUCCESS') {
-          result = statusRes.data.result
-          break
-        } else if (statusRes.data.state === 'FAILURE') {
-          throw new Error(statusRes.data.error || 'Analysis failed')
-        }
-        await new Promise(r => setTimeout(r, 1000))
-      }
+  // const handleUploadSuccess = async (taskId: string, fileToAnalyze: File) => {
+  //   try {
+  //     let result = null
+  //     while (true) {
+  //       const statusRes = await api.get(`/api/status/${taskId}/`)
+  //       if (statusRes.data.state === 'SUCCESS') {
+  //         result = statusRes.data.result
+  //         break
+  //       } else if (statusRes.data.state === 'FAILURE') {
+  //         throw new Error(statusRes.data.error || 'Analysis failed')
+  //       }
+  //       await new Promise(r => setTimeout(r, 1000))
+  //     }
 
-      setScore(result.score)
-      setScoreBreakdown(result.score_breakdown || null)
-      setSkills(result.skills_found || [])
-      setSuggestions(result.suggestions || [])
-      setMatchedSkills(result.matched_skills || [])
-      setPartialSkills(result.partial_skills || [])
-      setMissingSkills(result.missing_skills || [])
-      setResumeText(result.resume_text || '')
-      setInterviewQuestions(result.interview_questions || [])
-      setAnalysisId(typeof result.id === 'number' ? result.id : null)
-      setSuggestionVotes({})
-      setActiveFileName(fileToAnalyze.name)
+  //     setScore(result.score)
+  //     setScoreBreakdown(result.score_breakdown || null)
+  //     setSkills(result.skills_found || [])
+  //     setSuggestions(result.suggestions || [])
+  //     setMatchedSkills(result.matched_skills || [])
+  //     setPartialSkills(result.partial_skills || [])
+  //     setMissingSkills(result.missing_skills || [])
+  //     setResumeText(result.resume_text || '')
+  //     setInterviewQuestions(result.interview_questions || [])
+  //     setAnalysisId(typeof result.id === 'number' ? result.id : null)
+  //     setSuggestionVotes({})
+  //     setActiveFileName(fileToAnalyze.name)
 
-      setLoading(false)
+  //     setLoading(false)
 
-      // Reset retry state on success
-      setRetryCount(0)
-      setCooldownRemaining(0)
+  //     // Reset retry state on success
+  //     setRetryCount(0)
+  //     setCooldownRemaining(0)
 
-      if (user) {
-        await fetchDbHistory()
-      }
-    } catch (error: unknown) {
-      console.error(error)
+  //     if (user) {
+  //       await fetchDbHistory()
+  //     }
+  //   } catch (error: unknown) {
+  //     console.error(error)
 
-      let errorMsg = 'Unknown error'
+  //     let errorMsg = 'Unknown error'
 
-      if (axios.isAxiosError(error)) {
-        errorMsg = error.response?.data?.error ?? error.message
-      } else if (error instanceof Error) {
-        errorMsg = error.message
-      }
+  //     if (axios.isAxiosError(error)) {
+  //       errorMsg = error.response?.data?.error ?? error.message
+  //     } else if (error instanceof Error) {
+  //       errorMsg = error.message
+  //     }
 
-      alert(
-        `Upload failed: ${errorMsg}`
-      )
+  //     alert(
+  //       `Upload failed: ${errorMsg}`
+  //     )
 
-      setLoading(false)
+  //     setLoading(false)
 
-      // Increment retry count and set cooldown
-      const newRetryCount = retryCount + 1
-      setRetryCount(newRetryCount)
-      setCooldownRemaining(getRetryDelay(newRetryCount))
-    }
-  }
+  //     // Increment retry count and set cooldown
+  //     const newRetryCount = retryCount + 1
+  //     setRetryCount(newRetryCount)
+  //     setCooldownRemaining(getRetryDelay(newRetryCount))
+  //   }
+  // }
 
   useEffect(() => {
     if (user) fetchDbHistory()
