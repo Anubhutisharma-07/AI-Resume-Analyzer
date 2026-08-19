@@ -58,6 +58,8 @@ function highlightSkills(text: string, skills: string[]): React.ReactNode[] {
   )
 }
 
+import { useAnalysisHistory, AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
+
 /** Rows per request from `/api/history/`. */
 const HISTORY_PAGE_SIZE = 20
 
@@ -68,6 +70,7 @@ interface HistoryRow {
   skills_found: string[]
   suggestions: string[]
   matched_skills: string[]
+  partial_skills?: PartialSkillItem[]
   missing_skills: string[]
   target_role: string
   experience_level?: string
@@ -97,6 +100,7 @@ function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[]
     skills: item.skills_found,
     suggestions: item.suggestions,
     matchedSkills: item.matched_skills,
+    partialSkills: item.partial_skills || [],
     missingSkills: item.missing_skills,
     targetRole: item.target_role,
     experienceLevel: item.experience_level || 'Mid-Level',
@@ -143,6 +147,7 @@ function App() {
     }
   })
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
+  const [partialSkills, setPartialSkills] = useState<PartialSkillItem[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -201,10 +206,72 @@ function App() {
         return [...previous, ...older.filter((entry) => !seen.has(entry.id))]
       })
       setHistoryNextUrl(nextPageUrl(res.data))
-    } catch {
-      /* silently ignore */
+    } catch (error) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+        console.error('Could not load next page of history', error)
+      }
     }
   }, [historyNextUrl, setEntries, user])
+
+  const handleUploadSuccess = async (taskId: string, fileToAnalyze: File) => {
+    try {
+      let result = null
+      while (true) {
+        const statusRes = await api.get(`/api/status/${taskId}/`)
+        if (statusRes.data.state === 'SUCCESS') {
+          result = statusRes.data.result
+          break
+        } else if (statusRes.data.state === 'FAILURE') {
+          throw new Error(statusRes.data.error || 'Analysis failed')
+        }
+        await new Promise(r => setTimeout(r, 1000))
+      }
+
+      setScore(result.score)
+      setScoreBreakdown(result.score_breakdown || null)
+      setSkills(result.skills_found || [])
+      setSuggestions(result.suggestions || [])
+      setMatchedSkills(result.matched_skills || [])
+      setPartialSkills(result.partial_skills || [])
+      setMissingSkills(result.missing_skills || [])
+      setResumeText(result.resume_text || '')
+      setInterviewQuestions(result.interview_questions || [])
+      setAnalysisId(typeof result.id === 'number' ? result.id : null)
+      setSuggestionVotes({})
+      setActiveFileName(fileToAnalyze.name)
+
+      setLoading(false)
+
+      // Reset retry state on success
+      setRetryCount(0)
+      setCooldownRemaining(0)
+
+      if (user) {
+        await fetchDbHistory()
+      }
+    } catch (error: unknown) {
+      console.error(error)
+
+      let errorMsg = 'Unknown error'
+
+      if (axios.isAxiosError(error)) {
+        errorMsg = error.response?.data?.error ?? error.message
+      } else if (error instanceof Error) {
+        errorMsg = error.message
+      }
+
+      alert(
+        `Upload failed: ${errorMsg}`
+      )
+
+      setLoading(false)
+
+      // Increment retry count and set cooldown
+      const newRetryCount = retryCount + 1
+      setRetryCount(newRetryCount)
+      setCooldownRemaining(getRetryDelay(newRetryCount))
+    }
+  }
 
   useEffect(() => {
     if (user) fetchDbHistory()
@@ -284,6 +351,7 @@ function App() {
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
+      setPartialSkills(result.partial_skills || [])
       setMissingSkills(result.missing_skills || [])
       setResumeText(result.resume_text || '')
       setInterviewQuestions(result.interview_questions || [])
@@ -375,6 +443,7 @@ function App() {
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
+    setPartialSkills([])
     setMissingSkills([])
     setResumeText('')
     setInterviewQuestions([])
@@ -467,6 +536,7 @@ function App() {
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
+    setPartialSkills(entry.partialSkills || [])
     setMissingSkills(entry.missingSkills)
     setTargetRole(entry.targetRole)
     if (entry.experienceLevel) {
@@ -763,7 +833,7 @@ function App() {
                 style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
               >
                 <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
                   <div>
                     <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
                     {matchedSkills.length === 0 ? (
@@ -776,6 +846,20 @@ function App() {
                       ))
                     )}
                   </div>
+                  {partialSkills.length > 0 && (
+                    <div>
+                      <h6 style={{ color: '#eab308' }}>Partial Matches</h6>
+                      {partialSkills.map((p, i) => {
+                        const name = typeof p === 'string' ? p : p.skill
+                        const variant = typeof p === 'object' ? p.matched_variant : ''
+                        return (
+                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
+                            {name} {variant ? `(${variant})` : ''}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div>
                     <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
                     {missingSkills.length === 0 ? (
@@ -790,6 +874,61 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
+              {partialSkills.length > 0 && (
+                <div
+                  className="mt-4 p-3"
+                  style={{
+                    background: 'rgba(234, 179, 8, 0.1)',
+                    border: '1px solid rgba(234, 179, 8, 0.3)',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <h4 style={{ color: '#eab308', margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+                    ⚡ Skills You're Closest to Matching (Partial Credit)
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {partialSkills.map((p, i) => {
+                      const skillName = typeof p === 'string' ? p : p.skill
+                      const variant = typeof p === 'object' ? p.matched_variant : ''
+                      const note = typeof p === 'object' ? p.note : ''
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'rgba(0, 0, 0, 0.25)',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                          }}
+                        >
+                          <div>
+                            <span className="badge bg-warning text-dark me-2" style={{ fontWeight: '600' }}>
+                              Partial Match
+                            </span>
+                            <strong style={{ color: '#fff', fontSize: '14px' }}>{skillName}</strong>
+                            {variant && (
+                              <span style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}>
+                                (Resume mentions: <code style={{ color: '#fef08a' }}>{variant}</code>)
+                              </span>
+                            )}
+                          </div>
+                          {note && (
+                            <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                              💡 {note}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* SUGGESTIONS BOX WITH THE UTILITY BUTTON & ROAST MODE TOGGLE */}
               <div className="suggestion-box mt-4">

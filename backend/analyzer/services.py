@@ -4,7 +4,7 @@ import docx
 import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
-from .skill_matcher import extract_skills
+from .skill_matcher import extract_skills, match_skills_with_partial
 from .scoring import compute_score_breakdown
 from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
@@ -428,26 +428,25 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     readability_score, readability_label = calculate_readability(raw_text)
     detected = extract_skills(text)
 
-    matched = []
-    missing = []
     if job_description and job_description.strip():
         required = extract_skills(job_description)
     else:
         required = get_role_skills_for_level(target_role, experience_level)
 
-    for skill in required:
-        if skill in detected:
-            matched.append(skill)
-        else:
-            missing.append(skill)
+    matched, partial, missing = match_skills_with_partial(required, raw_text, detected)
 
+    score_credit = len(matched) + (0.5 * len(partial))
     score = (
-        int(len(matched) / len(required) * 100)
+        int(score_credit / len(required) * 100)
         if required
         else min(len(detected) * 10, 100)
     )
 
-    suggestions = generate_level_tailored_suggestions(missing, experience_level, target_role)
+    suggestions = []
+    for item in partial:
+        suggestions.append(f"Near match: Your resume mentions '{item['matched_variant']}' which is a partial match for target skill '{item['skill']}'. Clarify or explicitly list '{item['skill']}' for full credit.")
+
+    suggestions.extend(generate_level_tailored_suggestions(missing, experience_level, target_role))
 
     # Process optional cover letter if provided
     cover_letter_text = ""
@@ -478,6 +477,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
                 skills_found=detected,
                 suggestions=suggestions,
                 matched_skills=matched,
+                partial_skills=partial,
                 missing_skills=missing,
                 resume_text=raw_text,
                 cover_letter_text=cover_letter_text if cover_letter_text else None,
@@ -497,10 +497,10 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     track_comparisons = {}
     for role, _ in get_role_skills().items():
         role_req_skills = get_role_skills_for_level(role, experience_level)
-        role_matched = [s for s in role_req_skills if s in detected]
-        role_missing = [s for s in role_req_skills if s not in detected]
+        role_matched, role_partial, role_missing = match_skills_with_partial(role_req_skills, raw_text, detected)
+        role_credit = len(role_matched) + (0.5 * len(role_partial))
         role_score = (
-            int(len(role_matched) / len(role_req_skills) * 100)
+            int(role_credit / len(role_req_skills) * 100)
             if role_req_skills
             else min(len(detected) * 10, 100)
         )
@@ -509,6 +509,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         track_comparisons[role] = {
             "score": role_score,
             "matched_skills": role_matched,
+            "partial_skills": role_partial,
             "missing_skills": role_missing,
             "suggestions": role_suggestions,
         }
@@ -527,6 +528,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         readability_score=readability_score,
         readability_label=readability_label,
         quantify_nudges=quantify_nudges,
+        partial_skills=partial,
     )
 
     return {
@@ -539,6 +541,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "suggestions": suggestions,
         "quantify_nudges": quantify_nudges,
         "matched_skills": matched,
+        "partial_skills": partial,
         "missing_skills": missing,
         "target_role": target_role,
         "experience_level": experience_level or "Mid-Level",
