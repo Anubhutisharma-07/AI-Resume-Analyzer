@@ -20,6 +20,7 @@ from .views import (
     user_profile_view,
     contact_us_view,
     CustomTokenObtainPairView,
+    social_auth_view,
     profile_avatar_view,
     compare_bulk_jds_view,
     skills_leaderboard_view,
@@ -50,6 +51,7 @@ urlpatterns = [
 
     path("auth/signup/", signup),
     path("auth/login/", CustomTokenObtainPairView.as_view()),
+    path("auth/oauth/", social_auth_view, name="social_auth"),
     path("auth/refresh/", TokenRefreshView.as_view()),
 
     path("history/", analysis_history),

@@ -118,7 +118,6 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
 }
 
 function App() {
-
   const location = useLocation()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
@@ -159,41 +158,46 @@ function App() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
 
   // Auth
-  const { user, signup, login, logout } = useAuth()
+  const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
 
   // History
-  const { entries, deleteEntry, clearHistory, setEntries, unreadCount, lastViewedTimestamp, markAllAsViewed } = useAnalysisHistory()
+  const {
+    entries,
+    deleteEntry,
+    clearHistory,
+    setEntries,
+    unreadCount,
+    lastViewedTimestamp,
+    markAllAsViewed,
+  } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
 
-  const fetchDbHistory = useCallback(
-    async () => {
-      try {
-        // Via `api`: it attaches the current access token and, on a 401,
-        // refreshes and retries. This call used to pass a token that had
-        // usually expired, and then swallow the 401 -- so the sidebar just
-        // silently stopped updating with no clue as to why.
-        const res = await api.get(`/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`)
-        // The endpoint returns a bare array when asked for no particular page,
-        // and a {count, next, results} envelope otherwise. Handle both so this
-        // keeps working against a backend that has not been updated yet.
-        setEntries(toAnalysisEntries(res.data))
-        setHistoryNextUrl(nextPageUrl(res.data))
-      } catch (error) {
-        // A 401 that survives the refresh means the session is genuinely gone;
-        // useAuth surfaces that separately. Anything else is worth seeing in
-        // the console rather than vanishing.
-        if (!axios.isAxiosError(error) || error.response?.status !== 401) {
-          console.error('Could not load analysis history', error)
-        }
+  const fetchDbHistory = useCallback(async () => {
+    try {
+      // Via `api`: it attaches the current access token and, on a 401,
+      // refreshes and retries. This call used to pass a token that had
+      // usually expired, and then swallow the 401 -- so the sidebar just
+      // silently stopped updating with no clue as to why.
+      const res = await api.get(`/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`)
+      // The endpoint returns a bare array when asked for no particular page,
+      // and a {count, next, results} envelope otherwise. Handle both so this
+      // keeps working against a backend that has not been updated yet.
+      setEntries(toAnalysisEntries(res.data))
+      setHistoryNextUrl(nextPageUrl(res.data))
+    } catch (error) {
+      // A 401 that survives the refresh means the session is genuinely gone;
+      // useAuth surfaces that separately. Anything else is worth seeing in
+      // the console rather than vanishing.
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+        console.error('Could not load analysis history', error)
       }
-    },
-    [setEntries]
-  )
+    }
+  }, [setEntries])
 
   const loadMoreDbHistory = useCallback(async () => {
     if (!historyNextUrl || !user) return
@@ -342,7 +346,7 @@ function App() {
         } else if (statusRes.data.state === 'FAILURE') {
           throw new Error(statusRes.data.error || 'Analysis failed')
         }
-        await new Promise(r => setTimeout(r, 1000))
+        await new Promise((r) => setTimeout(r, 1000))
       }
 
       setScore(result.score)
@@ -562,7 +566,6 @@ function App() {
 
   return (
     <>
-    
       <HistorySidebar
         entries={entries}
         onSelect={selectHistoryEntry}
@@ -586,7 +589,6 @@ function App() {
       )}
       <div className="container mt-5">
         <div className="main-card text-center">
-
           {/* Theme toggle */}
           <button
             type="button"
@@ -601,7 +603,11 @@ function App() {
           <div className="auth-bar">
             {user ? (
               <>
-                <Link to="/profile" className="auth-username" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link
+                  to="/profile"
+                  className="auth-username"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
                   👤 {user.username}
                 </Link>
                 <button className="auth-bar-btn" onClick={logout}>
@@ -615,7 +621,12 @@ function App() {
             )}
           </div>
           {showAuthModal && (
-            <AuthModal onSignup={signup} onLogin={login} onClose={() => setShowAuthModal(false)} />
+            <AuthModal
+              onSignup={signup}
+              onLogin={login}
+              onOAuthLogin={loginWithOAuth}
+              onClose={() => setShowAuthModal(false)}
+            />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
           {/* Role and Experience Level Selectors */}
@@ -713,14 +724,21 @@ function App() {
                 📄
               </span>
               <span className="upload-text-primary">
-                Drag &amp; Drop Resume or <span className="upload-text-browse">Click to Browse</span>
+                Drag &amp; Drop Resume or{' '}
+                <span className="upload-text-browse">Click to Browse</span>
               </span>
               {file ? (
-                <span className="upload-text-secondary" style={{ display: 'block', marginTop: '4px' }}>
+                <span
+                  className="upload-text-secondary"
+                  style={{ display: 'block', marginTop: '4px' }}
+                >
                   Selected: {file.name}
                 </span>
               ) : uploadError ? (
-                <span className="upload-text-error" style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}>
+                <span
+                  className="upload-text-error"
+                  style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
+                >
                   {uploadError}
                 </span>
               ) : (
@@ -942,7 +960,9 @@ function App() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h4 style={{ margin: 0 }}>{roastMode ? '🔥 Resume Roast' : '💡 Suggestions'}</h4>
+                    <h4 style={{ margin: 0 }}>
+                      {roastMode ? '🔥 Resume Roast' : '💡 Suggestions'}
+                    </h4>
                     <label
                       style={{
                         display: 'inline-flex',
