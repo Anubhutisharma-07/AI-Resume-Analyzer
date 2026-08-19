@@ -139,7 +139,7 @@ class ResumeAnalysisSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResumeAnalysis
         fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
-                  "matched_skills", "missing_skills", "target_role", "experience_level", "created_at", "resume_text",
+                  "matched_skills", "partial_skills", "missing_skills", "target_role", "experience_level", "created_at", "resume_text",
                   "cover_letter_text", "cover_letter_feedback", "interview_questions")
 
 
@@ -155,7 +155,7 @@ class ResumeAnalysisListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResumeAnalysis
         fields = ("id", "share_id", "file_name", "score", "skills_found", "suggestions",
-                  "matched_skills", "missing_skills", "target_role", "experience_level", "created_at")
+                  "matched_skills", "partial_skills", "missing_skills", "target_role", "experience_level", "created_at")
 
 class VersionComparisonSerializer(serializers.Serializer):
     older_id = serializers.IntegerField()

@@ -21,6 +21,7 @@ class ResumeAnalysis(models.Model):
     skills_found = models.JSONField(default=list)
     suggestions = models.JSONField(default=list)
     matched_skills = models.JSONField(default=list)
+    partial_skills = models.JSONField(default=list, blank=True)
     missing_skills = models.JSONField(default=list)
     target_role = models.CharField(max_length=100)
     experience_level = models.CharField(max_length=50, default="Mid-Level", blank=True)
