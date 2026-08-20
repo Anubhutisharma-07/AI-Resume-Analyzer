@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - "What's New" dismissible changelog popup highlighting notable releases and feature updates for returning users (#532).
+- Dedicated dark mode SVG icon symbol variants and currentColor support avoiding degraded color-inversion artifacts (#534).
 - Opt-in playful "Resume Roast" alternate feedback tone switch in suggestions section with humorously constructive feedback while remaining constructive (#497).
 - Dedicated Privacy Policy page explaining data collection, immediate document deletion policy, user history control, and cookie usage, linked directly in the footer (#470).
 - Terms of Service page at `/terms` covering acceptable use, account terms, data handling, IP rights, disclaimers, and liability; linked from footer (#469).
@@ -39,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - Fixed widespread low-opacity/faded text across stats, How It Works cards, upload zone, and footer (#242).
+- Added proper HTML autocomplete attributes (`username`, `email`, `new-password`, `current-password`) to auth and account form inputs for password manager compatibility (#531).
 - Minor UI and styling fixes across multiple frontend components.
 - Improved responsiveness and consistency across the application.
 - Various bug fixes related to resume analysis and UI rendering.
