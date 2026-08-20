@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
 from .skill_matcher import extract_skills, match_skills_with_partial
 from .scoring import compute_score_breakdown
+from .timeline import analyse as analyse_timeline
 from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
@@ -516,6 +517,12 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
 
     quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
 
+    # Employment timeline. Deliberately kept out of `score` for the same reason
+    # `score_breakdown` is: that number is persisted on ResumeAnalysis and read
+    # by the leaderboard, version comparison and the digest, so changing what it
+    # means would change every historical row. See #709.
+    resume_timeline = analyse_timeline(raw_text, experience_level=experience_level)
+
     # Multi-factor view of the same resume. `score` above stays the keyword
     # ratio — it is persisted on ResumeAnalysis and read by the leaderboard,
     # version comparison and digest, so redefining it would change the meaning
@@ -540,6 +547,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "skills_found": detected,
         "suggestions": suggestions,
         "quantify_nudges": quantify_nudges,
+        "timeline": resume_timeline.as_dict(),
         "matched_skills": matched,
         "partial_skills": partial,
         "missing_skills": missing,
