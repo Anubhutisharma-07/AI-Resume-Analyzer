@@ -14,6 +14,7 @@ import { HistorySidebar } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
+import { analysisTokenHeaders } from './utils/analysisToken'
 import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
@@ -340,9 +341,17 @@ function App() {
       const res = await api.post('/api/upload/', formData)
       const taskId = res.data.task_id
 
+      // The task id alone used to be enough to read an analysis — including its
+      // `resume_text` — from `/api/status/`, and the id travels in a URL path,
+      // so it reaches access logs and browser history. Upload now also returns a
+      // claim saying who may ask about the task, and it goes in a header rather
+      // than the query string so it does not follow the id into those logs.
+      // See #706.
+      const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
+
       let result = null
       while (true) {
-        const statusRes = await api.get(`/api/status/${taskId}/`)
+        const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
         if (statusRes.data.state === 'SUCCESS') {
           result = statusRes.data.result
           break
