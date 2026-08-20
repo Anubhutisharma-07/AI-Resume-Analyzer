@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 
@@ -36,6 +37,12 @@ from .request_input import (
 )
 
 from .comparison import compare_versions
+from .task_claims import (
+    CLAIM_HEADER,
+    claims_are_enforced,
+    issue_claim,
+    verify_claim,
+)
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -64,6 +71,9 @@ from drf_spectacular.utils import (
     OpenApiResponse,
     OpenApiTypes,
 )
+
+logger = logging.getLogger(__name__)
+
 
 class UploadRateThrottle(SimpleRateThrottle):
     scope = "upload"
@@ -452,7 +462,15 @@ def upload_resume(request):
             experience_level=experience_level,
         )
 
-        return Response({"task_id": task.id})
+        # `analysis_token` says who may ask about this task. The id alone used
+        # to be enough, and the id travels in a URL path — see #706 and
+        # analyzer.task_claims.
+        return Response(
+            {
+                "task_id": task.id,
+                "analysis_token": issue_claim(task.id, request),
+            }
+        )
 
     except Exception as e:
         import traceback
@@ -462,16 +480,80 @@ def upload_resume(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+
+class TaskStatusThrottle(AnonRateThrottle):
+    """Rate limit for status polling.
+
+    Sized for polling, not for browsing: a single analysis is polled every
+    second or two for a minute or so, and several analyses an hour is a heavy
+    user. It is well above that and far below what walking an id space needs.
+    """
+
+    scope = "task_status"
+
+
+@extend_schema(
+    summary="Poll an analysis task",
+    description=(
+        "Returns the state of an analysis started by `/api/upload/`, and its "
+        "result once it finishes. Requires the `analysis_token` that upload "
+        "returned, sent as an `X-Analysis-Token` header. Answers 404 for a task "
+        "the caller cannot show a claim for — including one that does not exist."
+    ),
+    parameters=[
+        OpenApiParameter(
+            name=CLAIM_HEADER,
+            location=OpenApiParameter.HEADER,
+            required=True,
+            type=OpenApiTypes.STR,
+            description="The `analysis_token` returned by /api/upload/.",
+        )
+    ],
+    responses={
+        200: OpenApiResponse(description="Task state, with the result when finished."),
+        404: OpenApiResponse(description="No task readable with this claim."),
+        500: OpenApiResponse(description="The analysis failed."),
+    },
+)
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes([TaskStatusThrottle])
 def task_status(request, task_id):
+    """Report on an analysis task, to the caller who started it.
+
+    Three changes, and they are independent of one another:
+
+    1. **Authorisation.** The result of ``analyze_resume_task`` contains
+       ``resume_text``. Holding the task id is no longer enough to read it; the
+       caller has to present the claim issued when the task was dispatched.
+    2. **Disclosure.** A task that cannot be read answers 404, not 403, and the
+       same 404 as one that never existed. Distinguishing them would confirm an
+       id is real, which is what an enumeration attempt is trying to learn.
+    3. **Failure detail.** ``str(task.info)`` is the worker's exception —
+       ``pdfplumber`` errors carry the server-side temp file path. That belongs
+       in the log, not in an unauthenticated response.
+    """
+    if claims_are_enforced() and not verify_claim(task_id, request):
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
     task = AsyncResult(task_id)
-    if task.state == 'FAILURE':
-        return Response({"state": task.state, "error": str(task.info)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    elif task.state == 'SUCCESS':
+
+    if task.state == "FAILURE":
+        logger.warning("Analysis task %s failed: %s", task_id, task.info)
+        return Response(
+            {
+                "state": task.state,
+                # Deliberately fixed text. The client needs "it failed" and a
+                # reason it can act on; the exception is for the operator.
+                "error": "The analysis could not be completed. Please try again.",
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    if task.state == "SUCCESS":
         return Response({"state": task.state, "result": task.result})
-    else:
-        return Response({"state": task.state})
+
+    return Response({"state": task.state})
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
@@ -913,13 +995,12 @@ def export_user_data(request):
 
 User = get_user_model()
 
-import logging
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.throttling import AnonRateThrottle
 
-logger = logging.getLogger(__name__)
+# `logger` was defined here, 500 lines below the top of the module and below
+# several of its own users. It now lives with the other module-level setup.
 
 #: Same answer whether or not the username exists, so this endpoint cannot be
 #: used to find out which accounts are registered.

@@ -188,6 +188,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+# The frontend is on a different origin, so any header it sets that is not one
+# of the CORS-safelisted ones has to be named here or the browser's preflight
+# refuses the request. `X-Analysis-Token` carries the claim that authorises a
+# status poll (see analyzer.task_claims); without this the header is simply
+# dropped and every poll looks unclaimed.
+from corsheaders.defaults import default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = (*default_headers, "x-analysis-token")
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -214,6 +223,10 @@ REST_FRAMEWORK = {
         'analyze_jd': os.environ.get('ANALYZE_JD_RATE', '30/hour'),
         'mock_interview': os.environ.get('MOCK_INTERVIEW_RATE', '30/hour'),
         'signup': os.environ.get('SIGNUP_RATE', '10/hour'),
+        # Analysis status polling. Sized for polling one analysis every
+        # second or two, several times an hour -- not for browsing an id
+        # space.
+        'task_status': os.environ.get('TASK_STATUS_RATE', '600/hour'),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -248,6 +261,17 @@ RESUME_RETENTION_DAYS = int(os.environ.get('RESUME_RETENTION_DAYS', '30'))
 
 # Public URL of the frontend, used to build links that go out by email
 # (currently the weekly digest unsubscribe link).
+# Whether `/api/status/<task_id>/` refuses a poll that carries no claim.
+#
+# Defaults to on. The switch exists so the backend can be deployed ahead of a
+# frontend that sends the header, and so a client mid-analysis at deploy time is
+# not locked out -- not as a supported way to run. See analyzer.task_claims.
+ANALYSIS_CLAIM_REQUIRED = os.environ.get('ANALYSIS_CLAIM_REQUIRED', 'true').lower() not in (
+    'false',
+    '0',
+    'no',
+)
+
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
 # How long a signed unsubscribe link stays usable. Digests are weekly and
