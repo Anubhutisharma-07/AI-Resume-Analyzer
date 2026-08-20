@@ -140,6 +140,34 @@ function App() {
   const [analysisId, setAnalysisId] = useState<number | null>(null)
   const [suggestionVotes, setSuggestionVotes] = useState<Record<string, VoteValue>>({})
 
+  // Job Description Draft State (#533)
+  const JD_DRAFT_KEY = 'jd_draft'
+  const [jobDescription, setJobDescription] = useState<string>(() => {
+    try {
+      return localStorage.getItem('jd_draft') || ''
+    } catch {
+      return ''
+    }
+  })
+  const [isDraftSaved, setIsDraftSaved] = useState<boolean>(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        if (jobDescription.trim()) {
+          localStorage.setItem(JD_DRAFT_KEY, jobDescription)
+          setIsDraftSaved(true)
+        } else {
+          localStorage.removeItem(JD_DRAFT_KEY)
+          setIsDraftSaved(false)
+        }
+      } catch {
+        // storage disabled or unavailable
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [jobDescription])
+
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
   const [experienceLevel, setExperienceLevel] = useState(() => {
@@ -329,7 +357,9 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
-      formData.append('experience_level', experienceLevel)
+      if (jobDescription.trim()) {
+        formData.append('job_description', jobDescription.trim())
+      }
 
       // Through `api`, which attaches the current access token and, on a 401,
       // refreshes once and retries. This used to build an Authorization header
@@ -375,6 +405,15 @@ function App() {
       setAnalysisId(typeof result.id === 'number' ? result.id : null)
       setSuggestionVotes({})
       setActiveFileName(fileToAnalyze.name)
+
+      // Clear draft once successfully analyzed (#533)
+      try {
+        localStorage.removeItem(JD_DRAFT_KEY)
+      } catch {
+        // ignore
+      }
+      setJobDescription('')
+      setIsDraftSaved(false)
 
       setLoading(false)
 
@@ -684,6 +723,95 @@ function App() {
                 <option value="Senior">Senior (5+ yrs)</option>
               </select>
             </div>
+          </div>
+
+          {/* Job Description Draft Input (#533) */}
+          <div
+            className="mb-4"
+            style={{
+              textAlign: 'left',
+              maxWidth: '680px',
+              margin: '0 auto 20px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}
+            >
+              <label
+                htmlFor="jobDescriptionInput"
+                style={{
+                  fontWeight: '600',
+                  fontSize: '0.9rem',
+                  color: 'var(--heading-text, #fff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+              </label>
+              {isDraftSaved && (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💾 Draft auto-saved
+                </span>
+              )}
+            </div>
+            <textarea
+              id="jobDescriptionInput"
+              className="custom-textarea"
+              placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              rows={3}
+              style={{
+                width: '100%',
+                minHeight: '80px',
+                fontSize: '0.9rem',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
+            {jobDescription && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginTop: '6px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setJobDescription('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted-text, #94a3b8)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Clear Draft
+                </button>
+              </div>
+            )}
           </div>
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
