@@ -4,13 +4,55 @@ import docx
 import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
-from .skill_matcher import extract_skills
+from . import role_skills
+from .skill_matcher import extract_skills, match_skills_with_partial
 from .scoring import compute_score_breakdown
+from .timeline import analyse as analyse_timeline
 from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
 
 from django.core.cache import cache
+
+EXPERIENCE_LEVEL_SKILLS = {
+    "Junior": {
+        "Frontend Developer": ["html", "css", "javascript", "react", "git", "github"],
+        "Backend Developer": ["python", "javascript", "sql", "git", "github", "flask", "node.js"],
+        "Data Analyst": ["python", "sql", "excel", "pandas", "data analysis", "jupyter"],
+    },
+    "Mid-Level": {
+        "Frontend Developer": [
+            "html", "css", "javascript", "typescript", "react",
+            "next.js", "tailwind", "git", "github", "webpack",
+        ],
+        "Backend Developer": [
+            "python", "django", "flask", "fastapi", "node.js", "express.js",
+            "sql", "mysql", "postgresql", "mongodb", "docker", "git", "github",
+        ],
+        "Data Analyst": [
+            "python", "sql", "excel", "machine learning", "deep learning",
+            "data analysis", "pandas", "numpy", "matplotlib", "tensorflow",
+            "scikit-learn", "jupyter",
+        ],
+    },
+    "Senior": {
+        "Frontend Developer": [
+            "html", "css", "javascript", "typescript", "react", "next.js",
+            "tailwind", "git", "github", "webpack", "docker",
+            "system design", "leadership", "mentoring", "ci/cd", "performance optimization",
+        ],
+        "Backend Developer": [
+            "python", "django", "fastapi", "node.js", "postgresql", "mongodb",
+            "docker", "kubernetes", "git", "github", "system design", "microservices",
+            "ci/cd", "leadership", "mentoring", "distributed systems", "redis",
+        ],
+        "Data Analyst": [
+            "python", "sql", "excel", "machine learning", "deep learning",
+            "data analysis", "pandas", "numpy", "matplotlib", "tensorflow",
+            "scikit-learn", "jupyter", "bigquery", "data modeling", "leadership", "mentoring",
+        ],
+    },
+}
 
 def get_role_skills():
     role_skills = cache.get("role_skills_dict")
@@ -18,9 +60,77 @@ def get_role_skills():
         from .models import Role
         role_skills = {}
         for role in Role.objects.prefetch_related("skills").all():
-            role_skills[role.name] = [skill.name for skill in role.skills.all()]
+            # Sorted because the m2m read has no ordering of its own, so two
+            # calls could return the same skills in different orders. The list
+            # is shown to the user and each entry is worth 1/len of the score,
+            # so an unstable order makes two runs of one resume read
+            # differently for no reason. Sorted in Python rather than with
+            # order_by(), which would defeat the prefetch above.
+            role_skills[role.name] = sorted(skill.name for skill in role.skills.all())
         cache.set("role_skills_dict", role_skills, timeout=60*60*24)
     return role_skills
+
+def resolve_role_skills(target_role, experience_level="Mid-Level"):
+    """Resolve a role's required skills, database first.
+
+    Returns a :class:`~analyzer.role_skills.RoleSkillSet` — the list plus which
+    store answered and whether the requested level was understood.
+
+    This used to check ``EXPERIENCE_LEVEL_SKILLS`` first and only fall through
+    to the database for roles the dictionary did not have. Since the dictionary
+    covers every role the product ships, the database branch never ran, and
+    editing a ``Role``'s skills had no effect on anything. See #708 and
+    ``analyzer.role_skills`` for why the precedence is the other way round.
+    """
+    return role_skills.resolve(
+        role=target_role,
+        level=experience_level,
+        database_roles=get_role_skills(),
+        default_roles_by_level=EXPERIENCE_LEVEL_SKILLS,
+    )
+
+
+def get_role_skills_for_level(target_role, experience_level="Mid-Level"):
+    """Required skills for a role at a level, as a plain list.
+
+    Kept as the narrow form because most callers only want the list. Use
+    :func:`resolve_role_skills` where the provenance matters.
+    """
+    return resolve_role_skills(target_role, experience_level).skills
+
+
+def get_known_roles():
+    """Every role either store knows about.
+
+    ``analyze_resume`` used to build its track comparison from the database
+    alone, so an unseeded ``Role`` table produced an empty comparison while the
+    requested role still scored fine from the packaged defaults.
+    """
+    return role_skills.known_roles(get_role_skills(), EXPERIENCE_LEVEL_SKILLS)
+
+
+def generate_level_tailored_suggestions(missing_skills, experience_level="Mid-Level", target_role=""):
+    norm_level, _ = role_skills.normalise_level(experience_level)
+
+    suggestions = []
+    if norm_level == "Senior":
+        for skill in missing_skills:
+            if skill in ["leadership", "mentoring", "management"]:
+                suggestions.append("Highlight engineering mentorship, cross-team alignment, and technical leadership initiatives.")
+            elif skill in ["system design", "microservices", "distributed systems", "ci/cd"]:
+                suggestions.append(f"Demonstrate scalable system design and architecture governance with {skill.title()}.")
+            else:
+                suggestions.append(f"Demonstrate senior-level production mastery, architectural decisions, and performance scaling with {skill.title()}.")
+        if not any("leadership" in s.lower() or "mentorship" in s.lower() or "architectural" in s.lower() for s in suggestions):
+            suggestions.append("Demonstrate senior technical leadership, architectural decision records (ADRs), and developer mentorship.")
+    elif norm_level == "Junior":
+        for skill in missing_skills:
+            suggestions.append(f"Build foundational portfolio projects and highlight coursework or hands-on practice with {skill.title()}.")
+    else:
+        for skill in missing_skills:
+            suggestions.append(f"Add projects or experience with {skill.title()}")
+
+    return suggestions
 
 PIPELINE_STAGES = [
     {"stage": "extracting", "label": "Extracting text from document", "percent": 25},
@@ -43,11 +153,31 @@ def extract_text_from_file(file_path, file_name):
     text = ""
     if file_name.lower().endswith('.docx'):
         doc = docx.Document(file_path)
+        # Extract paragraph text
         for paragraph in doc.paragraphs:
             text += paragraph.text + "\n"
+        # Extract table text to capture nested tables/tabular resumes
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    text += cell.text + " "
+                text += "\n"
     elif file_name.lower().endswith('.txt'):
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            text = f.read()
+        # Robust multi-encoding fallback parsing
+        for encoding in ('utf-8-sig', 'utf-16', 'latin-1'):
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    text = f.read()
+                break
+            except (UnicodeDecodeError, LookupError):
+                continue
+        else:
+            # Final fallback in case none of the above succeeded
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    text = f.read()
+            except Exception:
+                pass
     else:
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
@@ -309,7 +439,7 @@ def generate_interview_questions(skills, target_role):
     return questions[:8]
 
 
-def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None, job_description=None, cover_letter_path=None, cover_letter_name=None):
+def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None, job_description=None, cover_letter_path=None, cover_letter_name=None, experience_level="Mid-Level"):
     text = ""
     try:
         text = extract_text_from_file(file_path, file_name)
@@ -321,29 +451,27 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     readability_score, readability_label = calculate_readability(raw_text)
     detected = extract_skills(text)
 
-    matched = []
-    missing = []
     if job_description and job_description.strip():
         required = extract_skills(job_description)
+        role_skill_set = None
     else:
-        required = get_role_skills().get(target_role, [])
+        role_skill_set = resolve_role_skills(target_role, experience_level)
+        required = role_skill_set.skills
 
-    for skill in required:
-        if skill in detected:
-            matched.append(skill)
-        else:
-            missing.append(skill)
+    matched, partial, missing = match_skills_with_partial(required, raw_text, detected)
 
+    score_credit = len(matched) + (0.5 * len(partial))
     score = (
-        int(len(matched) / len(required) * 100)
+        int(score_credit / len(required) * 100)
         if required
         else min(len(detected) * 10, 100)
     )
 
-    suggestions = [
-        f"Add projects or experience with {skill.title()}"
-        for skill in missing
-    ]
+    suggestions = []
+    for item in partial:
+        suggestions.append(f"Near match: Your resume mentions '{item['matched_variant']}' which is a partial match for target skill '{item['skill']}'. Clarify or explicitly list '{item['skill']}' for full credit.")
+
+    suggestions.extend(generate_level_tailored_suggestions(missing, experience_level, target_role))
 
     # Process optional cover letter if provided
     cover_letter_text = ""
@@ -368,11 +496,13 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
                 user=user,
                 file_name=file_name,
                 target_role=target_role,
+                experience_level=experience_level or "Mid-Level",
                 job_description=job_description,
                 score=score,
                 skills_found=detected,
                 suggestions=suggestions,
                 matched_skills=matched,
+                partial_skills=partial,
                 missing_skills=missing,
                 resume_text=raw_text,
                 cover_letter_text=cover_letter_text if cover_letter_text else None,
@@ -389,25 +519,42 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "stages": PIPELINE_STAGES,
     }
 
+    # Every role either store knows about, not just the database's. An unseeded
+    # `Role` table used to produce an empty comparison table while the requested
+    # role scored perfectly well from the packaged defaults -- two different
+    # answers to "which roles exist" in one response. See #708.
     track_comparisons = {}
-    for role, req_skills in get_role_skills().items():
-        role_matched = [s for s in req_skills if s in detected]
-        role_missing = [s for s in req_skills if s not in detected]
+    for role in get_known_roles():
+        role_set = resolve_role_skills(role, experience_level)
+        role_req_skills = role_set.skills
+        role_matched, role_partial, role_missing = match_skills_with_partial(role_req_skills, raw_text, detected)
+        role_credit = len(role_matched) + (0.5 * len(role_partial))
         role_score = (
-            int(len(role_matched) / len(req_skills) * 100)
-            if req_skills
+            int(role_credit / len(role_req_skills) * 100)
+            if role_req_skills
             else min(len(detected) * 10, 100)
         )
-        role_suggestions = [f"Add projects or experience with {s.title()}" for s in role_missing]
-        
+        role_suggestions = generate_level_tailored_suggestions(role_missing, experience_level, role)
+
         track_comparisons[role] = {
             "score": role_score,
             "matched_skills": role_matched,
+            "partial_skills": role_partial,
             "missing_skills": role_missing,
             "suggestions": role_suggestions,
+            # Which store answered for this row. Two rows in one table can come
+            # from different sources, and a score whose provenance is invisible
+            # is one nobody can debug.
+            "skills_source": role_set.source,
         }
 
     quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
+
+    # Employment timeline. Deliberately kept out of `score` for the same reason
+    # `score_breakdown` is: that number is persisted on ResumeAnalysis and read
+    # by the leaderboard, version comparison and the digest, so changing what it
+    # means would change every historical row. See #709.
+    resume_timeline = analyse_timeline(raw_text, experience_level=experience_level)
 
     # Multi-factor view of the same resume. `score` above stays the keyword
     # ratio — it is persisted on ResumeAnalysis and read by the leaderboard,
@@ -421,6 +568,7 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         readability_score=readability_score,
         readability_label=readability_label,
         quantify_nudges=quantify_nudges,
+        partial_skills=partial,
     )
 
     return {
@@ -432,9 +580,27 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "skills_found": detected,
         "suggestions": suggestions,
         "quantify_nudges": quantify_nudges,
+        "timeline": resume_timeline.as_dict(),
         "matched_skills": matched,
+        "partial_skills": partial,
         "missing_skills": missing,
         "target_role": target_role,
+        "experience_level": experience_level or "Mid-Level",
+        # What the scoring actually used, and where the requirements came from.
+        # The response used to echo back whatever level the caller sent while
+        # scoring against a different one -- "Principal" was silently read as
+        # Mid-Level and nothing said so. See #708.
+        "role_skills": role_skill_set.as_dict() if role_skill_set else {
+            "role": target_role,
+            "level": role_skills.normalise_level(experience_level)[0],
+            "level_as_requested": experience_level if isinstance(experience_level, str) else "",
+            "level_recognised": role_skills.normalise_level(experience_level)[1],
+            "skills": list(required),
+            # A pasted job description overrides both stores, which is the
+            # documented behaviour and worth naming rather than leaving the
+            # caller to infer it from an absent field.
+            "source": "job-description",
+        },
         "resume_text": raw_text,
         "cover_letter_text": cover_letter_text if cover_letter_text else None,
         "cover_letter_feedback": cover_letter_feedback,
