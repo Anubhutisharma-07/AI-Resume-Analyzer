@@ -19,9 +19,9 @@ import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
-import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
+import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 
 type Theme = 'light' | 'dark'
 
