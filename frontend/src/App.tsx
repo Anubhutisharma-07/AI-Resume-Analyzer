@@ -14,14 +14,18 @@ import { HistorySidebar } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
+import { analysisTokenHeaders } from './utils/analysisToken'
 import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
+import { TimelinePanel } from './components/TimelinePanel'
+import { type TimelineData } from './utils/timelineFormat'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
+import { ShareResult } from './components/ShareResult'
 
 type Theme = 'light' | 'dark'
 
@@ -129,6 +133,7 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
+  const [timeline, setTimeline] = useState<TimelineData | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [roastMode, setRoastMode] = useState<boolean>(false)
@@ -136,6 +141,34 @@ function App() {
   // anonymous analyses are not persisted, so there is nothing to attach a vote to.
   const [analysisId, setAnalysisId] = useState<number | null>(null)
   const [suggestionVotes, setSuggestionVotes] = useState<Record<string, VoteValue>>({})
+
+  // Job Description Draft State (#533)
+  const JD_DRAFT_KEY = 'jd_draft'
+  const [jobDescription, setJobDescription] = useState<string>(() => {
+    try {
+      return localStorage.getItem('jd_draft') || ''
+    } catch {
+      return ''
+    }
+  })
+  const [isDraftSaved, setIsDraftSaved] = useState<boolean>(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        if (jobDescription.trim()) {
+          localStorage.setItem(JD_DRAFT_KEY, jobDescription)
+          setIsDraftSaved(true)
+        } else {
+          localStorage.removeItem(JD_DRAFT_KEY)
+          setIsDraftSaved(false)
+        }
+      } catch {
+        // storage disabled or unavailable
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [jobDescription])
 
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
@@ -327,7 +360,9 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
-      formData.append('experience_level', experienceLevel)
+      if (jobDescription.trim()) {
+        formData.append('job_description', jobDescription.trim())
+      }
 
       // Through `api`, which attaches the current access token and, on a 401,
       // refreshes once and retries. This used to build an Authorization header
@@ -340,9 +375,17 @@ function App() {
       const res = await api.post('/api/upload/', formData)
       const taskId = res.data.task_id
 
+      // The task id alone used to be enough to read an analysis — including its
+      // `resume_text` — from `/api/status/`, and the id travels in a URL path,
+      // so it reaches access logs and browser history. Upload now also returns a
+      // claim saying who may ask about the task, and it goes in a header rather
+      // than the query string so it does not follow the id into those logs.
+      // See #706.
+      const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
+
       let result = null
       while (true) {
-        const statusRes = await api.get(`/api/status/${taskId}/`)
+        const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
         if (statusRes.data.state === 'SUCCESS') {
           result = statusRes.data.result
           break
@@ -354,6 +397,7 @@ function App() {
 
       setScore(result.score)
       setScoreBreakdown(result.score_breakdown || null)
+      setTimeline(result.timeline || null)
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
@@ -364,6 +408,15 @@ function App() {
       setAnalysisId(typeof result.id === 'number' ? result.id : null)
       setSuggestionVotes({})
       setActiveFileName(fileToAnalyze.name)
+
+      // Clear draft once successfully analyzed (#533)
+      try {
+        localStorage.removeItem(JD_DRAFT_KEY)
+      } catch {
+        // ignore
+      }
+      setJobDescription('')
+      setIsDraftSaved(false)
 
       setLoading(false)
 
@@ -446,6 +499,7 @@ function App() {
     setFile(null)
     setScore(null)
     setScoreBreakdown(null)
+    setTimeline(null)
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
@@ -539,6 +593,7 @@ function App() {
     setScore(entry.score)
     // History entries predate the breakdown and do not carry one.
     setScoreBreakdown(null)
+    setTimeline(null)
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
@@ -672,6 +727,95 @@ function App() {
               </select>
             </div>
           </div>
+
+          {/* Job Description Draft Input (#533) */}
+          <div
+            className="mb-4"
+            style={{
+              textAlign: 'left',
+              maxWidth: '680px',
+              margin: '0 auto 20px',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '16px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}
+            >
+              <label
+                htmlFor="jobDescriptionInput"
+                style={{
+                  fontWeight: '600',
+                  fontSize: '0.9rem',
+                  color: 'var(--heading-text, #fff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+              </label>
+              {isDraftSaved && (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💾 Draft auto-saved
+                </span>
+              )}
+            </div>
+            <textarea
+              id="jobDescriptionInput"
+              className="custom-textarea"
+              placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              rows={3}
+              style={{
+                width: '100%',
+                minHeight: '80px',
+                fontSize: '0.9rem',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
+            {jobDescription && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginTop: '6px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setJobDescription('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted-text, #94a3b8)',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Clear Draft
+                </button>
+              </div>
+            )}
+          </div>
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
             onDragOver={(e) => {
@@ -804,7 +948,24 @@ function App() {
 
               <ScoreBreakdown breakdown={scoreBreakdown} />
 
+              {/*
+                Employment timeline. Recruiters read the dates before the
+                bullets and an ATS parses them into structured employment
+                records, so a resume can score well here and still be filtered
+                on its history — which nothing in the analyzer looked at (#709).
+              */}
+              <TimelinePanel timeline={timeline} />
+
               <ResumePreview text={resumeText} skills={skills} />
+
+              {/*
+                Share controls. Previously there was no way to publish or
+                unpublish an analysis from the UI at all — the link simply
+                existed for every saved analysis (#705). `analysisId` is null
+                for anonymous runs and for the bundled sample, and the component
+                renders nothing in that case.
+              */}
+              <ShareResult analysisId={analysisId} />
 
               <h5 className="analysis-done" role="status" aria-live="polite">
                 ✅ Resume Analysis Complete
