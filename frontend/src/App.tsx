@@ -23,6 +23,7 @@ import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
+import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 
 type Theme = 'light' | 'dark'

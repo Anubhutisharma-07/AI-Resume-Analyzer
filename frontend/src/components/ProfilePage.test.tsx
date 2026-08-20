@@ -123,7 +123,9 @@ describe('ProfilePage', () => {
 
     const usernameInput = screen.getByLabelText('Username')
     const emailInput = screen.getByLabelText('Email Address')
-    const digestToggle = screen.getByRole('switch')
+    const digestToggle = screen.getByRole('switch', {
+      name: /weekly resume-tips email digest/i,
+    })
 
     expect(usernameInput).toBeDisabled()
     expect(emailInput).toBeDisabled()
@@ -163,11 +165,7 @@ describe('ProfilePage', () => {
       expect(screen.getByDisplayValue('testuser')).toBeInTheDocument()
     })
 
-        const usernameInput = screen.getByLabelText('Username')
-        const emailInput = screen.getByLabelText('Email Address')
-        const digestToggle = screen.getByRole('switch', {
-            name: /weekly resume-tips email digest/i,
-        })
+    fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
 
     fireEvent.change(screen.getByLabelText('Username'), {
       target: { value: 'updateduser' },
