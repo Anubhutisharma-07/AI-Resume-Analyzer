@@ -58,6 +58,7 @@ ROUTES = [
     ),
     ("/api/auth/signup/", "hooks/useAuth.ts"),
     ("/api/auth/login/", "hooks/useAuth.ts"),
+    ("/api/auth/oauth/", "hooks/useAuth.ts"),
     ("/api/auth/refresh/", "api/client.ts"),
     ("/api/password-reset/", "AuthModal.tsx"),
     ("/api/password-reset-confirm/", "components/ResetPasswordConfirmPage.tsx"),

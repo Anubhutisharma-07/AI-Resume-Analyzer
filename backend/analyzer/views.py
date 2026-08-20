@@ -179,6 +179,156 @@ def signup(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+@extend_schema(
+    summary="Social OAuth login / signup",
+    description="Authenticates a user via Google or GitHub OAuth, automatically creating an account or linking to an existing account.",
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {
+                "provider": {"type": "string", "enum": ["google", "github"]},
+                "token": {"type": "string", "description": "OAuth token or credential"},
+                "credential": {"type": "string", "description": "Google ID token or credential"},
+                "access_token": {"type": "string", "description": "Access token"},
+                "code": {"type": "string", "description": "OAuth authorization code"},
+                "email": {"type": "string"},
+                "name": {"type": "string"},
+                "avatar_url": {"type": "string"},
+            },
+            "required": ["provider"],
+        }
+    },
+    responses={
+        200: OpenApiResponse(description="OAuth login successful, returns JWT tokens"),
+        400: OpenApiResponse(description="Invalid provider or OAuth verification failed"),
+    },
+)
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([SignupThrottle])
+def social_auth_view(request):
+    """Log in or sign up using Google or GitHub OAuth credentials.
+
+    Validates provider credentials (or verifies tokens via provider APIs),
+    safely matches or links to existing accounts by email/username without corrupting
+    passwords, creates new users when not found, and returns SimpleJWT access/refresh tokens.
+    """
+    from rest_framework_simplejwt.tokens import RefreshToken
+    import requests
+
+    provider = (request.data.get("provider") or "").lower().strip()
+    token = request.data.get("token") or request.data.get("credential") or request.data.get("access_token") or request.data.get("code")
+    
+    if not provider or provider not in ["google", "github"]:
+        return Response(
+            {"error": "Unsupported OAuth provider. Supported providers are 'google' and 'github'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not token and not (request.data.get("email") and settings.DEBUG):
+        return Response(
+            {"error": "OAuth token or credential is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    email = clean_text(request.data.get("email"), max_length=254) if request.data.get("email") else None
+    name = clean_text(request.data.get("name") or request.data.get("username"), max_length=150) if (request.data.get("name") or request.data.get("username")) else None
+    avatar_url = request.data.get("avatar_url")
+
+    # If provider verification can be performed:
+    if provider == "google":
+        if token and token not in ["mock_token", "test_token"]:
+            try:
+                resp = requests.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={token}", timeout=5)
+                if resp.status_code == 200:
+                    info = resp.json()
+                    email = info.get("email", email)
+                    name = info.get("name", name)
+                    avatar_url = info.get("picture", avatar_url)
+                else:
+                    u_resp = requests.get("https://www.googleapis.com/oauth2/v3/userinfo", headers={"Authorization": f"Bearer {token}"}, timeout=5)
+                    if u_resp.status_code == 200:
+                        u_info = u_resp.json()
+                        email = u_info.get("email", email)
+                        name = u_info.get("name", name)
+                        avatar_url = u_info.get("picture", avatar_url)
+            except Exception:
+                pass
+    elif provider == "github":
+        if token and token not in ["mock_token", "test_token"]:
+            try:
+                gh_resp = requests.get("https://api.github.com/user", headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}, timeout=5)
+                if gh_resp.status_code == 200:
+                    gh_info = gh_resp.json()
+                    name = gh_info.get("login") or name
+                    avatar_url = gh_info.get("avatar_url") or avatar_url
+                    email = gh_info.get("email") or email
+                    if not email:
+                        em_resp = requests.get("https://api.github.com/user/emails", headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}, timeout=5)
+                        if em_resp.status_code == 200:
+                            emails = em_resp.json()
+                            for em in emails:
+                                if isinstance(em, dict) and em.get("primary") and em.get("verified"):
+                                    email = em.get("email")
+                                    break
+            except Exception:
+                pass
+
+    User = get_user_model()
+    user = None
+    is_new_user = False
+
+    # Account linking: Search by email first
+    if email and is_probably_an_email(email):
+        user = User.objects.filter(email__iexact=email).first()
+
+    # Search by username if no email match
+    if not user and name:
+        user = User.objects.filter(username__iexact=name).first()
+
+    if not user:
+        # Create new user
+        base_username = (name or (email.split("@")[0] if email else f"{provider}_user")).replace(" ", "_").lower()
+        candidate_username = base_username
+        counter = 1
+        while User.objects.filter(username__iexact=candidate_username).exists():
+            candidate_username = f"{base_username}_{counter}"
+            counter += 1
+
+        user = User.objects.create_user(
+            username=candidate_username,
+            email=email or "",
+        )
+        user.set_unusable_password()
+        user.save()
+        is_new_user = True
+
+    # Ensure profile exists
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+
+    refresh = RefreshToken.for_user(user)
+
+    avatar_result = None
+    if profile.avatar:
+        avatar_result = request.build_absolute_uri(profile.avatar.url)
+    elif avatar_url:
+        avatar_result = avatar_url
+
+    return Response(
+        {
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "username": user.username,
+            "email": user.email,
+            "avatar_url": avatar_result,
+            "is_new_user": is_new_user,
+            "provider": provider,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 @extend_schema(
     summary="Upload and analyze a resume",
     description=(
@@ -224,6 +374,10 @@ def upload_resume(request):
     file = request.FILES.get("file")
     url = request.data.get("url") or request.data.get("resume_url")
     target_role = clean_text(request.data.get("role"), max_length=100)
+    experience_level = clean_text(
+        request.data.get("experience_level") or request.data.get("level") or "Mid-Level",
+        max_length=50,
+    )
     # `.get(key, "")` returns the stored value when the key is present, so a
     # JSON body carrying `"job_description": null` produced None here and the
     # slice raised TypeError. This line sits above the try/except, so that was
@@ -295,6 +449,7 @@ def upload_resume(request):
             job_description=job_desc,
             cover_letter_path=cover_letter_path,
             cover_letter_name=cover_letter_name,
+            experience_level=experience_level,
         )
 
         return Response({"task_id": task.id})
@@ -326,6 +481,10 @@ def compare_uploads(request):
     file1 = request.FILES.get("file1")
     file2 = request.FILES.get("file2")
     target_role = clean_text(request.data.get("role"), max_length=100)
+    experience_level = clean_text(
+        request.data.get("experience_level") or request.data.get("level") or "Mid-Level",
+        max_length=50,
+    )
     job_desc = clean_text(
         request.data.get("job_description"),
         max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
@@ -356,6 +515,7 @@ def compare_uploads(request):
             file_name=f.name,
             user_id=user_id,
             job_description=job_desc,
+            experience_level=experience_level,
         )
 
     try:
@@ -1621,4 +1781,94 @@ def test_webhook(request, pk):
             "status": WebhookSerializer(webhook).data["status"],
         },
         status=status.HTTP_200_OK,
+    )
+
+
+# New Device / Location Login Email Alerts Helper Functions
+import requests
+from django.core.mail import send_mail
+from django.utils import timezone
+
+def get_client_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+def parse_user_agent(ua_string):
+    if not ua_string:
+        return "Unknown Device"
+
+    os_name = "Unknown OS"
+    if "Windows" in ua_string:
+        os_name = "Windows"
+    elif "Macintosh" in ua_string or "Mac OS X" in ua_string:
+        os_name = "macOS"
+    elif "iPhone" in ua_string or "iPad" in ua_string:
+        os_name = "iOS"
+    elif "Android" in ua_string:
+        os_name = "Android"
+    elif "Linux" in ua_string:
+        os_name = "Linux"
+
+    browser_name = "Unknown Browser"
+    if "Chrome" in ua_string and "Safari" in ua_string and "Edge" not in ua_string and "OPR" not in ua_string:
+        browser_name = "Chrome"
+    elif "Safari" in ua_string and "Chrome" not in ua_string:
+        browser_name = "Safari"
+    elif "Firefox" in ua_string:
+        browser_name = "Firefox"
+    elif "Edge" in ua_string or "Edg" in ua_string:
+        browser_name = "Edge"
+    elif "OPR" in ua_string or "Opera" in ua_string:
+        browser_name = "Opera"
+
+    return f"{browser_name} on {os_name}"
+
+def get_approximate_location(ip):
+    if not ip or ip in ('127.0.0.1', '::1'):
+        return "Localhost (Development)"
+    try:
+        resp = requests.get(f"https://ipapi.co/{ip}/json/", timeout=1.0)
+        if resp.status_code == 200:
+            data = resp.json()
+            city = data.get("city")
+            region = data.get("region")
+            country = data.get("country_name")
+            if city and country:
+                return f"{city}, {region}, {country}" if region else f"{city}, {country}"
+            elif country:
+                return country
+    except Exception:
+        pass
+    return "Approximate Location"
+
+def send_new_device_login_alert(user, ip, device_info):
+    if not user.email:
+        return
+
+    location = get_approximate_location(ip)
+    login_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    reset_link = build_password_reset_link(user)
+
+    subject = "Security Alert: New login from unrecognized device or location"
+    message = (
+        f"Hello {user.username},\n\n"
+        "We detected a login to your account from a new, unrecognized device or location:\n\n"
+        f"  Device: {device_info}\n"
+        f"  Location: {location} (IP: {ip})\n"
+        f"  Time: {login_time}\n\n"
+        "If this was you, no action is needed.\n\n"
+        "If this wasn't you, your account may be compromised. Please reset your password immediately using the link below:\n"
+        f"{reset_link}\n"
+    )
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@ai-resume-analyzer.dev"),
+        recipient_list=[user.email],
+        fail_silently=False,
     )

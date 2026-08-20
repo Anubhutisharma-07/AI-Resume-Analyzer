@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation, Link,} from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
 import { AtsScore } from './AtsScore'
@@ -8,7 +8,8 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
+import { useAnalysisHistory } from './hooks/useAnalysisHistory'
+import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
@@ -70,8 +71,10 @@ interface HistoryRow {
   skills_found: string[]
   suggestions: string[]
   matched_skills: string[]
+  partial_skills?: PartialSkillItem[]
   missing_skills: string[]
   target_role: string
+  experience_level?: string
   created_at: string
 }
 
@@ -98,8 +101,10 @@ function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[]
     skills: item.skills_found,
     suggestions: item.suggestions,
     matchedSkills: item.matched_skills,
+    partialSkills: item.partial_skills || [],
     missingSkills: item.missing_skills,
     targetRole: item.target_role,
+    experienceLevel: item.experience_level || 'Mid-Level',
     fileName: item.file_name,
   }))
 }
@@ -115,7 +120,6 @@ function ResumePreview({ text, skills }: { text: string; skills: string[] }) {
 }
 
 function App() {
-
   const location = useLocation()
   const [theme, setTheme] = useState<Theme>(getInitialTheme)
   const [loading, setLoading] = useState(false)
@@ -135,7 +139,15 @@ function App() {
 
   // Component States
   const [targetRole, setTargetRole] = useState('Frontend Developer')
+  const [experienceLevel, setExperienceLevel] = useState(() => {
+    try {
+      return localStorage.getItem('selected_experience_level') || 'Mid-Level'
+    } catch {
+      return 'Mid-Level'
+    }
+  })
   const [matchedSkills, setMatchedSkills] = useState<string[]>([])
+  const [partialSkills, setPartialSkills] = useState<PartialSkillItem[]>([])
   const [missingSkills, setMissingSkills] = useState<string[]>([])
   const [showAllSkills, setShowAllSkills] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -148,42 +160,47 @@ function App() {
   const [cooldownRemaining, setCooldownRemaining] = useState(0)
 
   // Auth
-  const { user, signup, login, logout } = useAuth()
+  const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
-  const { entries, deleteEntry, clearHistory, setEntries, unreadCount, lastViewedTimestamp, markAllAsViewed } = useAnalysisHistory()
+  const {
+    entries,
+    deleteEntry,
+    clearHistory,
+    setEntries,
+    unreadCount,
+    lastViewedTimestamp,
+    markAllAsViewed,
+  } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
   const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
 
-  const fetchDbHistory = useCallback(
-    async () => {
-      try {
-        // Via `api`: it attaches the current access token and, on a 401,
-        // refreshes and retries. This call used to pass a token that had
-        // usually expired, and then swallow the 401 -- so the sidebar just
-        // silently stopped updating with no clue as to why.
-        const res = await api.get(`/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`)
-        // The endpoint returns a bare array when asked for no particular page,
-        // and a {count, next, results} envelope otherwise. Handle both so this
-        // keeps working against a backend that has not been updated yet.
-        setEntries(toAnalysisEntries(res.data))
-        setHistoryNextUrl(nextPageUrl(res.data))
-      } catch (error) {
-        // A 401 that survives the refresh means the session is genuinely gone;
-        // useAuth surfaces that separately. Anything else is worth seeing in
-        // the console rather than vanishing.
-        if (!axios.isAxiosError(error) || error.response?.status !== 401) {
-          console.error('Could not load analysis history', error)
-        }
+  const fetchDbHistory = useCallback(async () => {
+    try {
+      // Via `api`: it attaches the current access token and, on a 401,
+      // refreshes and retries. This call used to pass a token that had
+      // usually expired, and then swallow the 401 -- so the sidebar just
+      // silently stopped updating with no clue as to why.
+      const res = await api.get(`/api/history/?page=1&page_size=${HISTORY_PAGE_SIZE}`)
+      // The endpoint returns a bare array when asked for no particular page,
+      // and a {count, next, results} envelope otherwise. Handle both so this
+      // keeps working against a backend that has not been updated yet.
+      setEntries(toAnalysisEntries(res.data))
+      setHistoryNextUrl(nextPageUrl(res.data))
+    } catch (error) {
+      // A 401 that survives the refresh means the session is genuinely gone;
+      // useAuth surfaces that separately. Anything else is worth seeing in
+      // the console rather than vanishing.
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+        console.error('Could not load analysis history', error)
       }
-    },
-    [setEntries]
-  )
+    }
+  }, [setEntries])
 
   const loadMoreDbHistory = useCallback(async () => {
     if (!historyNextUrl || !user) return
@@ -195,14 +212,84 @@ function App() {
         return [...previous, ...older.filter((entry) => !seen.has(entry.id))]
       })
       setHistoryNextUrl(nextPageUrl(res.data))
-    } catch {
-      /* silently ignore */
+    } catch (error) {
+      if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+        console.error('Could not load next page of history', error)
+      }
     }
   }, [historyNextUrl, setEntries, user])
+
+  // const handleUploadSuccess = async (taskId: string, fileToAnalyze: File) => {
+  //   try {
+  //     let result = null
+  //     while (true) {
+  //       const statusRes = await api.get(`/api/status/${taskId}/`)
+  //       if (statusRes.data.state === 'SUCCESS') {
+  //         result = statusRes.data.result
+  //         break
+  //       } else if (statusRes.data.state === 'FAILURE') {
+  //         throw new Error(statusRes.data.error || 'Analysis failed')
+  //       }
+  //       await new Promise(r => setTimeout(r, 1000))
+  //     }
+
+  //     setScore(result.score)
+  //     setScoreBreakdown(result.score_breakdown || null)
+  //     setSkills(result.skills_found || [])
+  //     setSuggestions(result.suggestions || [])
+  //     setMatchedSkills(result.matched_skills || [])
+  //     setPartialSkills(result.partial_skills || [])
+  //     setMissingSkills(result.missing_skills || [])
+  //     setResumeText(result.resume_text || '')
+  //     setInterviewQuestions(result.interview_questions || [])
+  //     setAnalysisId(typeof result.id === 'number' ? result.id : null)
+  //     setSuggestionVotes({})
+  //     setActiveFileName(fileToAnalyze.name)
+
+  //     setLoading(false)
+
+  //     // Reset retry state on success
+  //     setRetryCount(0)
+  //     setCooldownRemaining(0)
+
+  //     if (user) {
+  //       await fetchDbHistory()
+  //     }
+  //   } catch (error: unknown) {
+  //     console.error(error)
+
+  //     let errorMsg = 'Unknown error'
+
+  //     if (axios.isAxiosError(error)) {
+  //       errorMsg = error.response?.data?.error ?? error.message
+  //     } else if (error instanceof Error) {
+  //       errorMsg = error.message
+  //     }
+
+  //     alert(
+  //       `Upload failed: ${errorMsg}`
+  //     )
+
+  //     setLoading(false)
+
+  //     // Increment retry count and set cooldown
+  //     const newRetryCount = retryCount + 1
+  //     setRetryCount(newRetryCount)
+  //     setCooldownRemaining(getRetryDelay(newRetryCount))
+  //   }
+  // }
 
   useEffect(() => {
     if (user) fetchDbHistory()
   }, [user, fetchDbHistory])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('selected_experience_level', experienceLevel)
+    } catch {
+      // persistence is best-effort; ignore if storage is unavailable
+    }
+  }, [experienceLevel])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -240,6 +327,7 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
+      formData.append('experience_level', experienceLevel)
 
       // Through `api`, which attaches the current access token and, on a 401,
       // refreshes once and retries. This used to build an Authorization header
@@ -261,7 +349,7 @@ function App() {
         } else if (statusRes.data.state === 'FAILURE') {
           throw new Error(statusRes.data.error || 'Analysis failed')
         }
-        await new Promise(r => setTimeout(r, 1000))
+        await new Promise((r) => setTimeout(r, 1000))
       }
 
       setScore(result.score)
@@ -269,6 +357,7 @@ function App() {
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
+      setPartialSkills(result.partial_skills || [])
       setMissingSkills(result.missing_skills || [])
       setResumeText(result.resume_text || '')
       setInterviewQuestions(result.interview_questions || [])
@@ -360,6 +449,7 @@ function App() {
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
+    setPartialSkills([])
     setMissingSkills([])
     setResumeText('')
     setInterviewQuestions([])
@@ -452,8 +542,12 @@ function App() {
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
+    setPartialSkills(entry.partialSkills || [])
     setMissingSkills(entry.missingSkills)
     setTargetRole(entry.targetRole)
+    if (entry.experienceLevel) {
+      setExperienceLevel(entry.experienceLevel)
+    }
     // History entries carry a client-side id, not the analysis id, so there is
     // nothing safe to attach a vote to when one is replayed.
     setAnalysisId(null)
@@ -475,7 +569,6 @@ function App() {
 
   return (
     <>
-    
       <HistorySidebar
         entries={entries}
         onSelect={selectHistoryEntry}
@@ -499,7 +592,6 @@ function App() {
       )}
       <div className="container mt-5">
         <div className="main-card text-center">
-
           {/* Theme toggle */}
           <button
             type="button"
@@ -514,7 +606,11 @@ function App() {
           <div className="auth-bar">
             {user ? (
               <>
-                <Link to="/profile" className="auth-username" style={{ textDecoration: 'none', color: 'inherit' }}>
+                <Link
+                  to="/profile"
+                  className="auth-username"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
                   👤 {user.username}
                 </Link>
                 <button className="auth-bar-btn" onClick={logout}>
@@ -528,27 +624,53 @@ function App() {
             )}
           </div>
           {showAuthModal && (
-            <AuthModal onSignup={signup} onLogin={login} onClose={() => setShowAuthModal(false)} />
+            <AuthModal
+              onSignup={signup}
+              onLogin={login}
+              onOAuthLogin={loginWithOAuth}
+              onClose={() => setShowAuthModal(false)}
+            />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
-          {/* Role Selector Dropdown */}
-          <div className="mb-4">
-            <label
-              htmlFor="roleSelect"
-              style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-            >
-              Target Career Track:
-            </label>
-            <select
-              id="roleSelect"
-              value={targetRole}
-              onChange={(e) => setTargetRole(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
-            >
-              <option value="Frontend Developer">Frontend Developer</option>
-              <option value="Backend Developer">Backend Developer</option>
-              <option value="Data Analyst">Data Analyst</option>
-            </select>
+          {/* Role and Experience Level Selectors */}
+          <div className="mb-4 d-flex flex-wrap gap-3 align-items-center justify-content-center">
+            <div className="d-flex align-items-center">
+              <label
+                htmlFor="roleSelect"
+                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
+              >
+                Target Career Track:
+              </label>
+              <select
+                id="roleSelect"
+                value={targetRole}
+                onChange={(e) => setTargetRole(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option value="Frontend Developer">Frontend Developer</option>
+                <option value="Backend Developer">Backend Developer</option>
+                <option value="Data Analyst">Data Analyst</option>
+              </select>
+            </div>
+
+            <div className="d-flex align-items-center">
+              <label
+                htmlFor="experienceLevelSelect"
+                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
+              >
+                Experience Level:
+              </label>
+              <select
+                id="experienceLevelSelect"
+                value={experienceLevel}
+                onChange={(e) => setExperienceLevel(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option value="Junior">Junior (0-2 yrs)</option>
+                <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                <option value="Senior">Senior (5+ yrs)</option>
+              </select>
+            </div>
           </div>
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
@@ -605,14 +727,21 @@ function App() {
                 📄
               </span>
               <span className="upload-text-primary">
-                Drag &amp; Drop Resume or <span className="upload-text-browse">Click to Browse</span>
+                Drag &amp; Drop Resume or{' '}
+                <span className="upload-text-browse">Click to Browse</span>
               </span>
               {file ? (
-                <span className="upload-text-secondary" style={{ display: 'block', marginTop: '4px' }}>
+                <span
+                  className="upload-text-secondary"
+                  style={{ display: 'block', marginTop: '4px' }}
+                >
                   Selected: {file.name}
                 </span>
               ) : uploadError ? (
-                <span className="upload-text-error" style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}>
+                <span
+                  className="upload-text-error"
+                  style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
+                >
                   {uploadError}
                 </span>
               ) : (
@@ -682,7 +811,7 @@ function App() {
               </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
-                  📄 {activeFileName}
+                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {experienceLevel}
                 </p>
               )}
 
@@ -723,8 +852,8 @@ function App() {
                 className="mt-4 p-3"
                 style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
               >
-                <h4>🎯 Skill Gap Matrix ({targetRole})</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
+                <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
                   <div>
                     <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
                     {matchedSkills.length === 0 ? (
@@ -737,6 +866,20 @@ function App() {
                       ))
                     )}
                   </div>
+                  {partialSkills.length > 0 && (
+                    <div>
+                      <h6 style={{ color: '#eab308' }}>Partial Matches</h6>
+                      {partialSkills.map((p, i) => {
+                        const name = typeof p === 'string' ? p : p.skill
+                        const variant = typeof p === 'object' ? p.matched_variant : ''
+                        return (
+                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
+                            {name} {variant ? `(${variant})` : ''}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div>
                     <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
                     {missingSkills.length === 0 ? (
@@ -752,6 +895,61 @@ function App() {
                 </div>
               </div>
 
+              {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
+              {partialSkills.length > 0 && (
+                <div
+                  className="mt-4 p-3"
+                  style={{
+                    background: 'rgba(234, 179, 8, 0.1)',
+                    border: '1px solid rgba(234, 179, 8, 0.3)',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <h4 style={{ color: '#eab308', margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+                    ⚡ Skills You're Closest to Matching (Partial Credit)
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {partialSkills.map((p, i) => {
+                      const skillName = typeof p === 'string' ? p : p.skill
+                      const variant = typeof p === 'object' ? p.matched_variant : ''
+                      const note = typeof p === 'object' ? p.note : ''
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: 'rgba(0, 0, 0, 0.25)',
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            flexWrap: 'wrap',
+                            gap: '8px',
+                          }}
+                        >
+                          <div>
+                            <span className="badge bg-warning text-dark me-2" style={{ fontWeight: '600' }}>
+                              Partial Match
+                            </span>
+                            <strong style={{ color: '#fff', fontSize: '14px' }}>{skillName}</strong>
+                            {variant && (
+                              <span style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}>
+                                (Resume mentions: <code style={{ color: '#fef08a' }}>{variant}</code>)
+                              </span>
+                            )}
+                          </div>
+                          {note && (
+                            <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                              💡 {note}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* SUGGESTIONS BOX WITH THE UTILITY BUTTON & ROAST MODE TOGGLE */}
               <div className="suggestion-box mt-4">
                 <div
@@ -765,7 +963,9 @@ function App() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <h4 style={{ margin: 0 }}>{roastMode ? '🔥 Resume Roast' : '💡 Suggestions'}</h4>
+                    <h4 style={{ margin: 0 }}>
+                      {roastMode ? '🔥 Resume Roast' : '💡 Suggestions'}
+                    </h4>
                     <label
                       style={{
                         display: 'inline-flex',
