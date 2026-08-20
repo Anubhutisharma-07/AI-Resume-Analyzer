@@ -4,6 +4,7 @@ import docx
 import textstat
 from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
+from . import role_skills
 from .skill_matcher import extract_skills, match_skills_with_partial
 from .scoring import compute_score_breakdown
 from .timeline import analyse as analyse_timeline
@@ -59,36 +60,57 @@ def get_role_skills():
         from .models import Role
         role_skills = {}
         for role in Role.objects.prefetch_related("skills").all():
-            role_skills[role.name] = [skill.name for skill in role.skills.all()]
+            # Sorted because the m2m read has no ordering of its own, so two
+            # calls could return the same skills in different orders. The list
+            # is shown to the user and each entry is worth 1/len of the score,
+            # so an unstable order makes two runs of one resume read
+            # differently for no reason. Sorted in Python rather than with
+            # order_by(), which would defeat the prefetch above.
+            role_skills[role.name] = sorted(skill.name for skill in role.skills.all())
         cache.set("role_skills_dict", role_skills, timeout=60*60*24)
     return role_skills
 
-def get_role_skills_for_level(target_role, experience_level="Mid-Level"):
-    norm_level = "Mid-Level"
-    if experience_level:
-        el_lower = str(experience_level).strip().lower()
-        if "junior" in el_lower or "entry" in el_lower:
-            norm_level = "Junior"
-        elif "senior" in el_lower or "lead" in el_lower or "staff" in el_lower:
-            norm_level = "Senior"
-        else:
-            norm_level = "Mid-Level"
+def resolve_role_skills(target_role, experience_level="Mid-Level"):
+    """Resolve a role's required skills, database first.
 
-    level_dict = EXPERIENCE_LEVEL_SKILLS.get(norm_level, {})
-    if target_role in level_dict:
-        return level_dict[target_role]
-    return get_role_skills().get(target_role, [])
+    Returns a :class:`~analyzer.role_skills.RoleSkillSet` — the list plus which
+    store answered and whether the requested level was understood.
+
+    This used to check ``EXPERIENCE_LEVEL_SKILLS`` first and only fall through
+    to the database for roles the dictionary did not have. Since the dictionary
+    covers every role the product ships, the database branch never ran, and
+    editing a ``Role``'s skills had no effect on anything. See #708 and
+    ``analyzer.role_skills`` for why the precedence is the other way round.
+    """
+    return role_skills.resolve(
+        role=target_role,
+        level=experience_level,
+        database_roles=get_role_skills(),
+        default_roles_by_level=EXPERIENCE_LEVEL_SKILLS,
+    )
+
+
+def get_role_skills_for_level(target_role, experience_level="Mid-Level"):
+    """Required skills for a role at a level, as a plain list.
+
+    Kept as the narrow form because most callers only want the list. Use
+    :func:`resolve_role_skills` where the provenance matters.
+    """
+    return resolve_role_skills(target_role, experience_level).skills
+
+
+def get_known_roles():
+    """Every role either store knows about.
+
+    ``analyze_resume`` used to build its track comparison from the database
+    alone, so an unseeded ``Role`` table produced an empty comparison while the
+    requested role still scored fine from the packaged defaults.
+    """
+    return role_skills.known_roles(get_role_skills(), EXPERIENCE_LEVEL_SKILLS)
+
 
 def generate_level_tailored_suggestions(missing_skills, experience_level="Mid-Level", target_role=""):
-    norm_level = "Mid-Level"
-    if experience_level:
-        el_lower = str(experience_level).strip().lower()
-        if "junior" in el_lower or "entry" in el_lower:
-            norm_level = "Junior"
-        elif "senior" in el_lower or "lead" in el_lower or "staff" in el_lower:
-            norm_level = "Senior"
-        else:
-            norm_level = "Mid-Level"
+    norm_level, _ = role_skills.normalise_level(experience_level)
 
     suggestions = []
     if norm_level == "Senior":
@@ -431,8 +453,10 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
 
     if job_description and job_description.strip():
         required = extract_skills(job_description)
+        role_skill_set = None
     else:
-        required = get_role_skills_for_level(target_role, experience_level)
+        role_skill_set = resolve_role_skills(target_role, experience_level)
+        required = role_skill_set.skills
 
     matched, partial, missing = match_skills_with_partial(required, raw_text, detected)
 
@@ -495,9 +519,14 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "stages": PIPELINE_STAGES,
     }
 
+    # Every role either store knows about, not just the database's. An unseeded
+    # `Role` table used to produce an empty comparison table while the requested
+    # role scored perfectly well from the packaged defaults -- two different
+    # answers to "which roles exist" in one response. See #708.
     track_comparisons = {}
-    for role, _ in get_role_skills().items():
-        role_req_skills = get_role_skills_for_level(role, experience_level)
+    for role in get_known_roles():
+        role_set = resolve_role_skills(role, experience_level)
+        role_req_skills = role_set.skills
         role_matched, role_partial, role_missing = match_skills_with_partial(role_req_skills, raw_text, detected)
         role_credit = len(role_matched) + (0.5 * len(role_partial))
         role_score = (
@@ -506,13 +535,17 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
             else min(len(detected) * 10, 100)
         )
         role_suggestions = generate_level_tailored_suggestions(role_missing, experience_level, role)
-        
+
         track_comparisons[role] = {
             "score": role_score,
             "matched_skills": role_matched,
             "partial_skills": role_partial,
             "missing_skills": role_missing,
             "suggestions": role_suggestions,
+            # Which store answered for this row. Two rows in one table can come
+            # from different sources, and a score whose provenance is invisible
+            # is one nobody can debug.
+            "skills_source": role_set.source,
         }
 
     quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
@@ -553,6 +586,21 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
         "missing_skills": missing,
         "target_role": target_role,
         "experience_level": experience_level or "Mid-Level",
+        # What the scoring actually used, and where the requirements came from.
+        # The response used to echo back whatever level the caller sent while
+        # scoring against a different one -- "Principal" was silently read as
+        # Mid-Level and nothing said so. See #708.
+        "role_skills": role_skill_set.as_dict() if role_skill_set else {
+            "role": target_role,
+            "level": role_skills.normalise_level(experience_level)[0],
+            "level_as_requested": experience_level if isinstance(experience_level, str) else "",
+            "level_recognised": role_skills.normalise_level(experience_level)[1],
+            "skills": list(required),
+            # A pasted job description overrides both stores, which is the
+            # documented behaviour and worth naming rather than leaving the
+            # caller to infer it from an absent field.
+            "source": "job-description",
+        },
         "resume_text": raw_text,
         "cover_letter_text": cover_letter_text if cover_letter_text else None,
         "cover_letter_feedback": cover_letter_feedback,
