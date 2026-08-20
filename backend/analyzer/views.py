@@ -50,9 +50,12 @@ from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
     ResumeAnalysisSerializer,
+    PublicSharedAnalysisSerializer,
+    ShareStateSerializer,
     VersionComparisonSerializer,
     UserProfileSerializer,
 )
+from .sharing import clamp_lifetime_days
 from .services import analyze_resume, extract_text_from_file
 from .tasks import analyze_resume_task
 from celery.result import AsyncResult
@@ -931,16 +934,114 @@ def suggestion_feedback(request):
         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
     )
 
+class SharedResultThrottle(AnonRateThrottle):
+    """Rate limit for the public share endpoint.
+
+    Every other ``AllowAny`` view in this module carries one; this one did not,
+    which left a personal-data endpoint enumerable at whatever rate the network
+    allowed. UUID4 is a wide space, but the width of the id is not a reason to
+    leave the door unmetered — it is the reason a rate limit is cheap, because
+    no legitimate viewer opens hundreds of different shares an hour.
+    """
+
+    scope = "shared_result"
+
+    def get_rate(self):
+        # Read straight from settings rather than through
+        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
+        # the number beside the docstring that justifies it, and it means adding
+        # a throttle does not mean editing a dictionary every other throttle
+        # also edits.
+        return getattr(settings, "SHARED_RESULT_RATE", "60/hour")
+
+
+@extend_schema(
+    summary="View a shared analysis",
+    description=(
+        "Returns the public view of an analysis that its owner has chosen to "
+        "share. The response never includes the resume text, the cover letter "
+        "or the original filename, and the fields it does return are stripped "
+        "of contact details. Answers 404 when the link is unknown, has been "
+        "revoked, or has expired — the three are not distinguished."
+    ),
+    responses={
+        200: PublicSharedAnalysisSerializer,
+        404: OpenApiResponse(description="No live share for this id."),
+    },
+)
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes([SharedResultThrottle])
 def get_shared_result(request, share_id):
-    """
-    Fetch a specific ResumeAnalysis by its unguessable share_id,
-    without requiring authentication.
+    """Return the public view of a shared analysis.
+
+    Three things changed here, and they are independent:
+
+    1. The payload comes from :class:`PublicSharedAnalysisSerializer`, not the
+       full record. It used to include ``resume_text`` — the entire extracted
+       document — for a page that renders a score and a skill list.
+    2. Holding the id is no longer enough. ``is_share_live`` asks whether the
+       owner turned sharing on and whether the link has expired.
+    3. Revoked, expired and never-existed all answer 404. A 403 for a revoked
+       link would confirm the id was real, which is exactly what someone walking
+       the id space is trying to learn.
     """
     analysis = get_object_or_404(ResumeAnalysis, share_id=share_id)
-    serializer = ResumeAnalysisSerializer(analysis)
-    return Response(serializer.data)
+
+    if not analysis.is_share_live():
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    analysis.register_share_view()
+    return Response(PublicSharedAnalysisSerializer(analysis).data)
+
+
+@extend_schema(
+    summary="Read or change an analysis's share link",
+    description=(
+        "``GET`` reports the current state. ``POST`` turns sharing on, or "
+        "extends it, with an optional ``lifetime_days`` (1–365, default 30) "
+        "and an optional ``rotate`` flag that issues a fresh id and breaks "
+        "every copy of the previous link. ``DELETE`` revokes."
+    ),
+    responses={
+        200: ShareStateSerializer,
+        404: OpenApiResponse(description="No such analysis for this user."),
+    },
+)
+@api_view(["GET", "POST", "DELETE"])
+@permission_classes([IsAuthenticated])
+def manage_analysis_share(request, pk):
+    """Owner-side control over one analysis's public link.
+
+    Scoped by ``user=request.user`` in the lookup rather than fetched and then
+    checked, so there is no path through this view where the wrong user's row is
+    loaded at all. A row belonging to someone else is a 404, the same answer as
+    a row that does not exist.
+    """
+    try:
+        analysis = ResumeAnalysis.objects.get(pk=pk, user=request.user)
+    except ResumeAnalysis.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response(ShareStateSerializer(analysis).data)
+
+    if request.method == "DELETE":
+        analysis.revoke_sharing()
+        return Response(ShareStateSerializer(analysis).data)
+
+    lifetime_days, was_clamped = clamp_lifetime_days(request.data.get("lifetime_days"))
+    rotate = request.data.get("rotate") is True
+
+    analysis.enable_sharing(lifetime_days=lifetime_days, rotate=rotate)
+
+    payload = ShareStateSerializer(analysis).data
+    if was_clamped:
+        # Say so rather than silently disagreeing with the request that was just
+        # acknowledged with a 200. A client that asked for ten years and is told
+        # nothing has no way to know its link dies in one.
+        payload["lifetime_clamped_to_days"] = lifetime_days
+    return Response(payload)
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

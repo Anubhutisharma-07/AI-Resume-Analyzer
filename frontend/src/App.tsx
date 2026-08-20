@@ -23,6 +23,7 @@ import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
+import { ShareResult } from './components/ShareResult'
 
 type Theme = 'light' | 'dark'
 
@@ -825,6 +826,15 @@ function App() {
               <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
+
+              {/*
+                Share controls. Previously there was no way to publish or
+                unpublish an analysis from the UI at all — the link simply
+                existed for every saved analysis (#705). `analysisId` is null
+                for anonymous runs and for the bundled sample, and the component
+                renders nothing in that case.
+              */}
+              <ShareResult analysisId={analysisId} />
 
               <h5 className="analysis-done" role="status" aria-live="polite">
                 ✅ Resume Analysis Complete
