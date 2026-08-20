@@ -52,7 +52,7 @@ from .serializers import (
     VersionComparisonSerializer,
     UserProfileSerializer,
 )
-from .services import analyze_resume, extract_text_from_file, get_role_skills
+from .services import analyze_resume, extract_text_from_file
 from .tasks import analyze_resume_task
 from celery.result import AsyncResult
 from .skill_matcher import extract_skills
@@ -1171,6 +1171,14 @@ class SkillsLeaderboardThrottle(AnonRateThrottle):
 
     scope = "skills_leaderboard"
 
+    def get_rate(self):
+        # Read straight from settings rather than through
+        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
+        # the number beside the docstring that justifies it, and it means adding
+        # a throttle does not mean editing a dictionary every other throttle
+        # also edits.
+        return getattr(settings, "SKILLS_LEADERBOARD_RATE", "120/hour")
+
 
 @extend_schema(
     summary="Most common matched and missing skills",
@@ -1216,6 +1224,10 @@ def skills_leaderboard_view(request):
     """
     from django.core.cache import cache
     from django.utils.timezone import now
+
+    # Imported here rather than at module level, as `analyze_jd_view` already
+    # does for the same function.
+    from .services import get_role_skills
 
     known_tracks = set(get_role_skills().keys())
     track = normalise_track(request.query_params.get("track"), known_tracks)

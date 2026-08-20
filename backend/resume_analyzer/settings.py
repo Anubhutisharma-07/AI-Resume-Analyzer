@@ -214,9 +214,6 @@ REST_FRAMEWORK = {
         'analyze_jd': os.environ.get('ANALYZE_JD_RATE', '30/hour'),
         'mock_interview': os.environ.get('MOCK_INTERVIEW_RATE', '30/hour'),
         'signup': os.environ.get('SIGNUP_RATE', '10/hour'),
-        # A cache hit is cheap, but a cold cache is a full pass over the
-        # analyses table, and this endpoint had no throttle at all.
-        'skills_leaderboard': os.environ.get('SKILLS_LEADERBOARD_RATE', '120/hour'),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
