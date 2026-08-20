@@ -37,12 +37,6 @@ from .request_input import (
 )
 
 from .comparison import compare_versions
-from .task_claims import (
-    CLAIM_HEADER,
-    claims_are_enforced,
-    issue_claim,
-    verify_claim,
-)
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -55,6 +49,12 @@ from .tasks import analyze_resume_task
 from celery.result import AsyncResult
 from .skill_matcher import extract_skills
 from .url_fetcher import download_and_validate_url
+from .task_claims import (
+    CLAIM_HEADER,
+    claims_are_enforced,
+    issue_claim,
+    verify_claim,
+)
 from django.shortcuts import get_object_or_404
 import json
 from django.http import HttpResponse
@@ -490,6 +490,14 @@ class TaskStatusThrottle(AnonRateThrottle):
     """
 
     scope = "task_status"
+
+    def get_rate(self):
+        # Read straight from settings rather than through
+        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
+        # the number beside the docstring that justifies it, and it means adding
+        # a throttle does not mean editing a dictionary every other throttle
+        # also edits.
+        return getattr(settings, "TASK_STATUS_RATE", "600/hour")
 
 
 @extend_schema(

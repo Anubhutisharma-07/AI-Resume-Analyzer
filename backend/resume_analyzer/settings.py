@@ -223,10 +223,6 @@ REST_FRAMEWORK = {
         'analyze_jd': os.environ.get('ANALYZE_JD_RATE', '30/hour'),
         'mock_interview': os.environ.get('MOCK_INTERVIEW_RATE', '30/hour'),
         'signup': os.environ.get('SIGNUP_RATE', '10/hour'),
-        # Analysis status polling. Sized for polling one analysis every
-        # second or two, several times an hour -- not for browsing an id
-        # space.
-        'task_status': os.environ.get('TASK_STATUS_RATE', '600/hour'),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
