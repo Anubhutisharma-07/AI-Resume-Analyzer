@@ -36,7 +36,6 @@ from .request_input import (
 )
 
 from .comparison import compare_versions
-from .sharing import clamp_lifetime_days
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -46,6 +45,7 @@ from .serializers import (
     VersionComparisonSerializer,
     UserProfileSerializer,
 )
+from .sharing import clamp_lifetime_days
 from .services import analyze_resume, extract_text_from_file
 from .tasks import analyze_resume_task
 from celery.result import AsyncResult
@@ -846,6 +846,14 @@ class SharedResultThrottle(AnonRateThrottle):
     """
 
     scope = "shared_result"
+
+    def get_rate(self):
+        # Read straight from settings rather than through
+        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
+        # the number beside the docstring that justifies it, and it means adding
+        # a throttle does not mean editing a dictionary every other throttle
+        # also edits.
+        return getattr(settings, "SHARED_RESULT_RATE", "60/hour")
 
 
 @extend_schema(
