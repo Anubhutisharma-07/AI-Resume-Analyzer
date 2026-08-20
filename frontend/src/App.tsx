@@ -19,6 +19,8 @@ import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
+import { TimelinePanel } from './components/TimelinePanel'
+import { type TimelineData } from './utils/timelineFormat'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
 
 type Theme = 'light' | 'dark'
@@ -127,6 +129,7 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
+  const [timeline, setTimeline] = useState<TimelineData | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [roastMode, setRoastMode] = useState<boolean>(false)
@@ -351,6 +354,7 @@ function App() {
 
       setScore(result.score)
       setScoreBreakdown(result.score_breakdown || null)
+      setTimeline(result.timeline || null)
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
       setMatchedSkills(result.matched_skills || [])
@@ -443,6 +447,7 @@ function App() {
     setFile(null)
     setScore(null)
     setScoreBreakdown(null)
+    setTimeline(null)
     setSkills([])
     setSuggestions([])
     setMatchedSkills([])
@@ -536,6 +541,7 @@ function App() {
     setScore(entry.score)
     // History entries predate the breakdown and do not carry one.
     setScoreBreakdown(null)
+    setTimeline(null)
     setSkills(entry.skills)
     setSuggestions(entry.suggestions)
     setMatchedSkills(entry.matchedSkills)
@@ -800,6 +806,14 @@ function App() {
               <AtsScore score={score} />
 
               <ScoreBreakdown breakdown={scoreBreakdown} />
+
+              {/*
+                Employment timeline. Recruiters read the dates before the
+                bullets and an ATS parses them into structured employment
+                records, so a resume can score well here and still be filtered
+                on its history — which nothing in the analyzer looked at (#709).
+              */}
+              <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
 
