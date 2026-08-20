@@ -36,6 +36,15 @@ from .request_input import (
 )
 
 from .comparison import compare_versions
+from .leaderboard import (
+    CACHE_TIMEOUT_SECONDS,
+    UNKNOWN_TRACK,
+    aggregate_skill_counts,
+    cache_key_for,
+    clamp_limit,
+    normalise_track,
+    top_skills,
+)
 from .models import ResumeAnalysis, UserProfile, Webhook
 from .serializers import (
     SignupSerializer,
@@ -1152,61 +1161,109 @@ def analyze_jd_view(request):
     return Response({"keywords": results}, status=status.HTTP_200_OK)
 
 
+class SkillsLeaderboardThrottle(AnonRateThrottle):
+    """Rate limit for the leaderboard.
+
+    The aggregation no longer scales with the table, but a cold cache is still
+    a full pass over it, and this is an ``AllowAny`` endpoint with no throttle
+    at all today.
+    """
+
+    scope = "skills_leaderboard"
+
+    def get_rate(self):
+        # Read straight from settings rather than through
+        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
+        # the number beside the docstring that justifies it, and it means adding
+        # a throttle does not mean editing a dictionary every other throttle
+        # also edits.
+        return getattr(settings, "SKILLS_LEADERBOARD_RATE", "120/hour")
+
+
+@extend_schema(
+    summary="Most common matched and missing skills",
+    description=(
+        "Aggregate skill counts across analyses. `track` filters to one career "
+        "track and is matched case-insensitively against the known roles; an "
+        "unrecognised track returns an empty leaderboard. `limit` (1-50, "
+        "default 10) sets how many skills each list carries. `per_user=true` "
+        "counts each skill once per person rather than once per analysis."
+    ),
+    parameters=[
+        OpenApiParameter("track", OpenApiTypes.STR, description="Career track to filter to."),
+        OpenApiParameter("limit", OpenApiTypes.INT, description="Skills per list (1-50)."),
+        OpenApiParameter(
+            "per_user",
+            OpenApiTypes.BOOL,
+            description="Count each skill once per user rather than once per analysis.",
+        ),
+    ],
+)
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@throttle_classes([SkillsLeaderboardThrottle])
 def skills_leaderboard_view(request):
+    """Report the most common matched and missing skills.
+
+    Four things changed, and only the first is the headline:
+
+    1. Rows are **streamed**. The previous implementation did
+       ``list(analyses.values_list(...))``, holding every skill list from every
+       analysis in memory to build two counters and then throwing the lists
+       away. The loop needs one row at a time.
+    2. ``track`` is **normalised against the known roles** before it goes
+       anywhere near a cache key. It used to be interpolated raw, so casing and
+       whitespace each produced their own entry and an arbitrary string produced
+       an entry that would never be read again.
+    3. ``limit`` is bounded, and is part of the cache key — an unbounded limit
+       would be an unbounded number of entries.
+    4. ``per_user`` is available as a denominator. Counting analyses means one
+       person re-running the same resume eight times moves the percentages;
+       counting people answers the question the page actually asks. Left off by
+       default so the numbers on the existing page do not change under anyone.
+    """
     from django.core.cache import cache
     from django.utils.timezone import now
-    
-    track = request.query_params.get("track", "")
-    
-    cache_key = f"skills_leaderboard_{track}"
+
+    # Imported here rather than at module level, as `analyze_jd_view` already
+    # does for the same function.
+    from .services import get_role_skills
+
+    known_tracks = set(get_role_skills().keys())
+    track = normalise_track(request.query_params.get("track"), known_tracks)
+    limit = clamp_limit(request.query_params.get("limit"))
+    per_user = str(request.query_params.get("per_user", "")).lower() in ("1", "true", "yes")
+
+    cache_key = cache_key_for(track, limit, per_user)
     cached_data = cache.get(cache_key)
     if cached_data is not None:
         return Response(cached_data, status=status.HTTP_200_OK)
-        
-    analyses = ResumeAnalysis.objects.all()
-    if track:
-        analyses = analyses.filter(target_role=track)
-        
-    data_list = list(analyses.values_list("matched_skills", "missing_skills"))
-    total_count = len(data_list)
-    
-    matched_counter = Counter()
-    missing_counter = Counter()
-    
-    for matched, missing in data_list:
-        if isinstance(matched, list):
-            matched_counter.update(matched)
-        if isinstance(missing, list):
-            missing_counter.update(missing)
-            
-    top_matched = [
-        {
-            "skill": skill.title(),
-            "count": count,
-            "percentage": int(count / total_count * 100) if total_count > 0 else 0
-        }
-        for skill, count in matched_counter.most_common(10)
-    ]
-    
-    top_missing = [
-        {
-            "skill": skill.title(),
-            "count": count,
-            "percentage": int(count / total_count * 100) if total_count > 0 else 0
-        }
-        for skill, count in missing_counter.most_common(10)
-    ]
-    
+
+    if track == UNKNOWN_TRACK:
+        # One shared answer for every unrecognised track. Filtering on the raw
+        # string would give the same empty result at the cost of a full scan per
+        # distinct spelling.
+        analyses = ResumeAnalysis.objects.none()
+    else:
+        analyses = ResumeAnalysis.objects.all()
+        if track:
+            analyses = analyses.filter(target_role=track)
+
+    matched_counter, missing_counter, total_count = aggregate_skill_counts(
+        analyses, per_user=per_user
+    )
+
     response_data = {
         "total_analyses": total_count,
-        "matched_skills": top_matched,
-        "missing_skills": top_missing,
-        "last_updated": now().isoformat()
+        "counted_by": "user" if per_user else "analysis",
+        "track": track if track != UNKNOWN_TRACK else "",
+        "limit": limit,
+        "matched_skills": top_skills(matched_counter, total_count, limit),
+        "missing_skills": top_skills(missing_counter, total_count, limit),
+        "last_updated": now().isoformat(),
     }
-    
-    cache.set(cache_key, response_data, 300)
+
+    cache.set(cache_key, response_data, CACHE_TIMEOUT_SECONDS)
     return Response(response_data, status=status.HTTP_200_OK)
 
 
