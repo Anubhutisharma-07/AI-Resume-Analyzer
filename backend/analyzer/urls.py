@@ -33,6 +33,9 @@ from .views import (
     webhook_detail,
     test_webhook,
 )
+from .interview_prep import generate_interview, submit_interview_results
+from .cover_letter import generate_cover_letter, get_user_cover_letters
+from .career_path import generate_career_path, get_user_career_paths, get_career_path_details
 
 urlpatterns = [
     path("upload/", upload_resume),
@@ -66,6 +69,19 @@ urlpatterns = [
         manage_analysis_share,
         name="manage_analysis_share",
     ),
+
+    # Interview Prep API
+    path('interview/generate/', generate_interview, name='generate_interview'),
+    path('interview/<int:session_id>/submit/', submit_interview_results, name='submit_interview_results'),
+    
+    # Cover Letter API
+    path('cover-letter/generate/', generate_cover_letter, name='generate_cover_letter'),
+    path('cover-letter/history/', get_user_cover_letters, name='get_user_cover_letters'),
+
+    # Career Path API
+    path('career-path/generate/', generate_career_path, name='generate_career_path'),
+    path('career-path/history/', get_user_career_paths, name='get_user_career_paths'),
+    path('career-path/<int:path_id>/', get_career_path_details, name='get_career_path_details'),
 
     # Webhooks. The views for these have existed since #549 but were never
     # given a path, so the feature has been unreachable.

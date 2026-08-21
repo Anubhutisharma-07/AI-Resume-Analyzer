@@ -172,8 +172,24 @@ class KnownDevice(models.Model):
         unique_together = ('user', 'ip_address', 'device_info')
 
     def __str__(self):
-        return f"{self.user.username} - {self.device_info} ({self.ip_address})"
+        return f"Cover Letter for {self.user.username} - {self.target_role}"
 
+class CareerPath(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="career_paths")
+    target_role = models.CharField(max_length=150)
+    current_role = models.CharField(max_length=150, default="Junior Developer")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+class CareerMilestone(models.Model):
+    path = models.ForeignKey(CareerPath, on_delete=models.CASCADE, related_name="milestones")
+    title = models.CharField(max_length=150)
+    timeframe = models.CharField(max_length=50) # e.g., '1-2 years'
+    skills_required = models.JSONField(default=list) # e.g., ['Docker', 'AWS', 'System Design']
+    description = models.TextField()
+    order = models.IntegerField(default=0) # 0 for current, 1 for next step etc.
+
+    class Meta:
+        ordering = ['order']
 
 def generate_webhook_secret():
     """Return a fresh signing secret for a webhook.
