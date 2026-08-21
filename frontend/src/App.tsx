@@ -23,6 +23,8 @@ import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
+import { WhatsNewModal } from './components/WhatsNewModal'
+import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
 type Theme = 'light' | 'dark'
@@ -193,6 +195,7 @@ function App() {
   // Auth
   const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
   const {
@@ -1205,13 +1208,10 @@ function App() {
         </div>{' '}
         {/* closes .main-card */}
       </div>{' '}
-      {/* closes .container */}
-      <Footer /> {/* footer should be outside main container */}
+      <Footer onOpenWhatsNew={() => setShowWhatsNew(true)} />
+      <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </>
   )
-  {
-    /* closes the return fragment */
-  }
 }
 {
   /* closes App function */

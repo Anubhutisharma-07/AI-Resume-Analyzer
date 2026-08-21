@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- "What's New" dismissible changelog popup highlighting notable releases and feature updates for returning users (#532).
+- Dedicated dark mode SVG icon symbol variants and currentColor support avoiding degraded color-inversion artifacts (#534).
 - Auto-save Job Description text as a debounced draft in local storage to prevent accidental data loss upon page refresh or navigation (#533).
 - Opt-in playful "Resume Roast" alternate feedback tone switch in suggestions section with humorously constructive feedback while remaining constructive (#497).
 - Dedicated Privacy Policy page explaining data collection, immediate document deletion policy, user history control, and cookie usage, linked directly in the footer (#470).
