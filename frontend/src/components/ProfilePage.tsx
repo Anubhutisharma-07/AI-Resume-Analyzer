@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
+import { getConsentPreferences, saveConsentPreferences } from '../utils/cookieConsent'
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession, exportUserData } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false)
+  const [analyticsConsent, setAnalyticsConsentState] = useState<boolean>(() => getConsentPreferences().analytics)
+  const [resumeRoastConsent, setResumeRoastConsentState] = useState<boolean>(() => getConsentPreferences().resumeRoast)
   const [isEditing, setIsEditing] = useState(false)
 
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
   const [originalOptIn, setOriginalOptIn] = useState(false)
+  const [originalAnalyticsConsent, setOriginalAnalyticsConsent] = useState<boolean>(() => getConsentPreferences().analytics)
+  const [originalResumeRoastConsent, setOriginalResumeRoastConsent] = useState<boolean>(() => getConsentPreferences().resumeRoast)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -38,6 +43,12 @@ export const ProfilePage: React.FC = () => {
         setOriginalUsername(data.username)
         setOriginalEmail(data.email || '')
         setOriginalOptIn(!!data.weekly_digest_opt_in)
+
+        const consentPrefs = getConsentPreferences()
+        setAnalyticsConsentState(consentPrefs.analytics)
+        setResumeRoastConsentState(consentPrefs.resumeRoast)
+        setOriginalAnalyticsConsent(consentPrefs.analytics)
+        setOriginalResumeRoastConsent(consentPrefs.resumeRoast)
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load profile details.')
       } finally {
@@ -52,6 +63,8 @@ export const ProfilePage: React.FC = () => {
     setUsername(originalUsername)
     setEmail(originalEmail)
     setWeeklyDigestOptIn(originalOptIn)
+    setAnalyticsConsentState(originalAnalyticsConsent)
+    setResumeRoastConsentState(originalResumeRoastConsent)
     setIsEditing(false)
     setError(null)
     setSuccessMsg(null)
@@ -111,6 +124,14 @@ export const ProfilePage: React.FC = () => {
       setOriginalUsername(updated.username)
       setOriginalEmail(updated.email)
       setOriginalOptIn(!!updated.weekly_digest_opt_in)
+
+      // Save client-side data consent preferences (#536)
+      saveConsentPreferences({
+        analytics: analyticsConsent,
+        resumeRoast: resumeRoastConsent,
+      })
+      setOriginalAnalyticsConsent(analyticsConsent)
+      setOriginalResumeRoastConsent(resumeRoastConsent)
 
       // Update global context session
       updateProfileSession(updated.username)
@@ -271,6 +292,70 @@ export const ProfilePage: React.FC = () => {
                   role="switch"
                   checked={weeklyDigestOptIn}
                   onChange={(e) => setWeeklyDigestOptIn(e.target.checked)}
+                  disabled={!isEditing || saving}
+                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
+                />
+              </div>
+            </div>
+
+            {/* Optional Data Collection: Analytics (#536) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--control-border)',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <div>
+                <label htmlFor="profile-analytics-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
+                  📊 Analytics & Performance Telemetry
+                </label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
+                  Allow anonymous usage telemetry to diagnose issues and optimize ATS parsing accuracy (Off by default).
+                </span>
+              </div>
+              <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
+                <input
+                  id="profile-analytics-toggle"
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  checked={analyticsConsent}
+                  onChange={(e) => setAnalyticsConsentState(e.target.checked)}
+                  disabled={!isEditing || saving}
+                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
+                />
+              </div>
+            </div>
+
+            {/* Optional Data Collection: Resume Roast (#536) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '12px 16px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--control-border)',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
+              <div>
+                <label htmlFor="profile-roast-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
+                  🔥 AI Resume Roast Feedback Consent
+                </label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
+                  Opt in to allow processing alternate humorous and spicy feedback tone suggestions (Off by default).
+                </span>
+              </div>
+              <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
+                <input
+                  id="profile-roast-toggle"
+                  className="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  checked={resumeRoastConsent}
+                  onChange={(e) => setResumeRoastConsentState(e.target.checked)}
                   disabled={!isEditing || saving}
                   style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
                 />

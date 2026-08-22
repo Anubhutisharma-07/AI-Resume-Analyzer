@@ -123,7 +123,9 @@ describe('ProfilePage', () => {
 
     const usernameInput = screen.getByLabelText('Username')
     const emailInput = screen.getByLabelText('Email Address')
-    const digestToggle = screen.getByRole('switch')
+    const digestToggle = screen.getByRole('switch', {
+      name: /weekly resume-tips email digest/i,
+    })
 
     expect(usernameInput).toBeDisabled()
     expect(emailInput).toBeDisabled()
