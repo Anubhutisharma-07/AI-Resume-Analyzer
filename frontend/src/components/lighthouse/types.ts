@@ -39,3 +39,10 @@ export interface LighthouseAuditTimelineLog {
   performer: string;
   impactScoreGain: number;
 }
+
+export interface AuditMetricCategorySummary {
+  performance: number;
+  accessibility: number;
+  bestPractices: number;
+  seo: number;
+}

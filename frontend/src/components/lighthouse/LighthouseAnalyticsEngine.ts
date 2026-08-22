@@ -1,5 +1,8 @@
-import { LighthouseReportSuite, LighthouseFilterQuery, LighthouseAuditTimelineLog } from './types';
+import { LighthouseReportSuite, LighthouseFilterQuery, LighthouseAuditTimelineLog, AuditMetricCategorySummary } from './types';
 
+/**
+ * Enterprise Service Engine for Lighthouse CI Analytics & Web Accessibility Telemetry
+ */
 export class LighthouseAnalyticsEngine {
   private static mockReports: LighthouseReportSuite[] = [
     {
@@ -89,6 +92,9 @@ export class LighthouseAnalyticsEngine {
     },
   ];
 
+  /**
+   * Retrieves Lighthouse audit report suites according to query parameters
+   */
   public static getReports(filters: LighthouseFilterQuery): LighthouseReportSuite[] {
     return this.mockReports.filter((item) => {
       if (filters.search && filters.search.trim() !== '') {
@@ -101,7 +107,51 @@ export class LighthouseAnalyticsEngine {
     });
   }
 
+  /**
+   * Retrieves historical Lighthouse audit timeline logs
+   */
   public static getAuditLogs(): LighthouseAuditTimelineLog[] {
     return [...this.mockAuditLogs];
+  }
+
+  /**
+   * Evaluates aggregate average Lighthouse score across all audited page routes
+   */
+  public static calculateAverageOverallScore(): number {
+    if (this.mockReports.length === 0) return 0;
+    const sum = this.mockReports.reduce((acc, curr) => acc + curr.overallScore, 0);
+    return Math.round(sum / this.mockReports.length);
+  }
+
+  /**
+   * Computes category score summaries across Performance, Accessibility, Best Practices, and SEO
+   */
+  public static computeCategorySummaries(): AuditMetricCategorySummary {
+    if (this.mockReports.length === 0) {
+      return { performance: 0, accessibility: 0, bestPractices: 0, seo: 0 };
+    }
+    const count = this.mockReports.length;
+    const perfSum = this.mockReports.reduce((acc, r) => acc + r.performanceScore, 0);
+    const a11ySum = this.mockReports.reduce((acc, r) => acc + r.accessibilityScore, 0);
+    const bestSum = this.mockReports.reduce((acc, r) => acc + r.bestPracticesScore, 0);
+    const seoSum = this.mockReports.reduce((acc, r) => acc + r.seoScore, 0);
+
+    return {
+      performance: Math.round(perfSum / count),
+      accessibility: Math.round(a11ySum / count),
+      bestPractices: Math.round(bestSum / count),
+      seo: Math.round(seoSum / count),
+    };
+  }
+
+  /**
+   * Evaluates if a given page report satisfies minimum Lighthouse CI threshold assertions
+   */
+  public static satisfiesThreshold(report: LighthouseReportSuite, minScore: number = 90): boolean {
+    return (
+      report.overallScore >= minScore &&
+      report.performanceScore >= minScore &&
+      report.accessibilityScore >= minScore
+    );
   }
 }
