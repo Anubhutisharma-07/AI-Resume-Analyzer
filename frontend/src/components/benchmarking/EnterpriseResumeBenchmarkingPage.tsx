@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { IndustryPeerComparison, PeerBenchmarkFilterQuery } from './types';
+import type { IndustryPeerComparison, PeerBenchmarkFilterQuery } from './types';
 import { ResumeBenchmarkingEngine } from './ResumeBenchmarkingEngine';
 import { BenchmarkCard } from './BenchmarkCard';
 import { BenchmarkAuditTimeline } from './BenchmarkAuditTimeline';

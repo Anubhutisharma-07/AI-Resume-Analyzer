@@ -1,4 +1,4 @@
-import { IndustryPeerComparison, PeerBenchmarkFilterQuery, BenchmarkAuditLog } from './types';
+import type { IndustryPeerComparison, PeerBenchmarkFilterQuery, BenchmarkAuditLog } from './types';
 
 export class ResumeBenchmarkingEngine {
   private static initialComparisons: IndustryPeerComparison[] = [

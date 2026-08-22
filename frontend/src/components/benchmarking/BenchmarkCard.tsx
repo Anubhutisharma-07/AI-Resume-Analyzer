@@ -1,5 +1,5 @@
 import React from 'react';
-import { IndustryPeerComparison } from './types';
+import type { IndustryPeerComparison } from './types';
 
 interface BenchmarkCardProps {
   comparison: IndustryPeerComparison;

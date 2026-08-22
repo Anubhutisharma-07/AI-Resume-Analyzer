@@ -1,5 +1,5 @@
 import React from 'react';
-import { BenchmarkAuditLog } from './types';
+import type { BenchmarkAuditLog } from './types';
 
 interface BenchmarkAuditTimelineProps {
   logs: BenchmarkAuditLog[];
