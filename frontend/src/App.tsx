@@ -12,6 +12,7 @@ import { useAnalysisHistory } from './hooks/useAnalysisHistory'
 import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
 import { HistorySidebar } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
+import { BulkResumeAnalysisModal } from './components/BulkResumeAnalysisModal'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
 import { analysisTokenHeaders } from './utils/analysisToken'
@@ -210,9 +211,10 @@ function App() {
   } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
-  const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
+  // Modal for bulk resume analysis (#57)
+  const [showBulkModal, setShowBulkModal] = useState(false)
 
   const fetchDbHistory = useCallback(async () => {
     try {
@@ -646,6 +648,14 @@ function App() {
           onClose={() => setShowCompare(false)}
         />
       )}
+      {showBulkModal && (
+        <BulkResumeAnalysisModal
+          onClose={() => setShowBulkModal(false)}
+          initialTargetRole={targetRole}
+          initialExperienceLevel={experienceLevel}
+          initialJobDescription={jobDescription}
+        />
+      )}
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
@@ -895,7 +905,7 @@ function App() {
             </label>
           </div>
           <div
-            style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center' }}
+            style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
             className="mb-3"
           >
             <button
@@ -920,6 +930,15 @@ function App() {
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : 'Try Sample Resume'}
+            </button>
+            <button
+              className="secondary-btn"
+              onClick={() => setShowBulkModal(true)}
+              disabled={loading}
+              type="button"
+              title="Upload and analyze multiple resumes at once"
+            >
+              📂 Bulk Analysis
             </button>
           </div>
           {/* Loading spinner — shown while the resume is being analyzed */}
