@@ -26,6 +26,7 @@ import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreak
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+import { setResumeRoastConsent } from './utils/cookieConsent'
 
 type Theme = 'light' | 'dark'
 
@@ -1145,7 +1146,13 @@ function App() {
                       <input
                         type="checkbox"
                         checked={roastMode}
-                        onChange={(e) => setRoastMode(e.target.checked)}
+                        onChange={(e) => {
+                          const nextVal = e.target.checked
+                          setRoastMode(nextVal)
+                          if (nextVal) {
+                            setResumeRoastConsent(true)
+                          }
+                        }}
                         aria-label="Toggle Resume Roast mode"
                         style={{ cursor: 'pointer' }}
                       />
