@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ResumeVersionRecord } from './types';
+import type { ResumeVersionRecord } from './types';
 import { ResumeVersioningEngine } from './ResumeVersioningEngine';
 import { VersionCard } from './VersionCard';
 import { VersionAuditTimeline } from './VersionAuditTimeline';
