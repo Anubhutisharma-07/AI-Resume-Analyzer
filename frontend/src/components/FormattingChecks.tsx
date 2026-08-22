@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCircle2, AlertTriangle, FileText, Layout, Type, ChevronDown, ChevronUp } from 'lucide-react'
+import { FileText, Layout, Type, ChevronDown, ChevronUp } from 'lucide-react'
 
 export interface FormattingTips {
   length: string[]
