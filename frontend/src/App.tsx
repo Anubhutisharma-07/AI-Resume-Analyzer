@@ -211,6 +211,7 @@ function App() {
   } = useAnalysisHistory()
   const [historyOpen, setHistoryOpen] = useState(false)
   const [historyNextUrl, setHistoryNextUrl] = useState<string | null>(null)
+  const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
   // Modal for bulk resume analysis (#57)
