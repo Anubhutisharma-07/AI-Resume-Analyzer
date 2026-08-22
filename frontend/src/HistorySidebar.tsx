@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { X, ClipboardList, BookOpen, Trash2, GitCompare, Archive, Check } from 'lucide-react'
 import type { AnalysisEntry } from './hooks/useAnalysisHistory'
 import { ScoreHistoryChart } from './components/ScoreHistoryChart'
@@ -44,6 +44,16 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
 }) => {
   const [confirmClear, setConfirmClear] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const prevIsOpen = useRef(isOpen);
+
+  useEffect(() => {
+    if (prevIsOpen.current && !isOpen) {
+      triggerRef.current?.focus();
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen]);
+
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     try {
       const saved = localStorage.getItem(SORT_MODE_STORAGE_KEY);
@@ -169,8 +179,19 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
 
   return (
     <>
+      {/* Backdrop overlay */}
+      {isOpen && (
+        <div
+          className="history-sidebar__overlay"
+          onClick={onToggle}
+          aria-hidden="true"
+          data-testid="history-sidebar-overlay"
+        />
+      )}
+
       {/* Toggle button — always visible */}
       <button
+        ref={triggerRef}
         className="fab-btn history-toggle-btn"
         onClick={handleToggleClick}
         aria-label={toggleAriaLabel}
