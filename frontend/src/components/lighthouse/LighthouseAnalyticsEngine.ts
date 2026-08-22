@@ -1,4 +1,4 @@
-import { LighthouseReportSuite, LighthouseFilterQuery, LighthouseAuditTimelineLog, AuditMetricCategorySummary } from './types';
+import type { LighthouseReportSuite, LighthouseFilterQuery, LighthouseAuditTimelineLog, AuditMetricCategorySummary } from './types';
 
 /**
  * Enterprise Service Engine for Lighthouse CI Analytics & Web Accessibility Telemetry

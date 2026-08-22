@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LighthouseReportSuite } from './types';
+import type { LighthouseReportSuite } from './types';
 import { LighthouseAnalyticsEngine } from './LighthouseAnalyticsEngine';
 import { LighthouseReportCard } from './LighthouseReportCard';
 import { LighthouseAuditTimeline } from './LighthouseAuditTimeline';

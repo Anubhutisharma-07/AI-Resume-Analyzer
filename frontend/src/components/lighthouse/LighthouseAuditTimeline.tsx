@@ -1,5 +1,5 @@
 import React from 'react';
-import { LighthouseAuditTimelineLog } from './types';
+import type { LighthouseAuditTimelineLog } from './types';
 
 interface LighthouseAuditTimelineProps {
   logs: LighthouseAuditTimelineLog[];

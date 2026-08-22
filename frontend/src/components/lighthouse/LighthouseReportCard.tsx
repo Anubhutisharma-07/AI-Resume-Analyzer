@@ -1,5 +1,5 @@
 import React from 'react';
-import { LighthouseReportSuite } from './types';
+import type { LighthouseReportSuite } from './types';
 
 interface LighthouseCardProps {
   report: LighthouseReportSuite;
