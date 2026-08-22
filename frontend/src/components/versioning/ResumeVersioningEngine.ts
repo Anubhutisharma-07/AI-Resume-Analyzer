@@ -1,65 +1,81 @@
-import type { ResumeVersionRecord, VersionFilterQuery, VersionAuditTimelineLog } from './types';
+import type { ResumeVersionRecord, VersionFilterQuery, VersionAuditLog } from './types';
 
 export class ResumeVersioningEngine {
   private static mockVersions: ResumeVersionRecord[] = [
     {
-      versionId: 'VER-1001',
-      versionNumber: 'v1.0.0',
-      label: 'Initial Master Baseline',
-      atsScore: 72,
-      createdAt: '2026-08-20 10:00:00',
-      author: 'Alexander Wright',
+      versionId: 'VER-101',
+      versionNumber: 'v2.4',
+      versionTag: 'ATS_OPTIMIZED',
+      author: 'Candidate (AI Optimizer)',
+      createdAt: '2026-08-22 05:30:00',
+      atsScore: 92,
+      atsScoreDelta: 14,
+      fileSizeKb: 142,
+      isCurrentActiveVersion: true,
       sectionDiffs: [
         {
-          sectionName: 'Summary Statement',
-          originalText: 'Experienced software engineer with knowledge of web development.',
-          revisedText: 'Senior Full-Stack Architect with 8+ years specializing in distributed React/Node microservices and high-throughput cloud infrastructure.',
-          changeType: 'MODIFIED',
+          sectionName: 'WORK_EXPERIENCE',
+          originalText: 'Managed a team of developers working on microservices.',
+          revisedText: 'Spearheaded an agile team of 8 senior engineers building Kubernetes-orchestrated microservices, improving throughput by 42%.',
+          diffStatus: 'MODIFIED',
+          keywordScoreGain: 8,
+        },
+        {
+          sectionName: 'SKILLS',
+          originalText: 'React, Node, SQL',
+          revisedText: 'React 18, TypeScript, Node.js, PostgreSQL, Redis, Apache Kafka, Docker, Kubernetes',
+          diffStatus: 'ADDED',
+          keywordScoreGain: 6,
         },
       ],
     },
     {
-      versionId: 'VER-1002',
-      versionNumber: 'v1.1.0',
-      label: 'FinTech Target Tailored',
-      atsScore: 89,
-      createdAt: '2026-08-22 04:15:00',
-      author: 'AI Tailor Engine',
-      sectionDiffs: [
-        {
-          sectionName: 'Technical Skills & Keywords',
-          originalText: 'JavaScript, HTML, CSS, React, SQL',
-          revisedText: 'TypeScript, React 18, Node.js, Kafka, PostgreSQL, Docker, Kubernetes, AWS (S3, Lambda, EC2), PCI-DSS Compliance',
-          changeType: 'ADDED',
-        },
-      ],
+      versionId: 'VER-100',
+      versionNumber: 'v1.0',
+      versionTag: 'INITIAL_DRAFT',
+      author: 'Candidate',
+      createdAt: '2026-08-20 10:15:00',
+      atsScore: 78,
+      atsScoreDelta: 0,
+      fileSizeKb: 135,
+      isCurrentActiveVersion: false,
+      sectionDiffs: [],
     },
   ];
 
-  private static mockLogs: VersionAuditTimelineLog[] = [
+  private static mockAuditLogs: VersionAuditLog[] = [
     {
-      logId: 'VER-LOG-01',
-      timestamp: '2026-08-22 04:15:05',
-      action: 'VERSION_COMMITTED',
-      details: 'Committed v1.1.0 tailored version for FinTech Senior Architect role.',
-      performer: 'AI Tailor Engine',
-      scoreDelta: '+17 pts gain',
+      logId: 'LOG-701',
+      timestamp: '2026-08-22 05:30:12',
+      action: 'VERSION_CREATED',
+      details: 'Created v2.4 (ATS_OPTIMIZED) with +14 ATS score gain.',
+      performer: 'AI Versioning Engine',
+    },
+    {
+      logId: 'LOG-702',
+      timestamp: '2026-08-22 05:35:00',
+      action: 'DIFF_COMPARISON_EXPORTED',
+      details: 'Exported side-by-side diff matrix between v1.0 and v2.4.',
+      performer: 'Candidate',
     },
   ];
 
   public static getVersions(filters: VersionFilterQuery): ResumeVersionRecord[] {
-    return this.mockVersions.filter((v) => {
+    return this.mockVersions.filter((item) => {
+      if (filters.versionTag && filters.versionTag !== 'All' && item.versionTag !== filters.versionTag) {
+        return false;
+      }
       if (filters.search && filters.search.trim() !== '') {
         const q = filters.search.toLowerCase();
-        const matchesLabel = v.label.toLowerCase().includes(q);
-        const matchesVer = v.versionNumber.toLowerCase().includes(q);
-        if (!matchesLabel && !matchesVer) return false;
+        const matchesVer = item.versionNumber.toLowerCase().includes(q);
+        const matchesAuthor = item.author.toLowerCase().includes(q);
+        if (!matchesVer && !matchesAuthor) return false;
       }
       return true;
     });
   }
 
-  public static getAuditLogs(): VersionAuditTimelineLog[] {
-    return [...this.mockLogs];
+  public static getAuditLogs(): VersionAuditLog[] {
+    return [...this.mockAuditLogs];
   }
 }
