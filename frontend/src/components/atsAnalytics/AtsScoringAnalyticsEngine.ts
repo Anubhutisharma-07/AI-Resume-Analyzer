@@ -1,4 +1,4 @@
-import { AtsCandidateAnalyticsReport, AtsAnalyticsFilterQuery, AtsAnalyticsAuditLog } from './types';
+import type { AtsCandidateAnalyticsReport, AtsAnalyticsFilterQuery, AtsAnalyticsAuditLog } from './types';
 
 export class AtsScoringAnalyticsEngine {
   private static mockReports: AtsCandidateAnalyticsReport[] = [

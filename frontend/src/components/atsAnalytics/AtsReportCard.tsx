@@ -1,5 +1,5 @@
 import React from 'react';
-import { AtsCandidateAnalyticsReport } from './types';
+import type { AtsCandidateAnalyticsReport } from './types';
 
 interface AtsCardProps {
   report: AtsCandidateAnalyticsReport;

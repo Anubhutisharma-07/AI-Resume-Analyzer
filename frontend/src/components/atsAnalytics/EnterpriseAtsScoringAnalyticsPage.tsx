@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AtsCandidateAnalyticsReport, AtsAnalyticsFilterQuery } from './types';
+import type { AtsCandidateAnalyticsReport, AtsAnalyticsFilterQuery } from './types';
 import { AtsScoringAnalyticsEngine } from './AtsScoringAnalyticsEngine';
 import { AtsReportCard } from './AtsReportCard';
 import { AtsAnalyticsAuditTimeline } from './AtsAnalyticsAuditTimeline';

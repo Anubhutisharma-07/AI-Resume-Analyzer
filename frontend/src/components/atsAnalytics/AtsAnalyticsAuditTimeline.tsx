@@ -1,5 +1,5 @@
 import React from 'react';
-import { AtsAnalyticsAuditLog } from './types';
+import type { AtsAnalyticsAuditLog } from './types';
 
 interface AtsAuditTimelineProps {
   logs: AtsAnalyticsAuditLog[];
