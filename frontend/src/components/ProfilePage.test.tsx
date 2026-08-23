@@ -176,7 +176,6 @@ describe('ProfilePage', () => {
         in_app: true,
       },
       weekly_digest_opt_in: true,
-      notification_preferences: expect.any(Object),
     })
 
     await waitFor(() => expect(screen.getByText('Profile and notification preferences updated successfully!')).toBeInTheDocument())
