@@ -157,6 +157,11 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     avatar = models.FileField(upload_to="avatars/", blank=True, null=True)
     weekly_digest_opt_in = models.BooleanField(default=False)
+    notification_preferences = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Per-channel notification preferences. Missing keys use documented defaults.",
+    )
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
@@ -226,9 +231,6 @@ class Webhook(models.Model):
     class Meta:
         ordering = ["-created_at"]
         constraints = [
-            # The same endpoint registered twice would just get every event
-            # twice. Scoped to the user: two people may legitimately point at
-            # the same collector.
             models.UniqueConstraint(
                 fields=["user", "url"], name="unique_webhook_url_per_user"
             )
