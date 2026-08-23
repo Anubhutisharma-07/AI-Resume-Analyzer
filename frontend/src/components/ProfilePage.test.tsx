@@ -99,10 +99,6 @@ describe('ProfilePage', () => {
     })
 
     expect(digestToggle).toBeChecked()
-
-    // No Authorization argument any more: the client's request
-    // interceptor attaches the current token, so the page does not build
-    // a header from a value captured on render.
     expect(mockedAxiosGet).toHaveBeenCalledWith(expect.stringContaining('/api/profile/'))
   })
 
@@ -136,9 +132,7 @@ describe('ProfilePage', () => {
     expect(usernameInput).not.toBeDisabled()
     expect(emailInput).not.toBeDisabled()
     expect(digestToggle).not.toBeDisabled()
-
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument()
-
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
   })
 
@@ -167,25 +161,12 @@ describe('ProfilePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
 
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'updateduser' },
-    })
-
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'updated@example.com' },
-    })
-
-    fireEvent.click(
-      screen.getByRole('switch', {
-        name: /weekly resume-tips email digest/i,
-      })
-    )
-
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'updateduser' } })
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'updated@example.com' } })
+    fireEvent.click(screen.getByRole('switch', { name: /weekly resume-tips email digest/i }))
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
 
-    await waitFor(() => {
-      expect(mockedAxiosPut).toHaveBeenCalled()
-    })
+    await waitFor(() => expect(mockedAxiosPut).toHaveBeenCalled())
 
     expect(mockedAxiosPut).toHaveBeenCalledWith(expect.stringContaining('/api/profile/'), {
       username: 'updateduser',
@@ -193,107 +174,59 @@ describe('ProfilePage', () => {
       weekly_digest_opt_in: true,
     })
 
-    await waitFor(() => {
-      expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument()
-    })
-
+    await waitFor(() => expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument())
     expect(screen.getByDisplayValue('updateduser')).toBeInTheDocument()
     expect(screen.getByDisplayValue('updated@example.com')).toBeInTheDocument()
-
     expect(mockUpdateProfileSession).toHaveBeenCalledWith('updateduser')
-
     expect(screen.getByRole('button', { name: /edit profile/i })).toBeInTheDocument()
   })
 
   it('does not save when username is empty', async () => {
     mockedAxiosGet.mockResolvedValueOnce({
-      data: {
-        username: 'testuser',
-        email: 'test@example.com',
-        weekly_digest_opt_in: false,
-      },
+      data: { username: 'testuser', email: 'test@example.com', weekly_digest_opt_in: false },
     })
 
     render(<ProfilePage />)
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('testuser')).toBeInTheDocument()
-    })
-
+    await waitFor(() => expect(screen.getByDisplayValue('testuser')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
-
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: '' },
-    })
-
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }))
 
     expect(await screen.findByText('Username cannot be empty.')).toBeInTheDocument()
-
     expect(mockedAxiosPut).not.toHaveBeenCalled()
   })
 
   it('does not save when the email is invalid', async () => {
     mockedAxiosGet.mockResolvedValueOnce({
-      data: {
-        username: 'testuser',
-        email: 'test@example.com',
-        weekly_digest_opt_in: false,
-      },
+      data: { username: 'testuser', email: 'test@example.com', weekly_digest_opt_in: false },
     })
 
     render(<ProfilePage />)
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('testuser')).toBeInTheDocument()
-    })
-
+    await waitFor(() => expect(screen.getByDisplayValue('testuser')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
-
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'invalid-email' },
-    })
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'invalid-email' } })
 
     const form = screen.getByRole('button', { name: /save changes/i }).closest('form')
-    if (form) {
-      fireEvent.submit(form)
-    }
+    if (form) fireEvent.submit(form)
 
     expect(await screen.findByText('Please provide a valid email address.')).toBeInTheDocument()
-
     expect(mockedAxiosPut).not.toHaveBeenCalled()
   })
 
   it('cancels editing and restores the original values', async () => {
     mockedAxiosGet.mockResolvedValueOnce({
-      data: {
-        username: 'testuser',
-        email: 'test@example.com',
-        weekly_digest_opt_in: false,
-      },
+      data: { username: 'testuser', email: 'test@example.com', weekly_digest_opt_in: false },
     })
 
     render(<ProfilePage />)
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('testuser')).toBeInTheDocument()
-    })
-
+    await waitFor(() => expect(screen.getByDisplayValue('testuser')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
-
-    fireEvent.change(screen.getByLabelText('Username'), {
-      target: { value: 'changeduser' },
-    })
-
-    fireEvent.change(screen.getByLabelText('Email Address'), {
-      target: { value: 'changed@example.com' },
-    })
-
+    fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'changeduser' } })
+    fireEvent.change(screen.getByLabelText('Email Address'), { target: { value: 'changed@example.com' } })
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(screen.getByDisplayValue('testuser')).toBeInTheDocument()
     expect(screen.getByDisplayValue('test@example.com')).toBeInTheDocument()
-
     expect(screen.getByRole('button', { name: /edit profile/i })).toBeInTheDocument()
   })
 })

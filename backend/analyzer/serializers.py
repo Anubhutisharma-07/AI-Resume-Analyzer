@@ -254,23 +254,40 @@ class VersionComparisonSerializer(serializers.Serializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(required=True, allow_blank=False)
     weekly_digest_opt_in = serializers.BooleanField(required=False, default=False)
+    notification_preferences = serializers.JSONField(required=False)
 
     class Meta:
         model = User
-        fields = ("username", "email", "weekly_digest_opt_in")
+        fields = ("username", "email", "weekly_digest_opt_in", "notification_preferences")
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         profile, _ = UserProfile.objects.get_or_create(user=instance)
+        prefs = profile.notification_preferences or {}
         ret["weekly_digest_opt_in"] = profile.weekly_digest_opt_in
+        ret["notification_preferences"] = {
+            "in_app": prefs.get("in_app", True),
+            "browser": prefs.get("browser", False),
+        }
         return ret
 
     def update(self, instance, validated_data):
         weekly_digest_opt_in = validated_data.pop("weekly_digest_opt_in", None)
+        notification_preferences = validated_data.pop("notification_preferences", None)
         user = super().update(instance, validated_data)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        changed = False
         if weekly_digest_opt_in is not None:
-            profile, _ = UserProfile.objects.get_or_create(user=user)
             profile.weekly_digest_opt_in = weekly_digest_opt_in
+            changed = True
+        if notification_preferences is not None:
+            current = profile.notification_preferences or {}
+            profile.notification_preferences = {
+                "in_app": notification_preferences.get("in_app", current.get("in_app", True)),
+                "browser": notification_preferences.get("browser", current.get("browser", False)),
+            }
+            changed = True
+        if changed:
             profile.save()
         return user
 
