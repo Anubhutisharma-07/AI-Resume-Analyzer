@@ -8,7 +8,10 @@ from .models import ResumeAnalysis
 
 class ResumeScoreBadgeTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username="badge-user", password="test-password-123")
+        self.user = User.objects.create_user(
+            username="badge-user",
+            password="test-password-123",
+        )
         self.client = APIClient()
 
     def create_analysis(self, score):
@@ -47,7 +50,10 @@ class ResumeScoreBadgeTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("image/svg+xml", response["Content-Type"])
         self.assertIn("85%", response.content.decode("utf-8"))
-        self.assertEqual(response["Cache-Control"], "no-cache, no-store, must-revalidate")
+        self.assertEqual(
+            response["Cache-Control"],
+            "no-cache, no-store, must-revalidate",
+        )
 
     def test_same_badge_url_tracks_latest_analysis_score(self):
         first = self.create_analysis(72)
@@ -63,7 +69,10 @@ class ResumeScoreBadgeTests(TestCase):
         self.assertEqual(response_two.status_code, 200)
         self.assertIn("91%", response_two.content.decode("utf-8"))
         self.assertNotIn("72%", response_two.content.decode("utf-8"))
-        self.assertNotEqual(first.id, ResumeAnalysis.objects.order_by("-created_at", "-id").first().id)
+        self.assertNotEqual(
+            first.id,
+            ResumeAnalysis.objects.order_by("-created_at", "-id").first().id,
+        )
 
     def test_badge_without_analysis_shows_na(self):
         badge = ResumeBadge.objects.create(user=self.user)
