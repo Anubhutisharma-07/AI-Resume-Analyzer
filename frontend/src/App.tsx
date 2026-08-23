@@ -9,7 +9,7 @@ import {
   validateResumeFile,
 } from './utils/fileValidation'
 import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
-import { HistorySidebar } from './HistorySidebar'
+import { HistorySidebar, type JobBookmark } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
@@ -149,6 +149,58 @@ function App() {
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
+  const [jobDescription, setJobDescription] = useState('')
+  const [bookmarks, setBookmarks] = useState<JobBookmark[]>([])
+
+  useEffect(() => {
+    const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+    try {
+      const data = localStorage.getItem(storageKey)
+      setBookmarks(data ? JSON.parse(data) : [])
+    } catch {
+      setBookmarks([])
+    }
+  }, [user])
+
+  const saveJobBookmark = () => {
+    if (!jobDescription.trim()) return
+    const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
+    if (!name) return
+
+    const newBookmark: JobBookmark = {
+      id: Math.random().toString(36).substring(2, 9),
+      name: name.trim(),
+      role: targetRole,
+      experienceLevel: experienceLevel,
+      jobDescription: jobDescription.trim(),
+      timestamp: Date.now()
+    }
+
+    setBookmarks((prev) => {
+      const updated = [newBookmark, ...prev]
+      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+      } catch (e) {
+        console.error('Failed to save bookmarks', e)
+      }
+      return updated
+    })
+    alert('Job bookmark saved successfully!')
+  }
+
+  const deleteJobBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.filter((b) => b.id !== id)
+      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+      } catch (e) {
+        console.error('Failed to delete bookmark', e)
+      }
+      return updated
+    })
+  }
 
   // Retry state
   const [retryCount, setRetryCount] = useState(0)
@@ -255,6 +307,9 @@ function App() {
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
       formData.append('experience_level', experienceLevel)
+      if (jobDescription.trim()) {
+        formData.append('job_description', jobDescription.trim())
+      }
 
       // Through `api`, which attaches the current access token and, on a 401,
       // refreshes once and retries. This used to build an Authorization header
@@ -507,6 +562,14 @@ function App() {
         onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
+        isLoggedIn={!!user}
+        bookmarks={bookmarks}
+        onSelectBookmark={(b) => {
+          setTargetRole(b.role)
+          setExperienceLevel(b.experienceLevel)
+          setJobDescription(b.jobDescription)
+        }}
+        onDeleteBookmark={deleteJobBookmark}
       />
       {showCompare && (
         <CompareVersions
@@ -588,6 +651,53 @@ function App() {
                 <option value="Senior">Senior (5+ yrs)</option>
               </select>
             </div>
+          </div>
+
+          {/* Custom Job Description (Optional) Box */}
+          <div
+            className="mb-4 p-3"
+            style={{
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid var(--surface-border)',
+              borderRadius: 'var(--radius-lg)',
+              maxWidth: '680px',
+              margin: '0 auto var(--space-4)',
+              textAlign: 'left'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label htmlFor="jd-textarea" style={{ fontWeight: '600', color: '#fff', fontSize: '14px', margin: 0 }}>
+                🎯 Target Job Description (Optional):
+              </label>
+              {user && jobDescription.trim() && (
+                <button
+                  type="button"
+                  onClick={saveJobBookmark}
+                  className="app-btn"
+                  style={{ padding: '4px 10px', fontSize: '12px' }}
+                >
+                  ⭐ Save this job
+                </button>
+              )}
+            </div>
+            <textarea
+              id="jd-textarea"
+              placeholder="Paste job description here to analyze resume keywords against it..."
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              className="custom-textarea"
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                color: 'inherit',
+                fontSize: '13.5px',
+                resize: 'vertical'
+              }}
+            />
           </div>
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
