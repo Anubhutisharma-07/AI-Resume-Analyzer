@@ -7,7 +7,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .badge import generate_score_badge
-from .models import ResumeAnalysis, ResumeBadge
+from .badge_models import ResumeBadge
+from .models import ResumeAnalysis
 
 
 def _latest_analysis(user):
