@@ -2,17 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { getConsentPreferences, saveConsentPreferences } from '../utils/cookieConsent'
-import { requestNotificationPermission } from '../utils/notification'
+import { requestNotificationPermission, saveNotificationPreferences } from '../utils/notification'
 
-type NotificationPreferences = {
-  in_app: boolean
-  browser: boolean
-}
-
-const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  in_app: true,
-  browser: false,
-}
+type NotificationPreferences = { in_app: boolean; browser: boolean }
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = { in_app: true, browser: false }
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession, exportUserData } = useAuth()
@@ -43,7 +36,7 @@ export const ProfilePage: React.FC = () => {
         setError(null)
         const response = await api.get('/api/profile/')
         const data = response.data
-        const prefs = {
+        const prefs: NotificationPreferences = {
           in_app: data.notification_preferences?.in_app !== false,
           browser: data.notification_preferences?.browser === true,
         }
@@ -51,6 +44,7 @@ export const ProfilePage: React.FC = () => {
         setEmail(data.email || '')
         setWeeklyDigestOptIn(!!data.weekly_digest_opt_in)
         setNotificationPreferences(prefs)
+        saveNotificationPreferences(prefs)
         setOriginalUsername(data.username)
         setOriginalEmail(data.email || '')
         setOriginalOptIn(!!data.weekly_digest_opt_in)
@@ -74,6 +68,7 @@ export const ProfilePage: React.FC = () => {
     setEmail(originalEmail)
     setWeeklyDigestOptIn(originalOptIn)
     setNotificationPreferences(originalNotificationPreferences)
+    saveNotificationPreferences(originalNotificationPreferences)
     setAnalyticsConsentState(originalAnalyticsConsent)
     setResumeRoastConsentState(originalResumeRoastConsent)
     setIsEditing(false)
@@ -83,16 +78,12 @@ export const ProfilePage: React.FC = () => {
 
   const handleExportData = async () => {
     try {
-      setExporting(true)
-      setError(null)
-      setSuccessMsg(null)
+      setExporting(true); setError(null); setSuccessMsg(null)
       await exportUserData()
       setSuccessMsg('Your account data has been downloaded successfully.')
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to export your data.')
-    } finally {
-      setExporting(false)
-    }
+    } finally { setExporting(false) }
   }
 
   const updateNotificationPreference = async (channel: keyof NotificationPreferences, enabled: boolean) => {
@@ -112,46 +103,28 @@ export const ProfilePage: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
-    if (!username.trim()) {
-      setError('Username cannot be empty.')
-      return
-    }
-    if (!email.trim()) {
-      setError('Email cannot be empty.')
-      return
-    }
+    if (!username.trim()) { setError('Username cannot be empty.'); return }
+    if (!email.trim()) { setError('Email cannot be empty.'); return }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      setError('Please provide a valid email address.')
-      return
-    }
-
+    if (!emailRegex.test(email)) { setError('Please provide a valid email address.'); return }
     try {
-      setSaving(true)
-      setError(null)
-      setSuccessMsg(null)
+      setSaving(true); setError(null); setSuccessMsg(null)
       const response = await api.put('/api/profile/', {
-        username,
-        email,
-        weekly_digest_opt_in: weeklyDigestOptIn,
+        username, email, weekly_digest_opt_in: weeklyDigestOptIn,
         notification_preferences: notificationPreferences,
       })
       const updated = response.data
-      const savedPrefs = {
+      const savedPrefs: NotificationPreferences = {
         in_app: updated.notification_preferences?.in_app !== false,
         browser: updated.notification_preferences?.browser === true,
       }
-      setUsername(updated.username)
-      setEmail(updated.email)
+      setUsername(updated.username); setEmail(updated.email)
       setWeeklyDigestOptIn(!!updated.weekly_digest_opt_in)
-      setNotificationPreferences(savedPrefs)
-      setOriginalUsername(updated.username)
-      setOriginalEmail(updated.email)
-      setOriginalOptIn(!!updated.weekly_digest_opt_in)
-      setOriginalNotificationPreferences(savedPrefs)
+      setNotificationPreferences(savedPrefs); saveNotificationPreferences(savedPrefs)
+      setOriginalUsername(updated.username); setOriginalEmail(updated.email)
+      setOriginalOptIn(!!updated.weekly_digest_opt_in); setOriginalNotificationPreferences(savedPrefs)
       saveConsentPreferences({ analytics: analyticsConsent, resumeRoast: resumeRoastConsent })
-      setOriginalAnalyticsConsent(analyticsConsent)
-      setOriginalResumeRoastConsent(resumeRoastConsent)
+      setOriginalAnalyticsConsent(analyticsConsent); setOriginalResumeRoastConsent(resumeRoastConsent)
       updateProfileSession(updated.username)
       setSuccessMsg('Profile and notification preferences updated successfully!')
       setIsEditing(false)
@@ -161,22 +134,11 @@ export const ProfilePage: React.FC = () => {
         if (errors.username) setError(Array.isArray(errors.username) ? errors.username[0] : errors.username)
         else if (errors.email) setError(Array.isArray(errors.email) ? errors.email[0] : errors.email)
         else setError(errors.error || 'Failed to update profile details.')
-      } else {
-        setError('An unexpected error occurred.')
-      }
-    } finally {
-      setSaving(false)
-    }
+      } else setError('An unexpected error occurred.')
+    } finally { setSaving(false) }
   }
 
-  const preferenceCard = (
-    id: string,
-    label: string,
-    description: string,
-    defaultText: string,
-    checked: boolean,
-    onChange: (enabled: boolean) => void,
-  ) => (
+  const preferenceCard = (id: string, label: string, description: string, defaultText: string, checked: boolean, onChange: (enabled: boolean) => void) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: 'rgba(255, 255, 255, 0.02)', gap: '16px' }}>
       <div>
         <label htmlFor={id} style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>{label}</label>
@@ -189,34 +151,26 @@ export const ProfilePage: React.FC = () => {
     </div>
   )
 
-  if (!user) {
-    return <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}><div className="analysis-card text-center" style={{ maxWidth: '400px', width: '100%', padding: '40px' }}><h2 style={{ color: 'var(--color-danger)', marginBottom: '16px' }}>Access Denied</h2><p style={{ color: 'var(--muted-text)', marginBottom: '24px' }}>Please log in to manage your account details.</p></div></div>
-  }
+  if (!user) return <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}><div className="analysis-card text-center" style={{ maxWidth: '400px', width: '100%', padding: '40px' }}><h2 style={{ color: 'var(--color-danger)', marginBottom: '16px' }}>Access Denied</h2><p style={{ color: 'var(--muted-text)', marginBottom: '24px' }}>Please log in to manage your account details.</p></div></div>
 
   return (
     <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '40px 20px' }}>
       <div className="analysis-card" style={{ maxWidth: '700px', width: '100%', padding: '30px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '16px' }}>
-          <span style={{ fontSize: '2rem' }}>👤</span>
-          <div><h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'var(--heading-text)' }}>Account Profile</h1><p style={{ fontSize: '0.85rem', color: 'var(--muted-text)', margin: '4px 0 0' }}>Manage your account and notification preferences</p></div>
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '16px' }}><span style={{ fontSize: '2rem' }}>👤</span><div><h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'var(--heading-text)' }}>Account Profile</h1><p style={{ fontSize: '0.85rem', color: 'var(--muted-text)', margin: '4px 0 0' }}>Manage your account and notification preferences</p></div></div>
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '12px' }}><div className="spinner" style={{ borderTopColor: 'var(--color-primary)' }} /><p style={{ color: 'var(--muted-text)' }}>Fetching profile information...</p></div> : (
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {error && <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.9rem' }}>⚠️ {error}</div>}
             {successMsg && <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--color-accent)', color: 'var(--color-accent)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.9rem' }}>✅ {successMsg}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}><label htmlFor="profile-username" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Username</label><input id="profile-username" name="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={!isEditing || saving} style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)', color: 'var(--control-text)', fontSize: '0.95rem' }} /></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}><label htmlFor="profile-email" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Email Address</label><input id="profile-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isEditing || saving} style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)', color: 'var(--control-text)', fontSize: '0.95rem' }} /></div>
-
             <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div><h2 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--heading-text)' }}>🔔 Notification Preferences</h2><p style={{ fontSize: '0.8rem', color: 'var(--muted-text)', margin: '4px 0 0' }}>Manage all optional notification channels in one place. Changes are saved to your account.</p></div>
               {preferenceCard('in-app-notifications-toggle', '🔔 In-app notifications', 'Show notification messages inside Resume Analyzer.', 'On (opt-out)', notificationPreferences.in_app, (enabled) => updateNotificationPreference('in_app', enabled))}
               {preferenceCard('browser-notifications-toggle', '🌐 Browser notifications', 'Show a native browser notification when analysis finishes in a background tab.', 'Off (opt-in)', notificationPreferences.browser, (enabled) => updateNotificationPreference('browser', enabled))}
               {preferenceCard('weekly-digest-toggle', '📧 Weekly Resume-Tips Email Digest', 'Receive actionable resume guidelines and score improvement nudges once a week.', 'Off (opt-in)', weeklyDigestOptIn, setWeeklyDigestOptIn)}
             </div>
-
             {preferenceCard('profile-analytics-toggle', '📊 Analytics & Performance Telemetry', 'Allow anonymous usage telemetry to diagnose issues and optimize ATS parsing accuracy.', 'Off (opt-in)', analyticsConsent, setAnalyticsConsentState)}
             {preferenceCard('profile-roast-toggle', '🔥 AI Resume Roast Feedback Consent', 'Opt in to allow processing alternate humorous and spicy feedback tone suggestions.', 'Off (opt-in)', resumeRoastConsent, setResumeRoastConsentState)}
-
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--surface-border)', paddingTop: '20px' }}>
               <button type="button" className="app-btn app-btn--secondary" onClick={handleExportData} disabled={exporting || saving} style={{ minWidth: '140px' }}>{exporting ? 'Exporting...' : 'Export My Data'}</button>
               {!isEditing ? <button type="button" className="app-btn app-btn--primary" onClick={() => { setIsEditing(true); setSuccessMsg(null) }} style={{ minWidth: '100px' }}>✏️ Edit Profile</button> : <><button type="button" className="app-btn app-btn--secondary" onClick={handleCancel} disabled={saving} style={{ minWidth: '100px' }}>Cancel</button><button type="submit" className="app-btn app-btn--primary" disabled={saving} style={{ minWidth: '100px' }}>{saving ? 'Saving...' : 'Save Changes'}</button></>}
