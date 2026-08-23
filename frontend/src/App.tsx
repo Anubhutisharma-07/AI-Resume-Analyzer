@@ -149,6 +149,47 @@ function App() {
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
+  const [previewData, setPreviewData] = useState<{
+    score: number
+    scoreBreakdown: ScoreBreakdownData | null
+    matchedSkills: string[]
+    missingSkills: string[]
+    suggestions: string[]
+    experienceLevel: string
+  } | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  const handlePreviewLevel = async (level: string) => {
+    if (level === experienceLevel) {
+      setPreviewData(null)
+      setPreviewError(null)
+      return
+    }
+    setPreviewing(true)
+    setPreviewError(null)
+    try {
+      const res = await api.post('/api/preview-level/', {
+        analysis_id: analysisId,
+        resume_text: resumeText,
+        target_role: targetRole,
+        experience_level: level,
+      })
+      setPreviewData({
+        score: res.data.score,
+        scoreBreakdown: res.data.score_breakdown || null,
+        matchedSkills: res.data.matched_skills || [],
+        missingSkills: res.data.missing_skills || [],
+        suggestions: res.data.suggestions || [],
+        experienceLevel: res.data.experience_level,
+      })
+    } catch (err: any) {
+      console.error(err)
+      setPreviewError('Failed to fetch preview for ' + level)
+    } finally {
+      setPreviewing(false)
+    }
+  }
 
   // Retry state
   const [retryCount, setRetryCount] = useState(0)
@@ -251,6 +292,8 @@ function App() {
     try {
       setLoading(true)
       setAnalysisSource(source)
+      setPreviewData(null)
+      setPreviewError(null)
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
@@ -386,6 +429,8 @@ function App() {
     setActiveFileName('')
     setRetryCount(0)
     setCooldownRemaining(0)
+    setPreviewData(null)
+    setPreviewError(null)
   }
 
   const submitSuggestionVote = useCallback(
@@ -472,14 +517,18 @@ function App() {
     if (entry.experienceLevel) {
       setExperienceLevel(entry.experienceLevel)
     }
-    // History entries carry a client-side id, not the analysis id, so there is
-    // nothing safe to attach a vote to when one is replayed.
-    setAnalysisId(null)
+    if (/^\d+$/.test(entry.id)) {
+      setAnalysisId(Number(entry.id))
+    } else {
+      setAnalysisId(null)
+    }
     setSuggestionVotes({})
     setActiveFileName(entry.fileName)
     setShowAllSkills(false)
     setCopied(false)
     setHistoryOpen(false)
+    setPreviewData(null)
+    setPreviewError(null)
   }
 
   if (location.pathname === '/privacy') {
@@ -490,6 +539,13 @@ function App() {
       </>
     )
   }
+
+  const displayScore = previewData ? previewData.score : score
+  const displayScoreBreakdown = previewData ? previewData.scoreBreakdown : scoreBreakdown
+  const displayMatchedSkills = previewData ? previewData.matchedSkills : matchedSkills
+  const displayMissingSkills = previewData ? previewData.missingSkills : missingSkills
+  const displaySuggestions = previewData ? previewData.suggestions : suggestions
+  const displayExperienceLevel = previewData ? previewData.experienceLevel : experienceLevel
 
   return (
     <>
@@ -710,20 +766,80 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={score} />
+              <AtsScore score={displayScore} />
 
-              <ScoreBreakdown breakdown={scoreBreakdown} />
+              <ScoreBreakdown breakdown={displayScoreBreakdown} />
 
               <ResumePreview text={resumeText} skills={skills} />
 
               <h5 className="analysis-done" role="status" aria-live="polite">
-                ✅ Resume Analysis Complete
+                {previewData ? '🔍 Previewing Growth Details' : '✅ Resume Analysis Complete'}
               </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
-                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {experienceLevel}
+                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {displayExperienceLevel} {previewData && <span style={{ color: '#818cf8', fontWeight: 'bold' }}>(PREVIEW)</span>}
                 </p>
               )}
+
+              {/* Preview level selector */}
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1.5px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  maxWidth: '560px',
+                  margin: '12px auto 24px',
+                  textAlign: 'center',
+                }}
+              >
+                <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#a5b4fc', display: 'block', marginBottom: '6px' }}>
+                  📈 Preview suggestions at a different Experience Level:
+                </span>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <select
+                    value={previewData ? previewData.experienceLevel : experienceLevel}
+                    onChange={(e) => handlePreviewLevel(e.target.value)}
+                    disabled={previewing}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      color: '#fff',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value={experienceLevel}>{experienceLevel} (Original)</option>
+                    {['Junior', 'Mid-Level', 'Senior'].filter(l => l !== experienceLevel).map(level => (
+                      <option key={level} value={level}>{level} (Preview)</option>
+                    ))}
+                  </select>
+                  {previewing && <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>}
+                  {previewData && !previewing && (
+                    <button
+                      onClick={() => setPreviewData(null)}
+                      className="app-btn"
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        borderColor: 'rgba(239, 68, 68, 0.3)',
+                        color: '#f87171',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Reset to Actual Selection
+                    </button>
+                  )}
+                </div>
+                {previewError && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0' }}>
+                    ⚠️ {previewError}
+                  </p>
+                )}
+              </div>
 
               {/* Skills container */}
               <div className="mt-4">
@@ -762,14 +878,14 @@ function App() {
                 className="mt-4 p-3"
                 style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
               >
-                <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
+                <h4>🎯 Skill Gap Matrix ({targetRole} • {displayExperienceLevel})</h4>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
                   <div>
                     <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                    {matchedSkills.length === 0 ? (
+                    {displayMatchedSkills.length === 0 ? (
                       <p style={{ fontSize: '12px' }}>None</p>
                     ) : (
-                      matchedSkills.map((s, i) => (
+                      displayMatchedSkills.map((s, i) => (
                         <span key={i} className="badge bg-success m-1">
                           {s}
                         </span>
@@ -778,10 +894,10 @@ function App() {
                   </div>
                   <div>
                     <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
-                    {missingSkills.length === 0 ? (
+                    {displayMissingSkills.length === 0 ? (
                       <p style={{ fontSize: '12px' }}>None</p>
                     ) : (
-                      missingSkills.map((s, i) => (
+                      displayMissingSkills.map((s, i) => (
                         <span key={i} className="badge bg-danger m-1">
                           {s}
                         </span>
@@ -830,7 +946,7 @@ function App() {
                       🔥 Roast Mode {roastMode ? 'ON' : 'OFF'}
                     </label>
                   </div>
-                  {suggestions.length > 0 && (
+                  {displaySuggestions.length > 0 && (
                     <button
                       type="button"
                       className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
@@ -841,7 +957,7 @@ function App() {
                   )}
                 </div>
 
-                {suggestions.map((s: string, i: number) => {
+                {displaySuggestions.map((s: string, i: number) => {
                   let displayText = s
                   if (roastMode) {
                     if (s.startsWith('Add projects or experience with ')) {

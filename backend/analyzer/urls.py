@@ -30,10 +30,12 @@ from .views import (
     manage_webhooks,
     webhook_detail,
     test_webhook,
+    preview_experience_level_view,
 )
 
 urlpatterns = [
     path("upload/", upload_resume),
+    path("preview-level/", preview_experience_level_view),
     path("status/<str:task_id>/", task_status),
     path("mock-interview/", mock_interview_view),
     path("compare-uploads/", compare_uploads),
