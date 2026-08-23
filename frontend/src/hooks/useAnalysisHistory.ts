@@ -27,6 +27,7 @@ export interface AnalysisEntry {
 
 const STORAGE_KEY = 'resume_analysis_history'
 const LAST_VIEWED_KEY = 'resume_analysis_last_viewed'
+const NOTIFICATION_PREFERENCES_STORAGE_KEY = 'resume_notification_preferences'
 
 function loadHistory(): AnalysisEntry[] {
   try {
@@ -35,17 +36,11 @@ function loadHistory(): AnalysisEntry[] {
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return parsed
-  } catch {
-    return []
-  }
+  } catch { return [] }
 }
 
 function saveHistory(entries: AnalysisEntry[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries))
-  } catch {
-    // localStorage may be unavailable in restricted modes
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)) } catch { /* storage unavailable */ }
 }
 
 function loadLastViewed(): number {
@@ -54,27 +49,33 @@ function loadLastViewed(): number {
     if (!raw) return 0
     const val = Number(raw)
     return isNaN(val) ? 0 : val
-  } catch {
-    return 0
-  }
+  } catch { return 0 }
 }
 
 function saveLastViewed(ts: number): void {
+  try { localStorage.setItem(LAST_VIEWED_KEY, ts.toString()) } catch { /* storage unavailable */ }
+}
+
+function loadInAppPreference(): boolean {
   try {
-    localStorage.setItem(LAST_VIEWED_KEY, ts.toString())
-  } catch {
-    // localStorage may be unavailable
-  }
+    const raw = localStorage.getItem(NOTIFICATION_PREFERENCES_STORAGE_KEY)
+    if (!raw) return true
+    return JSON.parse(raw)?.in_app !== false
+  } catch { return true }
 }
 
 export function useAnalysisHistory() {
   const [entries, setEntries] = useState<AnalysisEntry[]>(() => loadHistory())
   const [lastViewedTimestamp, setLastViewedTimestamp] = useState<number>(() => loadLastViewed())
+  const [inAppNotificationsEnabled, setInAppNotificationsEnabled] = useState<boolean>(() => loadInAppPreference())
 
-  // Sync to localStorage whenever entries change
+  useEffect(() => { saveHistory(entries) }, [entries])
+
   useEffect(() => {
-    saveHistory(entries)
-  }, [entries])
+    const syncPreference = () => setInAppNotificationsEnabled(loadInAppPreference())
+    window.addEventListener('notification-preferences-changed', syncPreference)
+    return () => window.removeEventListener('notification-preferences-changed', syncPreference)
+  }, [])
 
   const markAllAsViewed = useCallback(() => {
     const now = Date.now()
@@ -82,31 +83,19 @@ export function useAnalysisHistory() {
     saveLastViewed(now)
   }, [])
 
-  const unreadCount = entries.filter((entry) => entry.timestamp > lastViewedTimestamp).length
+  const unreadCount = inAppNotificationsEnabled
+    ? entries.filter((entry) => entry.timestamp > lastViewedTimestamp).length
+    : 0
 
   const addEntry = useCallback((entry: Omit<AnalysisEntry, 'id' | 'timestamp'>) => {
     setEntries((prev) => {
       const filteredEntries = prev.filter((e) => e.fileName !== entry.fileName)
-
-      const updated: AnalysisEntry[] = [
-        {
-          ...entry,
-          id: Date.now().toString(),
-          timestamp: Date.now(),
-        },
-        ...filteredEntries,
-      ]
-      return updated
+      return [{ ...entry, id: Date.now().toString(), timestamp: Date.now() }, ...filteredEntries]
     })
   }, [])
 
-  const deleteEntry = (id: string) => {
-    setEntries((prev) => prev.filter((e) => e.id !== id))
-  }
-
-  const clearHistory = () => {
-    setEntries([])
-  }
+  const deleteEntry = (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id))
+  const clearHistory = () => setEntries([])
 
   return {
     entries,
