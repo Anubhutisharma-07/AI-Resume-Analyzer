@@ -145,4 +145,114 @@ describe('HistorySidebar component (#246)', () => {
     const newBadges = screen.getAllByText('NEW')
     expect(newBadges).toHaveLength(1)
   })
+
+  describe('dismissal behaviors (#413)', () => {
+    it('renders a backdrop when open and clicking it calls onToggle', () => {
+      const handleToggle = vi.fn()
+      render(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={true}
+          onToggle={handleToggle}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      const backdrop = screen.getByTestId('history-sidebar-overlay')
+      expect(backdrop).toBeInTheDocument()
+
+      fireEvent.click(backdrop)
+      expect(handleToggle).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onToggle when clicking inside the panel', () => {
+      const handleToggle = vi.fn()
+      render(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={true}
+          onToggle={handleToggle}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      // better way is to click something inside it
+      const header = screen.getByRole('heading', { name: /notifications & history/i })
+      fireEvent.click(header)
+
+      expect(handleToggle).not.toHaveBeenCalled()
+    })
+
+    it('calls onToggle when Escape is pressed while open', () => {
+      const handleToggle = vi.fn()
+      render(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={true}
+          onToggle={handleToggle}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(handleToggle).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onToggle when Escape is pressed while closed', () => {
+      const handleToggle = vi.fn()
+      render(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={false}
+          onToggle={handleToggle}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(handleToggle).not.toHaveBeenCalled()
+    })
+
+    it('restores focus to the trigger button when panel transitions from open to closed', () => {
+      const { rerender } = render(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={true}
+          onToggle={() => {}}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      const toggleBtn = screen.getByRole('button', {
+        name: /close notifications and history/i,
+      })
+
+      // We focus something else, mimicking user behavior inside the panel
+      toggleBtn.blur()
+      expect(document.activeElement).not.toBe(toggleBtn)
+
+      rerender(
+        <HistorySidebar
+          entries={mockEntries}
+          isOpen={false}
+          onToggle={() => {}}
+          onSelect={() => {}}
+          onDelete={() => {}}
+          onClear={() => {}}
+        />
+      )
+
+      expect(document.activeElement).toBe(toggleBtn)
+    })
+  })
 })
