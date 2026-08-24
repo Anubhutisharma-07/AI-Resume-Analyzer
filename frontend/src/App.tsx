@@ -28,6 +28,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { ReadinessDisplay } from './components/ReadinessDisplay'
+import { calculateReadinessScore } from './utils/readinessEngine'
 
 type Theme = 'light' | 'dark'
 
@@ -82,6 +84,7 @@ interface HistoryRow {
   target_role: string
   experience_level?: string
   created_at: string
+  job_match_score?: number | null
 }
 
 interface HistoryPage {
@@ -112,6 +115,7 @@ function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[]
     targetRole: item.target_role,
     experienceLevel: item.experience_level || 'Mid-Level',
     fileName: item.file_name,
+    jobMatchScore: item.job_match_score,
   }))
 }
 
@@ -134,6 +138,7 @@ function App() {
   const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
+  const [jobMatchScore, setJobMatchScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
   const [formattingChecks, setFormattingChecks] = useState<FormattingChecksData | null>(null)
   const [timeline, setTimeline] = useState<TimelineData | null>(null)
@@ -419,6 +424,7 @@ function App() {
       }
 
       setScore(result.score)
+      setJobMatchScore(result.job_match_score || null)
       setScoreBreakdown(result.score_breakdown || null)
       setFormattingChecks(result.formatting_checks || null)
       setTimeline(result.timeline || null)
@@ -618,6 +624,7 @@ function App() {
 
   const selectHistoryEntry = (entry: AnalysisEntry) => {
     setScore(entry.score)
+    setJobMatchScore(entry.jobMatchScore || null)
     // History entries predate the breakdown and do not carry one.
     setScoreBreakdown(null)
     setTimeline(null)
@@ -714,59 +721,6 @@ function App() {
             />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
-          {/* Role and Experience Level Selectors */}
-          <div
-            className="role-selector-container mb-4 p-3 d-flex flex-wrap gap-3 align-items-center justify-content-center"
-            style={{
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1.5px solid var(--surface-border)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '680px',
-              margin: '0 auto var(--space-4)',
-            }}
-          >
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="roleSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Target Career Track:
-              </label>
-              <div className="custom-select-container">
-                <select
-                  id="roleSelect"
-                  value={targetRole}
-                  onChange={(e) => setTargetRole(e.target.value)}
-                  className="custom-select-element"
-                >
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                  <option value="Data Analyst">Data Analyst</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="experienceLevelSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Experience Level:
-              </label>
-              <div className="custom-select-container">
-                <select
-                  id="experienceLevelSelect"
-                  value={experienceLevel}
-                  onChange={(e) => setExperienceLevel(e.target.value)}
-                  className="custom-select-element"
-                >
-                  <option value="Junior">Junior (0-2 yrs)</option>
-                  <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
-                  <option value="Senior">Senior (5+ yrs)</option>
-                </select>
-              </div>
-            </div>
-          </div>
           <div
             className="upload-flow-container"
             style={{
@@ -1193,6 +1147,32 @@ function App() {
               )}
 
               <AtsScore score={score} />
+
+              {(() => {
+                const getTargetLevel = (level?: string): 'Junior' | 'Mid' | 'Senior' | 'Lead' => {
+                  if (level === 'Junior') return 'Junior';
+                  if (level === 'Senior') return 'Senior';
+                  if (level === 'Lead') return 'Lead';
+                  return 'Mid';
+                };
+                
+                const expYears = timeline 
+                  ? timeline.total_years 
+                  : (experienceLevel === 'Junior' ? 1 : experienceLevel === 'Senior' ? 5 : experienceLevel === 'Lead' ? 8 : 3);
+
+                const hasJD = jobMatchScore !== null;
+                const readinessReport = calculateReadinessScore({
+                  resumeAtsScore: score || 0,
+                  experienceYears: expYears,
+                  targetExperienceLevel: getTargetLevel(experienceLevel),
+                  hasJobDescription: hasJD,
+                  careerTrackAlignment: hasJD ? (jobMatchScore || 0) : (score || 0),
+                });
+
+                return (
+                  <ReadinessDisplay report={readinessReport} atsScore={score || 0} />
+                );
+              })()}
 
               <ScoreBreakdown breakdown={scoreBreakdown} />
 
