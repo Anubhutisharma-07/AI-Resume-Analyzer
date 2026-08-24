@@ -29,6 +29,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SkillGapMatrix } from './components/SkillGapMatrix'
+import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -1154,52 +1156,28 @@ function App() {
               </div>
 
               {/* Skill gap matrix */}
-              <div
-                className="mt-4 p-3"
-                style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
-              >
-                <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
-                  <div>
-                    <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                    {matchedSkills.length === 0 ? (
-                      <p style={{ fontSize: '12px' }}>None</p>
-                    ) : (
-                      matchedSkills.map((s, i) => (
-                        <span key={i} className="badge bg-success m-1">
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  {partialSkills.length > 0 && (
-                    <div>
-                      <h6 style={{ color: '#eab308' }}>Partial Matches</h6>
-                      {partialSkills.map((p, i) => {
-                        const name = typeof p === 'string' ? p : p.skill
-                        const variant = typeof p === 'object' ? p.matched_variant : ''
-                        return (
-                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
-                            {name} {variant ? `(${variant})` : ''}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-                  <div>
-                    <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
-                    {missingSkills.length === 0 ? (
-                      <p style={{ fontSize: '12px' }}>None</p>
-                    ) : (
-                      missingSkills.map((s, i) => (
-                        <span key={i} className="badge bg-danger m-1">
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const roleSkillsList = [
+                  ...matchedSkills,
+                  ...partialSkills.map(p => typeof p === 'string' ? p : p.skill),
+                  ...missingSkills
+                ];
+
+                const classifiedSkills = jobDescription.trim() 
+                  ? parseAndClassifyJdSkills(jobDescription, roleSkillsList) 
+                  : roleSkillsList.map(skill => ({
+                      name: skill,
+                      priority: 'STANDARD' as const,
+                      contextPhrase: 'Target career track requirement'
+                    }));
+
+                return (
+                  <SkillGapMatrix
+                    extractedSkills={classifiedSkills}
+                    candidateSkills={skills}
+                  />
+                );
+              })()}
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
