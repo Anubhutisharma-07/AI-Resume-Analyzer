@@ -85,11 +85,17 @@ export function getSkillGaps(userSkills: UserSkill[], targetSkills: TargetSkill[
   return gaps.sort((a, b) => b.priority - a.priority || b.gapScore - a.gapScore);
 }
 
-function findRelatedSkills(skillName: string, userSkills: UserSkill[]): string[] {
+function findRelatedSkills(
+  skillName: string,
+  userSkills: UserSkill[]
+): string[] {
   const related: Record<string, string[]> = {
     TypeScript: ['JavaScript', 'React'],
     React: ['TypeScript', 'JavaScript', 'CSS/Sass'],
-    Node.js: ['JavaScript', 'REST APIs'],
+
+    // FIX: Node.js must be inside quotes
+    'Node.js': ['JavaScript', 'REST APIs'],
+
     Python: ['SQL', 'Data Science'],
     PostgreSQL: ['SQL', 'Node.js'],
     AWS: ['Docker', 'CI/CD'],
@@ -100,8 +106,12 @@ function findRelatedSkills(skillName: string, userSkills: UserSkill[]): string[]
     'Testing (Jest/Cypress)': ['JavaScript', 'React'],
     Leadership: ['Communication', 'Problem Solving'],
   };
+
   const names = related[skillName] || [];
-  return userSkills.filter(us => names.includes(us.name)).map(us => us.name);
+
+  return userSkills
+    .filter((us) => names.includes(us.name))
+    .map((us) => us.name);
 }
 
 function generateLearningResources(skillName: string, category: SkillCategory): LearningResource[] {
