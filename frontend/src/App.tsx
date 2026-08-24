@@ -28,6 +28,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SkillGapMatrix } from './components/SkillGapMatrix'
+import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -714,59 +716,6 @@ function App() {
             />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
-          {/* Role and Experience Level Selectors */}
-          <div
-            className="role-selector-container mb-4 p-3 d-flex flex-wrap gap-3 align-items-center justify-content-center"
-            style={{
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1.5px solid var(--surface-border)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '680px',
-              margin: '0 auto var(--space-4)',
-            }}
-          >
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="roleSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Target Career Track:
-              </label>
-              <div className="custom-select-container">
-                <select
-                  id="roleSelect"
-                  value={targetRole}
-                  onChange={(e) => setTargetRole(e.target.value)}
-                  className="custom-select-element"
-                >
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                  <option value="Data Analyst">Data Analyst</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="experienceLevelSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Experience Level:
-              </label>
-              <div className="custom-select-container">
-                <select
-                  id="experienceLevelSelect"
-                  value={experienceLevel}
-                  onChange={(e) => setExperienceLevel(e.target.value)}
-                  className="custom-select-element"
-                >
-                  <option value="Junior">Junior (0-2 yrs)</option>
-                  <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
-                  <option value="Senior">Senior (5+ yrs)</option>
-                </select>
-              </div>
-            </div>
-          </div>
           <div
             className="upload-flow-container"
             style={{
@@ -1259,52 +1208,28 @@ function App() {
               </div>
 
               {/* Skill gap matrix */}
-              <div
-                className="mt-4 p-3"
-                style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
-              >
-                <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
-                  <div>
-                    <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                    {matchedSkills.length === 0 ? (
-                      <p style={{ fontSize: '12px' }}>None</p>
-                    ) : (
-                      matchedSkills.map((s, i) => (
-                        <span key={i} className="badge bg-success m-1">
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  {partialSkills.length > 0 && (
-                    <div>
-                      <h6 style={{ color: '#eab308' }}>Partial Matches</h6>
-                      {partialSkills.map((p, i) => {
-                        const name = typeof p === 'string' ? p : p.skill
-                        const variant = typeof p === 'object' ? p.matched_variant : ''
-                        return (
-                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
-                            {name} {variant ? `(${variant})` : ''}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-                  <div>
-                    <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
-                    {missingSkills.length === 0 ? (
-                      <p style={{ fontSize: '12px' }}>None</p>
-                    ) : (
-                      missingSkills.map((s, i) => (
-                        <span key={i} className="badge bg-danger m-1">
-                          {s}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const roleSkillsList = [
+                  ...matchedSkills,
+                  ...partialSkills.map(p => typeof p === 'string' ? p : p.skill),
+                  ...missingSkills
+                ];
+
+                const classifiedSkills = jobDescription.trim() 
+                  ? parseAndClassifyJdSkills(jobDescription, roleSkillsList) 
+                  : roleSkillsList.map(skill => ({
+                      name: skill,
+                      priority: 'STANDARD' as const,
+                      contextPhrase: 'Target career track requirement'
+                    }));
+
+                return (
+                  <SkillGapMatrix
+                    extractedSkills={classifiedSkills}
+                    candidateSkills={skills}
+                  />
+                );
+              })()}
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
