@@ -783,7 +783,7 @@ function App() {
           >
             Optimize your resume for Applicant Tracking Systems in 3 simple steps: choose your
             target career track, upload your resume, and get actionable scoring.
-          </p>
+          </div>
           <div
             className="upload-flow-container"
             style={{
