@@ -775,9 +775,9 @@ function App() {
               lineHeight: 1.5,
             }}
           >
-            Optimize your resume for Applicant Tracking Systems in 3 simple steps: choose your target career track, upload your resume, and get actionable scoring.
+            Optimize your resume for Applicant Tracking Systems in 3 simple steps: choose your
+            target career track, upload your resume, and get actionable scoring.
           </p>
-
           <div
             className="upload-flow-container"
             style={{
@@ -846,7 +846,11 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label
                     htmlFor="roleSelect"
-                    style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
                   >
                     Target Career Track:
                   </label>
@@ -872,7 +876,11 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label
                     htmlFor="experienceLevelSelect"
-                    style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
                   >
                     Experience Level:
                   </label>
@@ -917,7 +925,16 @@ function App() {
                       gap: '6px',
                     }}
                   >
-                    💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+                    💼 Target Job Description{' '}
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'normal',
+                        color: 'var(--muted-text, #94a3b8)',
+                      }}
+                    >
+                      (Optional)
+                    </span>
                   </label>
                   {isDraftSaved && (
                     <span
@@ -949,7 +966,9 @@ function App() {
                   }}
                 />
                 {(() => {
-                  const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
+                  const wordCount = jobDescription.trim()
+                    ? jobDescription.trim().split(/\s+/).length
+                    : 0
                   if (wordCount > 0 && wordCount < 50) {
                     return (
                       <div
@@ -966,11 +985,15 @@ function App() {
                           gap: '6px',
                         }}
                       >
-                        ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
+                        ⚠️{' '}
+                        <span>
+                          Friendly tip: Very short job descriptions might yield less accurate
+                          analysis. Consider pasting the full description!
+                        </span>
                       </div>
-                    );
+                    )
                   }
-                  return null;
+                  return null
                 })()}
                 {jobDescription && (
                   <div
@@ -1106,7 +1129,12 @@ function App() {
                   {file ? (
                     <span
                       className="upload-text-secondary"
-                      style={{ display: 'block', marginTop: '4px', fontWeight: '600', color: '#4ade80' }}
+                      style={{
+                        display: 'block',
+                        marginTop: '4px',
+                        fontWeight: '600',
+                        color: '#4ade80',
+                      }}
                     >
                       ✓ Selected: {file.name}
                     </span>
@@ -1118,7 +1146,9 @@ function App() {
                       {uploadError}
                     </span>
                   ) : (
-                    <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
+                    <span className="upload-text-secondary">
+                      {describeUploadLimits(MAX_FILE_SIZE)}
+                    </span>
                   )}
                 </label>
               </div>
@@ -1221,7 +1251,10 @@ function App() {
               </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
-                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {displayExperienceLevel} {previewData && <span style={{ color: '#818cf8', fontWeight: 'bold' }}>(PREVIEW)</span>}
+                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {displayExperienceLevel}{' '}
+                  {previewData && (
+                    <span style={{ color: '#818cf8', fontWeight: 'bold' }}>(PREVIEW)</span>
+                  )}
                 </p>
               )}
 
@@ -1239,11 +1272,25 @@ function App() {
               >
                 <label
                   htmlFor="previewLevelSelect"
-                  style={{ fontSize: '13.5px', fontWeight: '600', color: '#a5b4fc', display: 'block', marginBottom: '6px' }}
+                  style={{
+                    fontSize: '13.5px',
+                    fontWeight: '600',
+                    color: '#a5b4fc',
+                    display: 'block',
+                    marginBottom: '6px',
+                  }}
                 >
                   📈 Preview suggestions at a different Experience Level:
                 </label>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
                   <select
                     id="previewLevelSelect"
                     value={previewData ? previewData.experienceLevel : experienceLevel}
@@ -1256,15 +1303,21 @@ function App() {
                       background: 'rgba(0, 0, 0, 0.4)',
                       color: '#fff',
                       fontSize: '13px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
                     }}
                   >
                     <option value={experienceLevel}>{experienceLevel} (Original)</option>
-                    {['Junior', 'Mid-Level', 'Senior'].filter(l => l !== experienceLevel).map(level => (
-                      <option key={level} value={level}>{level} (Preview)</option>
-                    ))}
+                    {['Junior', 'Mid-Level', 'Senior']
+                      .filter((l) => l !== experienceLevel)
+                      .map((level) => (
+                        <option key={level} value={level}>
+                          {level} (Preview)
+                        </option>
+                      ))}
                   </select>
-                  {previewing && <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>}
+                  {previewing && (
+                    <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>
+                  )}
                   {previewData && !previewing && (
                     <button
                       onClick={() => setPreviewData(null)}
@@ -1275,7 +1328,7 @@ function App() {
                         background: 'rgba(239, 68, 68, 0.15)',
                         borderColor: 'rgba(239, 68, 68, 0.3)',
                         color: '#f87171',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
                       }}
                     >
                       Reset to Actual Selection
@@ -1326,7 +1379,9 @@ function App() {
                 className="mt-4 p-3"
                 style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
               >
-                <h4>🎯 Skill Gap Matrix ({targetRole} • {displayExperienceLevel})</h4>
+                <h4>
+                  🎯 Skill Gap Matrix ({targetRole} • {displayExperienceLevel})
+                </h4>
                 <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
                   <div>
                     <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
@@ -1347,7 +1402,11 @@ function App() {
                         const name = typeof p === 'string' ? p : p.skill
                         const variant = typeof p === 'object' ? p.matched_variant : ''
                         return (
-                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
+                          <span
+                            key={i}
+                            className="badge bg-warning text-dark m-1"
+                            title={typeof p === 'object' ? p.note : ''}
+                          >
                             {name} {variant ? `(${variant})` : ''}
                           </span>
                         )
@@ -1379,7 +1438,14 @@ function App() {
                     borderRadius: '8px',
                   }}
                 >
-                  <h4 style={{ color: '#eab308', margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+                  <h4
+                    style={{
+                      color: '#eab308',
+                      margin: '0 0 12px 0',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                    }}
+                  >
                     ⚡ Skills You're Closest to Matching (Partial Credit)
                   </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1402,18 +1468,26 @@ function App() {
                           }}
                         >
                           <div>
-                            <span className="badge bg-warning text-dark me-2" style={{ fontWeight: '600' }}>
+                            <span
+                              className="badge bg-warning text-dark me-2"
+                              style={{ fontWeight: '600' }}
+                            >
                               Partial Match
                             </span>
                             <strong style={{ color: '#fff', fontSize: '14px' }}>{skillName}</strong>
                             {variant && (
-                              <span style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}>
-                                (Resume mentions: <code style={{ color: '#fef08a' }}>{variant}</code>)
+                              <span
+                                style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}
+                              >
+                                (Resume mentions:{' '}
+                                <code style={{ color: '#fef08a' }}>{variant}</code>)
                               </span>
                             )}
                           </div>
                           {note && (
-                            <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                            <span
+                              style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}
+                            >
                               💡 {note}
                             </span>
                           )}
