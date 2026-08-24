@@ -165,3 +165,56 @@ and most proxies, which is the exposure the change exists to avoid.
 To poke the endpoint freely in local development, set
 `ANALYSIS_CLAIM_REQUIRED=false`. It defaults to on, and production should leave
 it there.
+
+## "Conflicting migrations detected" — the suite is not failing, it never ran
+
+If `python manage.py test analyzer` prints something like:
+
+```
+Found 359 test(s).
+Creating test database for alias 'default'...
+CommandError: Conflicting migrations detected; multiple leaf nodes in the
+migration graph: (0020_merge_20260824_0025, 0020_resumebadge in analyzer).
+To fix them run 'python manage.py makemigrations --merge'
+```
+
+then nothing was executed. The count on the first line is discovery, not
+results — Django found the tests, then failed while building the test database
+and exited. `migrate`, `showmigrations` and `makemigrations --check` all fail
+the same way, because they all build the migration graph first.
+
+It happens when two branches each add a migration on top of the same parent and
+both get merged. Neither knows about the other, so the app is left with two
+tips and there is no single "latest" migration to plan towards.
+
+Fix it with a merge migration:
+
+```bash
+cd backend
+python manage.py makemigrations --merge analyzer
+```
+
+That writes an empty migration depending on both leaves. Commit it. It is a
+real migration and belongs in the pull request that discovered the conflict —
+do not resolve it by deleting or renumbering someone else's migration, which
+breaks any database that has already applied it.
+
+`analyzer/tests_migration_graph.py` asserts the graph has a single leaf, and CI
+runs that module on its own before the rest of the suite. It is a
+`SimpleTestCase`, so it needs no test database — which is the point, since
+creating the test database is the step that fails when the graph is broken.
+
+### Rebasing onto a new migration
+
+If your branch adds a migration and `main` has since gained one with the same
+number, rebase and renumber **your** migration rather than merging:
+
+```bash
+git fetch origin && git rebase origin/main
+git mv backend/analyzer/migrations/0021_my_change.py \
+       backend/analyzer/migrations/0022_my_change.py
+# then edit its `dependencies` to point at the new tip on main
+```
+
+A merge migration is for conflicts that already reached `main`. For a branch
+that has not merged yet, renumbering keeps the history linear.
