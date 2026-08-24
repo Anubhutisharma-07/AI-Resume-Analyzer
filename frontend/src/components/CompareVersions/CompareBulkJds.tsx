@@ -220,7 +220,7 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
                     }}
                     style={{
                       padding: '8px',
-                      border: '1px dashed rgba(255, 255, 255, 0.2)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
                       borderRadius: '6px',
                       background: 'rgba(255, 255, 255, 0.01)',
                       color: 'inherit',

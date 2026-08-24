@@ -132,6 +132,17 @@ class SignupThrottle(AnonRateThrottle):
     scope = "signup"
 
 
+class SkillsLeaderboardThrottle(AnonRateThrottle):
+    """Rate limit for the leaderboard.
+
+    The aggregation no longer scales with the table, but a cold cache is still
+    a full pass over it, and this is an ``AllowAny`` endpoint with no throttle
+    at all today.
+    """
+
+    scope = "skills_leaderboard"
+
+
 def verify_captcha_token(token_string):
     """
     Verifies server-side CAPTCHA challenge token.
