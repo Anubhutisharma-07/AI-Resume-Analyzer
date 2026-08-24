@@ -4,17 +4,13 @@ import type {
   SkillGap,
   LearningResource,
   CareerPath,
-  CareerStep,
   SkillOverlapAnalysis,
   CareerRecommendation,
-  SkillGapReport,
   SkillGapAuditLog,
   SkillProficiency,
   SkillCategory,
-  GapSeverity,
-  CareerPathDifficulty,
+  GapSeverity
 } from './skillGapTypes';
-
 const PROFICIENCY_ORDER: Record<SkillProficiency, number> = {
   NONE: 0, BEGINNER: 1, INTERMEDIATE: 2, ADVANCED: 3, EXPERT: 4
 };
@@ -39,8 +35,7 @@ export function getUserSkills(): UserSkill[] {
     { skillId: 'us12', name: 'Docker', category: 'DEVOPS', proficiency: 'BEGINNER', yearsExperience: 0.5, lastUsedDate: '2026-03-05', endorsements: 1, projectsUsed: 1, confidenceScore: 30 },
   ];
 }
-
-export function getTargetSkills(role: string = 'Senior Full-Stack Engineer'): TargetSkill[] {
+export function getTargetSkills(): TargetSkill[] {
   const baseSkills: TargetSkill[] = [
     { skillId: 'ts1', name: 'TypeScript', category: 'PROGRAMMING_LANGUAGES', requiredProficiency: 'ADVANCED', importance: 9, demandScore: 92, salaryImpact: 12, timeToLearn: '2-4 months' },
     { skillId: 'ts2', name: 'React', category: 'FRAMEWORKS', requiredProficiency: 'EXPERT', importance: 10, demandScore: 95, salaryImpact: 15, timeToLearn: '3-6 months' },
@@ -75,7 +70,7 @@ export function getSkillGaps(userSkills: UserSkill[], targetSkills: TargetSkill[
     else if (gapScore >= 40) severity = 'MODERATE';
     else if (gapScore >= 20) severity = 'MINOR';
 
-    const resources = generateLearningResources(target.name, target.category);
+    const resources = generateLearningResources(target.name);
 
     gaps.push({
       gapId: `gap-${target.skillId}`,
@@ -124,7 +119,7 @@ function findRelatedSkills(
     .map((us) => us.name);
 }
 
-function generateLearningResources(skillName: string, category: SkillCategory): LearningResource[] {
+function generateLearningResources(skillName: string): LearningResource[] {
   const resourceMap: Record<string, LearningResource[]> = {
     TypeScript: [
       { resourceId: 'lr1', title: 'TypeScript Deep Dive', provider: 'Basarat', format: 'BOOK', url: '#', rating: 4.7, duration: '40 hours', cost: 'Free', relevanceScore: 95, difficulty: 'INTERMEDIATE' },
@@ -179,7 +174,7 @@ function generateLearningResources(skillName: string, category: SkillCategory): 
   ];
 }
 
-export function getCareerPaths(userSkills: UserSkill[], gaps: SkillGap[]): CareerPath[] {
+export function getCareerPaths(): CareerPath[] {
   const paths: CareerPath[] = [
     {
       pathId: 'cp1', title: 'Full-Stack Tech Lead', description: 'Lead full-stack development teams while maintaining hands-on coding expertise.',
@@ -232,7 +227,7 @@ export function getCareerPaths(userSkills: UserSkill[], gaps: SkillGap[]): Caree
   return paths.sort((a, b) => b.matchScore - a.matchScore);
 }
 
-export function getOverlapAnalysis(userSkills: UserSkill[], targetSkills: TargetSkill[]): SkillOverlapAnalysis[] {
+export function getOverlapAnalysis(): SkillOverlapAnalysis[] {
   return [
     { overlapId: 'oa1', skillName: 'React → Full-Stack', transferableFrom: ['React', 'JavaScript'], transferableTo: ['Node.js', 'TypeScript'], overlapPercentage: 65, insight: 'Your React expertise transfers well to full-stack development. Adding Node.js and TypeScript will complete the picture.' },
     { overlapId: 'oa2', skillName: 'REST → GraphQL', transferableFrom: ['REST APIs'], transferableTo: ['GraphQL'], overlapPercentage: 55, insight: 'Understanding REST API design patterns gives you a strong foundation for GraphQL schema design.' },
@@ -242,12 +237,22 @@ export function getOverlapAnalysis(userSkills: UserSkill[], targetSkills: Target
   ];
 }
 
-export function getRecommendations(gaps: SkillGap[], paths: CareerPath[]): CareerRecommendation[] {
+export function getRecommendations(): CareerRecommendation[] {
   return [
     { recommendationId: 'rec1', type: 'SKILL_UPGRADE', title: 'Level Up TypeScript to Advanced', description: 'TypeScript is in the top 3 most demanded skills. Bridging this gap will significantly boost your profile.', impactScore: 88, effort: 'MEDIUM', timeline: '2-4 months', priority: 1, skillsInvolved: ['TypeScript'] },
     { recommendationId: 'rec2', type: 'CERTIFICATION', title: 'AWS Cloud Practitioner', description: 'Cloud skills are the highest-paying additions. Start with AWS certification to open cloud architect paths.', impactScore: 82, effort: 'MEDIUM', timeline: '3-4 months', priority: 2, skillsInvolved: ['AWS'] },
     { recommendationId: 'rec3', type: 'PROJECT', title: 'Build a Dockerized Full-Stack App', description: 'Deploy your next project with Docker and CI/CD to build DevOps skills naturally.', impactScore: 78, effort: 'MEDIUM', timeline: '1-2 months', priority: 3, skillsInvolved: ['Docker', 'CI/CD', 'Node.js'] },
-    { recommendationId: 'rec4', type: 'COURSE', title: 'System Design Course', description: 'System design has the highest salary impact (+18%). Invest in this for long-term career growth.', impactScore: 90, effort: 'HIGH', timeline: '4-8 months', priority: 4, skillsInvolved: ['System Design'] },
+    {
+  recommendationId: 'rec4',
+  type: 'PROJECT',
+  title: 'System Design Course',
+  description: 'System design has the highest salary impact (+18%). Invest in this for long-term career growth.',
+  impactScore: 90,
+  effort: 'HIGH',
+  timeline: '4-8 months',
+  priority: 4,
+  skillsInvolved: ['System Design']
+}, impactScore: 90, effort: 'HIGH', timeline: '4-8 months', priority: 4, skillsInvolved: ['System Design'] },
     { recommendationId: 'rec5', type: 'ROLE_CHANGE', title: 'Target Full-Stack Tech Lead', description: 'Your current skills align 72% with a Tech Lead role. With targeted upskilling, this is achievable in 12 months.', impactScore: 85, effort: 'HIGH', timeline: '12-18 months', priority: 5, skillsInvolved: ['System Design', 'Leadership', 'Node.js'] },
   ];
 }
