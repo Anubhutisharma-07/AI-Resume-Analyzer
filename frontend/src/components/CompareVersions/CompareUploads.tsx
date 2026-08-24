@@ -235,4 +235,4 @@ export const CompareUploads: React.FC<CompareUploadsProps> = ({ onClose, targetR
     </div>
   )
 }
-}
+
