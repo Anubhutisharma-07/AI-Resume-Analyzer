@@ -1221,7 +1221,7 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={displayScore} />
+              <AtsScore score={displayScore!}/>
 
               <ScoreBreakdown breakdown={displayScoreBreakdown} />
 
