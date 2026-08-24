@@ -1351,44 +1351,80 @@ def analyze_jd_view(request):
     return Response({"keywords": results}, status=status.HTTP_200_OK)
 
 
-class SkillsLeaderboardThrottle(AnonRateThrottle):
-    """Rate limit for the leaderboard.
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def import_jd_url_view(request):
+    url = request.data.get("url", "").strip()
+    if not url:
+        return Response({"error": "URL is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    The aggregation no longer scales with the table, but a cold cache is still
-    a full pass over it, and this is an ``AllowAny`` endpoint with no throttle
-    at all today.
-    """
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return Response({"error": "Please enter a valid URL starting with http:// or https://"}, status=status.HTTP_400_BAD_REQUEST)
 
-    scope = "skills_leaderboard"
+    try:
+        import requests
+        from bs4 import BeautifulSoup
 
-    def get_rate(self):
-        # Read straight from settings rather than through
-        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
-        # the number beside the docstring that justifies it, and it means adding
-        # a throttle does not mean editing a dictionary every other throttle
-        # also edits.
-        return getattr(settings, "SKILLS_LEADERBOARD_RATE", "120/hour")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        res = requests.get(url, headers=headers, timeout=8)
+        res.raise_for_status()
+    except Exception as e:
+        return Response(
+            {"error": "Failed to fetch page content. The page might be JS-heavy, protected by a paywall/CAPTCHA, or down. Please copy and paste the job description manually."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        soup = BeautifulSoup(res.text, "html.parser")
+        
+        # Decompose unneeded nodes
+        for tag in soup(["script", "style", "nav", "header", "footer", "form", "button", "iframe", "noscript"]):
+            tag.decompose()
+
+        # Try to locate common job posting container classes/IDs to avoid sidebars
+        description_selectors = [
+            "#jobDescriptionText", # Indeed
+            ".description__text", ".show-more-less-html__markup", # LinkedIn
+            ".job-description", ".job_description", "[class*='jobDescription']", "[class*='job-description']",
+            "article", "main", ".main"
+        ]
+        
+        body_text = ""
+        for selector in description_selectors:
+            found = soup.select_one(selector)
+            if found:
+                body_text = found.get_text(separator="\n")
+                break
+                
+        if not body_text:
+            body_text = soup.get_text(separator="\n")
+
+        # Clean text
+        lines = (line.strip() for line in body_text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
+
+        # Apply same clean_text check as #330
+        cleaned_text = clean_text(cleaned_text, max_length=MAX_JOB_DESCRIPTION_LENGTH)
+
+        # If length is extremely small (e.g. < 150 chars), it's likely a JS redirect, paywall page, or empty
+        if len(cleaned_text) < 150:
+            return Response(
+                {"error": "Could not extract a valid job description. The page might require JavaScript or login. Please copy and paste the job description text manually."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({"job_description": cleaned_text}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {"error": "An error occurred during extraction. Please copy and paste the job description manually."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
-@extend_schema(
-    summary="Most common matched and missing skills",
-    description=(
-        "Aggregate skill counts across analyses. `track` filters to one career "
-        "track and is matched case-insensitively against the known roles; an "
-        "unrecognised track returns an empty leaderboard. `limit` (1-50, "
-        "default 10) sets how many skills each list carries. `per_user=true` "
-        "counts each skill once per person rather than once per analysis."
-    ),
-    parameters=[
-        OpenApiParameter("track", OpenApiTypes.STR, description="Career track to filter to."),
-        OpenApiParameter("limit", OpenApiTypes.INT, description="Skills per list (1-50)."),
-        OpenApiParameter(
-            "per_user",
-            OpenApiTypes.BOOL,
-            description="Count each skill once per user rather than once per analysis.",
-        ),
-    ],
-)
 @api_view(["GET"])
 @permission_classes([AllowAny])
 @throttle_classes([SkillsLeaderboardThrottle])
@@ -2119,3 +2155,71 @@ def send_new_device_login_alert(user, ip, device_info):
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+from .models import BatchUpload
+from .tasks import process_batch_upload
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import parser_classes
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
+import uuid
+import os
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+@permission_classes([AllowAny])
+def upload_batch_resumes(request):
+    file = request.FILES.get("file")
+    if not file or not file.name.endswith(".zip"):
+        return Response({"error": "Please provide a valid .zip file."}, status=status.HTTP_400_BAD_REQUEST)
+
+    target_role = clean_text(request.data.get("role") or "General", max_length=100)
+    experience_level = clean_text(
+        request.data.get("experience_level") or request.data.get("level") or "Mid-Level",
+        max_length=50,
+    )
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
+
+    user = request.user if request.user.is_authenticated else None
+    
+    batch = BatchUpload.objects.create(
+        user=user,
+        status="Pending"
+    )
+
+    temp_dir = os.path.join(settings.BASE_DIR, "tmp")
+    os.makedirs(temp_dir, exist_ok=True)
+    storage = FileSystemStorage(location=temp_dir)
+    unique_name = f"{uuid.uuid4()}_{file.name}"
+    saved_name = storage.save(unique_name, file)
+    file_path = storage.path(saved_name)
+
+    process_batch_upload.delay(
+        batch_id=batch.id,
+        zip_file_path=file_path,
+        target_role=target_role,
+        experience_level=experience_level,
+        job_description=job_desc
+    )
+
+    return Response({"batch_id": batch.id})
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def batch_status(request, batch_id):
+    try:
+        batch = BatchUpload.objects.get(id=batch_id)
+        return Response({
+            "id": batch.id,
+            "status": batch.status,
+            "total_files": batch.total_files,
+            "processed_files": batch.processed_files,
+            "results": batch.results,
+            "error_message": batch.error_message
+        })
+    except BatchUpload.DoesNotExist:
+        return Response({"error": "Batch not found"}, status=status.HTTP_404_NOT_FOUND)

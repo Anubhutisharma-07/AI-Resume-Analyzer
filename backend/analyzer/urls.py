@@ -32,10 +32,12 @@ from .views import (
     manage_webhooks,
     webhook_detail,
     test_webhook,
+    import_jd_url_view,
 )
 
 urlpatterns = [
     path("upload/", upload_resume),
+    path("import-jd-url/", import_jd_url_view),
     path("status/<str:task_id>/", task_status),
     path("mock-interview/", mock_interview_view),
     path("compare-uploads/", compare_uploads),
