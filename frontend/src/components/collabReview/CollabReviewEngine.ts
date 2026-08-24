@@ -54,16 +54,175 @@ export function getReviewRequests(): ReviewRequest[] {
 
 export function getFeedbackItems(): FeedbackItem[] {
   return [
-    { feedbackId: 'f1', requestId: 'rr1', reviewerId: 'r1', reviewerName: 'Priya Sharma', category: 'QUANTIFICATION', severity: 'CRITICAL', section: 'EXPERIENCE', lineReference: 'Entry 2, Line 3', originalText: 'Improved page load times', suggestedText: 'Reduced page load time by 40% (3.2s → 1.9s) through code splitting and lazy loading', comment: 'Quantify your impact — recruiters look for measurable results.', upvotes: 5, isAccepted: true, createdAt: '2026-08-20T11:30:00Z' },
-    { feedbackId: 'f2', requestId: 'rr1', reviewerId: 'r1', reviewerName: 'Priya Sharma', category: 'KEYWORDS', severity: 'MAJOR', section: 'SKILLS', lineReference: null, originalText: null, suggestedText: 'Add "GraphQL", "Performance Optimization", "CI/CD" to skills', comment: 'These keywords appear in 80%+ of senior frontend job descriptions at top companies.', upvotes: 4, isAccepted: false, createdAt: '2026-08-20T11:35:00Z' },
-    { feedbackId: 'f3', requestId: 'rr1', reviewerId: 'r2', reviewerName: 'Marcus Chen', category: 'CONTENT', severity: 'MAJOR', section: 'SUMMARY', lineReference: 'Line 1-3', originalText: 'Experienced frontend developer with 4+ years of experience.', suggestedText: 'Senior Frontend Engineer with 4+ years building scalable React/TypeScript applications, specializing in performance optimization and design systems that serve 10M+ users.', comment: 'Lead with your strongest differentiator. Include tech stack and impact.', upvotes: 6, isAccepted: false, createdAt: '2026-08-21T14:00:00Z' },
-    { feedbackId: 'f4', requestId: 'rr1', reviewerId: 'r2', reviewerName: 'Marcus Chen', category: 'IMPACT', severity: 'MINOR', section: 'EXPERIENCE', lineReference: 'Entry 1', originalText: null, suggestedText: null, comment: 'Add a bullet about leading a team project or mentoring juniors — shows leadership readiness for senior roles.', upvotes: 3, isAccepted: false, createdAt: '2026-08-21T14:05:00Z' },
-    { feedbackId: 'f5', requestId: 'rr1', reviewerId: 'r4', reviewerName: 'David Kim', category: 'FORMATTTING', severity: 'SUGGESTION', section: 'DESIGN', lineReference: null, originalText: null, suggestedText: null, comment: 'Consider adding a subtle color accent to section headers — makes the resume more scannable in 6-second reviews.', upvotes: 2, isAccepted: false, createdAt: '2026-08-22T11:00:00Z' },
-    { feedbackId: 'f6', requestId: 'rr1', reviewerId: 'r4', reviewerName: 'David Kim', category: 'PRAISE', severity: 'PRAISE', section: 'PROJECTS', lineReference: null, originalText: null, suggestedText: null, comment: 'Excellent project descriptions — the open-source contribution stand-out bullet is very compelling.', upvotes: 3, isAccepted: true, createdAt: '2026-08-22T11:10:00Z' },
-    { feedbackId: 'f7', requestId: 'rr2', reviewerId: 'r5', reviewerName: 'Sarah Williams', category: 'CONTENT', severity: 'CRITICAL', section: 'SUMMARY', lineReference: 'Line 1-2', originalText: 'Backend developer looking for new opportunities.', suggestedText: 'Results-driven Backend Engineer with 5+ years architecting high-throughput distributed systems processing 50K+ requests/sec, with deep expertise in Node.js, Go, and cloud-native infrastructure.', comment: 'Never start with "looking for opportunities" — position yourself as a solution, not a seeker.', upvotes: 8, isAccepted: true, createdAt: '2026-08-19T16:00:00Z' },
-    { feedbackId: 'f8', requestId: 'rr2', reviewerId: 'r5', reviewerName: 'Sarah Williams', category: 'RELEVANCE', severity: 'MAJOR', section: 'EXPERIENCE', lineReference: 'Entry 3', originalText: null, suggestedText: null, comment: 'The early-career internship entry takes up too much space. Condense to 1 line and move skills/projects higher.', upvotes: 5, isAccepted: true, createdAt: '2026-08-19T16:10:00Z' },
-    { feedbackId: 'f9', requestId: 'rr3', reviewerId: 'r6', reviewerName: 'Raj Patel', category: 'KEYWORDS', severity: 'MAJOR', section: 'SKILLS', lineReference: null, originalText: null, suggestedText: 'Add: Ruby on Rails, PostgreSQL, Redis, GraphQL', comment: 'Shopify uses Rails heavily. These are must-have keywords for their ATS.', upvotes: 7, isAccepted: false, createdAt: '2026-08-24T02:00:00Z' },
-    { feedbackId: 'f10', requestId: 'rr3', reviewerId: 'r6', reviewerName: 'Raj Patel', category: 'GRAMMAR', severity: 'MINOR', section: 'EXPERIENCE', lineReference: 'Entry 1, Line 5', originalText: 'Developed API endpoints and maintained database schemas.', suggestedText: 'Designed and developed RESTful API endpoints serving 10K+ daily active users, while optimizing PostgreSQL database schemas for 30% faster query performance.', comment: 'Convert passive descriptions to active, quantified achievements.', upvotes: 4, isAccepted: false, createdAt: '2026-08-24T02:10:00Z' },
+    {
+      feedbackId: 'f1',
+      requestId: 'rr1',
+      reviewerId: 'r1',
+      reviewerName: 'Priya Sharma',
+      category: 'QUANTIFICATION',
+      severity: 'CRITICAL',
+      section: 'EXPERIENCE',
+      lineReference: 'Entry 2, Line 3',
+      originalText: 'Improved page load times',
+      suggestedText: 'Reduced page load time by 40% (3.2s → 1.9s) through code splitting and lazy loading',
+      comment: 'Quantify your impact — recruiters look for measurable results.',
+      upvotes: 5,
+      isAccepted: true,
+      createdAt: '2026-08-20T11:30:00Z'
+    },
+
+    {
+      feedbackId: 'f2',
+      requestId: 'rr1',
+      reviewerId: 'r1',
+      reviewerName: 'Priya Sharma',
+      category: 'KEYWORDS',
+      severity: 'MAJOR',
+      section: 'SKILLS',
+      lineReference: undefined,
+      originalText: undefined,
+      suggestedText: 'Add "GraphQL", "Performance Optimization", "CI/CD" to skills',
+      comment: 'These keywords appear in 80%+ of senior frontend job descriptions at top companies.',
+      upvotes: 4,
+      isAccepted: false,
+      createdAt: '2026-08-20T11:35:00Z'
+    },
+
+    {
+      feedbackId: 'f3',
+      requestId: 'rr1',
+      reviewerId: 'r2',
+      reviewerName: 'Marcus Chen',
+      category: 'CONTENT',
+      severity: 'MAJOR',
+      section: 'SUMMARY',
+      lineReference: 'Line 1-3',
+      originalText: 'Experienced frontend developer with 4+ years of experience.',
+      suggestedText: 'Senior Frontend Engineer with 4+ years building scalable React/TypeScript applications, specializing in performance optimization and design systems that serve 10M+ users.',
+      comment: 'Lead with your strongest differentiator. Include tech stack and impact.',
+      upvotes: 6,
+      isAccepted: false,
+      createdAt: '2026-08-21T14:00:00Z'
+    },
+
+    {
+      feedbackId: 'f4',
+      requestId: 'rr1',
+      reviewerId: 'r2',
+      reviewerName: 'Marcus Chen',
+      category: 'IMPACT',
+      severity: 'MINOR',
+      section: 'EXPERIENCE',
+      lineReference: 'Entry 1',
+      originalText: undefined,
+      suggestedText: undefined,
+      comment: 'Add a bullet about leading a team project or mentoring juniors — shows leadership readiness for senior roles.',
+      upvotes: 3,
+      isAccepted: false,
+      createdAt: '2026-08-21T14:05:00Z'
+    },
+
+    {
+      feedbackId: 'f5',
+      requestId: 'rr1',
+      reviewerId: 'r4',
+      reviewerName: 'David Kim',
+      category: 'FORMATTING',
+      severity: 'SUGGESTION',
+      section: 'DESIGN',
+      lineReference: undefined,
+      originalText: undefined,
+      suggestedText: undefined,
+      comment: 'Consider adding a subtle color accent to section headers — makes the resume more scannable in 6-second reviews.',
+      upvotes: 2,
+      isAccepted: false,
+      createdAt: '2026-08-22T11:00:00Z'
+    },
+
+    {
+      feedbackId: 'f6',
+      requestId: 'rr1',
+      reviewerId: 'r4',
+      reviewerName: 'David Kim',
+      category: 'CONTENT',
+      severity: 'SUGGESTION',
+      section: 'PROJECTS',
+      lineReference: undefined,
+      originalText: undefined,
+      suggestedText: undefined,
+      comment: 'Excellent project descriptions — the open-source contribution stand-out bullet is very compelling.',
+      upvotes: 3,
+      isAccepted: true,
+      createdAt: '2026-08-22T11:10:00Z'
+    },
+
+    {
+      feedbackId: 'f7',
+      requestId: 'rr2',
+      reviewerId: 'r5',
+      reviewerName: 'Sarah Williams',
+      category: 'CONTENT',
+      severity: 'CRITICAL',
+      section: 'SUMMARY',
+      lineReference: 'Line 1-2',
+      originalText: 'Backend developer looking for new opportunities.',
+      suggestedText: 'Results-driven Backend Engineer with 5+ years architecting high-throughput distributed systems processing 50K+ requests/sec, with deep expertise in Node.js, Go, and cloud-native infrastructure.',
+      comment: 'Never start with "looking for opportunities" — position yourself as a solution, not a seeker.',
+      upvotes: 8,
+      isAccepted: true,
+      createdAt: '2026-08-19T16:00:00Z'
+    },
+
+    {
+      feedbackId: 'f8',
+      requestId: 'rr2',
+      reviewerId: 'r5',
+      reviewerName: 'Sarah Williams',
+      category: 'RELEVANCE',
+      severity: 'MAJOR',
+      section: 'EXPERIENCE',
+      lineReference: 'Entry 3',
+      originalText: undefined,
+      suggestedText: undefined,
+      comment: 'The early-career internship entry takes up too much space. Condense to 1 line and move skills/projects higher.',
+      upvotes: 5,
+      isAccepted: true,
+      createdAt: '2026-08-19T16:10:00Z'
+    },
+
+    {
+      feedbackId: 'f9',
+      requestId: 'rr3',
+      reviewerId: 'r6',
+      reviewerName: 'Raj Patel',
+      category: 'KEYWORDS',
+      severity: 'MAJOR',
+      section: 'SKILLS',
+      lineReference: undefined,
+      originalText: undefined,
+      suggestedText: 'Add: Ruby on Rails, PostgreSQL, Redis, GraphQL',
+      comment: 'Shopify uses Rails heavily. These are must-have keywords for their ATS.',
+      upvotes: 7,
+      isAccepted: false,
+      createdAt: '2026-08-24T02:00:00Z'
+    },
+
+    {
+      feedbackId: 'f10',
+      requestId: 'rr3',
+      reviewerId: 'r6',
+      reviewerName: 'Raj Patel',
+      category: 'GRAMMAR',
+      severity: 'MINOR',
+      section: 'EXPERIENCE',
+      lineReference: 'Entry 1, Line 5',
+      originalText: 'Developed API endpoints and maintained database schemas.',
+      suggestedText: 'Designed and developed RESTful API endpoints serving 10K+ daily active users, while optimizing PostgreSQL database schemas for 30% faster query performance.',
+      comment: 'Convert passive descriptions to active, quantified achievements.',
+      upvotes: 4,
+      isAccepted: false,
+      createdAt: '2026-08-24T02:10:00Z'
+    }
   ];
 }
 
