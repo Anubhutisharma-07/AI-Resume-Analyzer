@@ -728,6 +728,7 @@ function App() {
         <CompareVersions
           entries={entries}
           token={user?.token}
+          username={user?.username}
           onClose={() => setShowCompare(false)}
         />
       )}
