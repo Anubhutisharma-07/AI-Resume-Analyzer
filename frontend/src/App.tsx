@@ -29,6 +29,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SkillGapMatrix } from './components/SkillGapMatrix'
+import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -158,7 +160,7 @@ function App() {
   const [isDraftSaved, setIsDraftSaved] = useState<boolean>(false)
 
   // Job Description Character Limit (#750)
-  const MAX_CHARS = 20000
+  const MAX_CHARS = 2000
   const isClose = jobDescription.length >= MAX_CHARS * 0.9
   const isOver = jobDescription.length > MAX_CHARS
 
