@@ -132,6 +132,17 @@ class SignupThrottle(AnonRateThrottle):
     scope = "signup"
 
 
+class SkillsLeaderboardThrottle(AnonRateThrottle):
+    """Rate limit for the leaderboard.
+
+    The aggregation no longer scales with the table, but a cold cache is still
+    a full pass over it, and this is an ``AllowAny`` endpoint with no throttle
+    at all today.
+    """
+
+    scope = "skills_leaderboard"
+
+
 def verify_captcha_token(token_string):
     """
     Verifies server-side CAPTCHA challenge token.
@@ -148,8 +159,10 @@ def verify_captcha_token(token_string):
 
 
 from .file_validation import (
+    AVATAR_FORMATS,
     PDF,
     RESUME_FORMATS,
+    UploadValidationError,
     detect_format,
     get_max_upload_size,
     validate_optional_upload,
@@ -386,6 +399,87 @@ def social_auth_view(request):
         ),
     },
 )
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def preview_experience_level_view(request):
+    analysis_id = request.data.get("analysis_id")
+    resume_text = request.data.get("resume_text", "")
+    target_role = request.data.get("target_role", "")
+    experience_level = request.data.get("experience_level", "Mid-Level")
+    job_description = request.data.get("job_description", "")
+
+    if analysis_id:
+        try:
+            analysis = ResumeAnalysis.objects.get(id=analysis_id)
+            resume_text = analysis.resume_text or ""
+            target_role = analysis.target_role or ""
+            job_description = analysis.job_description or ""
+        except ResumeAnalysis.DoesNotExist:
+            return Response({"error": "Analysis not found"}, status=404)
+
+    if not resume_text:
+        return Response({"error": "resume_text is required"}, status=400)
+    if not target_role:
+        return Response({"error": "target_role is required"}, status=400)
+
+    # 1. Extract skills from resume
+    from .skill_matcher import extract_skills
+    detected = extract_skills(resume_text)
+
+    # 2. Get required skills
+    matched = []
+    missing = []
+    if job_description and job_description.strip():
+        required = extract_skills(job_description)
+    else:
+        from .services import get_role_skills_for_level
+        required = get_role_skills_for_level(target_role, experience_level)
+
+    for skill in required:
+        if skill in detected:
+            matched.append(skill)
+        else:
+            missing.append(skill)
+
+    # 3. Calculate score
+    score = (
+        int(len(matched) / len(required) * 100)
+        if required
+        else min(len(detected) * 10, 100)
+    )
+
+    # 4. Suggestions
+    from .services import generate_level_tailored_suggestions
+    suggestions = generate_level_tailored_suggestions(missing, experience_level, target_role)
+
+    # 5. Readability & Quantify
+    from .services import calculate_readability
+    from resume_analyzer.quantify_checker import flag_unquantified_bullets
+    readability_score, readability_label = calculate_readability(resume_text)
+    quantify_nudges = flag_unquantified_bullets(resume_text.split('\n'))
+
+    # 6. Score breakdown
+    from .scoring import compute_score_breakdown
+    score_breakdown = compute_score_breakdown(
+        text=resume_text,
+        matched_skills=matched,
+        required_skills=required,
+        detected_skills=detected,
+        readability_score=readability_score,
+        readability_label=readability_label,
+        quantify_nudges=quantify_nudges,
+    )
+
+    return Response({
+        "score": score,
+        "score_breakdown": score_breakdown.as_dict(),
+        "matched_skills": matched,
+        "missing_skills": missing,
+        "suggestions": suggestions,
+        "experience_level": experience_level,
+    })
+
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1351,44 +1445,80 @@ def analyze_jd_view(request):
     return Response({"keywords": results}, status=status.HTTP_200_OK)
 
 
-class SkillsLeaderboardThrottle(AnonRateThrottle):
-    """Rate limit for the leaderboard.
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def import_jd_url_view(request):
+    url = request.data.get("url", "").strip()
+    if not url:
+        return Response({"error": "URL is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-    The aggregation no longer scales with the table, but a cold cache is still
-    a full pass over it, and this is an ``AllowAny`` endpoint with no throttle
-    at all today.
-    """
+    if not (url.startswith("http://") or url.startswith("https://")):
+        return Response({"error": "Please enter a valid URL starting with http:// or https://"}, status=status.HTTP_400_BAD_REQUEST)
 
-    scope = "skills_leaderboard"
+    try:
+        import requests
+        from bs4 import BeautifulSoup
 
-    def get_rate(self):
-        # Read straight from settings rather than through
-        # DEFAULT_THROTTLE_RATES, following UploadRateThrottle above. It keeps
-        # the number beside the docstring that justifies it, and it means adding
-        # a throttle does not mean editing a dictionary every other throttle
-        # also edits.
-        return getattr(settings, "SKILLS_LEADERBOARD_RATE", "120/hour")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        res = requests.get(url, headers=headers, timeout=8)
+        res.raise_for_status()
+    except Exception as e:
+        return Response(
+            {"error": "Failed to fetch page content. The page might be JS-heavy, protected by a paywall/CAPTCHA, or down. Please copy and paste the job description manually."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        soup = BeautifulSoup(res.text, "html.parser")
+        
+        # Decompose unneeded nodes
+        for tag in soup(["script", "style", "nav", "header", "footer", "form", "button", "iframe", "noscript"]):
+            tag.decompose()
+
+        # Try to locate common job posting container classes/IDs to avoid sidebars
+        description_selectors = [
+            "#jobDescriptionText", # Indeed
+            ".description__text", ".show-more-less-html__markup", # LinkedIn
+            ".job-description", ".job_description", "[class*='jobDescription']", "[class*='job-description']",
+            "article", "main", ".main"
+        ]
+        
+        body_text = ""
+        for selector in description_selectors:
+            found = soup.select_one(selector)
+            if found:
+                body_text = found.get_text(separator="\n")
+                break
+                
+        if not body_text:
+            body_text = soup.get_text(separator="\n")
+
+        # Clean text
+        lines = (line.strip() for line in body_text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
+
+        # Apply same clean_text check as #330
+        cleaned_text = clean_text(cleaned_text, max_length=MAX_JOB_DESCRIPTION_LENGTH)
+
+        # If length is extremely small (e.g. < 150 chars), it's likely a JS redirect, paywall page, or empty
+        if len(cleaned_text) < 150:
+            return Response(
+                {"error": "Could not extract a valid job description. The page might require JavaScript or login. Please copy and paste the job description text manually."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({"job_description": cleaned_text}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {"error": "An error occurred during extraction. Please copy and paste the job description manually."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
-@extend_schema(
-    summary="Most common matched and missing skills",
-    description=(
-        "Aggregate skill counts across analyses. `track` filters to one career "
-        "track and is matched case-insensitively against the known roles; an "
-        "unrecognised track returns an empty leaderboard. `limit` (1-50, "
-        "default 10) sets how many skills each list carries. `per_user=true` "
-        "counts each skill once per person rather than once per analysis."
-    ),
-    parameters=[
-        OpenApiParameter("track", OpenApiTypes.STR, description="Career track to filter to."),
-        OpenApiParameter("limit", OpenApiTypes.INT, description="Skills per list (1-50)."),
-        OpenApiParameter(
-            "per_user",
-            OpenApiTypes.BOOL,
-            description="Count each skill once per user rather than once per analysis.",
-        ),
-    ],
-)
 @api_view(["GET"])
 @permission_classes([AllowAny])
 @throttle_classes([SkillsLeaderboardThrottle])
@@ -1503,13 +1633,15 @@ def profile_avatar_view(request):
         if not file_obj:
             return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        ext = os.path.splitext(file_obj.name)[1].lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
-
-        max_size = 2 * 1024 * 1024
-        if file_obj.size > max_size:
-            return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_upload(
+                file_obj,
+                formats=AVATAR_FORMATS,
+                field_label="avatar",
+                max_size=2 * 1024 * 1024,
+            )
+        except UploadValidationError as error:
+            return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 
         if profile.avatar:
@@ -2219,3 +2351,71 @@ def send_new_device_login_alert(user, ip, device_info):
         recipient_list=[user.email],
         fail_silently=False,
     )
+
+from .models import BatchUpload
+from .tasks import process_batch_upload
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import AllowAny
+from rest_framework.decorators import parser_classes
+from django.core.files.storage import FileSystemStorage
+from django.conf import settings
+import uuid
+import os
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+@permission_classes([AllowAny])
+def upload_batch_resumes(request):
+    file = request.FILES.get("file")
+    if not file or not file.name.endswith(".zip"):
+        return Response({"error": "Please provide a valid .zip file."}, status=status.HTTP_400_BAD_REQUEST)
+
+    target_role = clean_text(request.data.get("role") or "General", max_length=100)
+    experience_level = clean_text(
+        request.data.get("experience_level") or request.data.get("level") or "Mid-Level",
+        max_length=50,
+    )
+    job_desc = clean_text(
+        request.data.get("job_description"),
+        max_length=MAX_STORED_JOB_DESCRIPTION_LENGTH,
+    )
+
+    user = request.user if request.user.is_authenticated else None
+    
+    batch = BatchUpload.objects.create(
+        user=user,
+        status="Pending"
+    )
+
+    temp_dir = os.path.join(settings.BASE_DIR, "tmp")
+    os.makedirs(temp_dir, exist_ok=True)
+    storage = FileSystemStorage(location=temp_dir)
+    unique_name = f"{uuid.uuid4()}_{file.name}"
+    saved_name = storage.save(unique_name, file)
+    file_path = storage.path(saved_name)
+
+    process_batch_upload.delay(
+        batch_id=batch.id,
+        zip_file_path=file_path,
+        target_role=target_role,
+        experience_level=experience_level,
+        job_description=job_desc
+    )
+
+    return Response({"batch_id": batch.id})
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def batch_status(request, batch_id):
+    try:
+        batch = BatchUpload.objects.get(id=batch_id)
+        return Response({
+            "id": batch.id,
+            "status": batch.status,
+            "total_files": batch.total_files,
+            "processed_files": batch.processed_files,
+            "results": batch.results,
+            "error_message": batch.error_message
+        })
+    except BatchUpload.DoesNotExist:
+        return Response({"error": "Batch not found"}, status=status.HTTP_404_NOT_FOUND)
