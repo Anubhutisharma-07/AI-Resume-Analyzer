@@ -23,15 +23,81 @@ interface APIResponse {
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
+const BULK_JD_DRAFT_KEY = 'bulk_jd_drafts'
+
 export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
   const [file, setFile] = useState<File | null>(null)
   const [resumeUrl, setResumeUrl] = useState('')
-  const [jds, setJds] = useState<string[]>([''])
+  const [jds, setJds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(BULK_JD_DRAFT_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
+    } catch {
+      // ignore
+    }
+    return ['']
+  })
   const [loading, setLoading] = useState(false)
   const [downloadingZip, setDownloadingZip] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [results, setResults] = useState<APIResponse | null>(null)
   const [expandedJds, setExpandedJds] = useState<{ [key: number]: boolean }>({})
+  const [activeUrlInputs, setActiveUrlInputs] = useState<Record<number, boolean>>({})
+  const [urlInputs, setUrlInputs] = useState<Record<number, string>>({})
+  const [urlErrors, setUrlErrors] = useState<Record<number, string>>({})
+  const [importingIdx, setImportingIdx] = useState<number | null>(null)
+
+  const toggleUrlInput = (idx: number) => {
+    setActiveUrlInputs(prev => ({ ...prev, [idx]: !prev[idx] }))
+    setUrlErrors(prev => ({ ...prev, [idx]: '' }))
+  }
+
+  const handleUrlInputChange = (idx: number, val: string) => {
+    setUrlInputs(prev => ({ ...prev, [idx]: val }))
+  }
+
+  const handleImportFromUrl = async (idx: number) => {
+    const url = urlInputs[idx]?.trim()
+    if (!url) {
+      setUrlErrors(prev => ({ ...prev, [idx]: 'Please enter a URL' }))
+      return
+    }
+    setImportingIdx(idx)
+    setUrlErrors(prev => ({ ...prev, [idx]: '' }))
+    try {
+      const res = await axios.post(`${BACKEND}/api/import-jd-url/`, { url })
+      const text = res.data.job_description
+      handleJdChange(idx, text)
+      setActiveUrlInputs(prev => ({ ...prev, [idx]: false }))
+      setUrlInputs(prev => ({ ...prev, [idx]: '' }))
+    } catch (err: any) {
+      console.error(err)
+      const msg = err.response?.data?.error || 'Failed to extract job description from URL. Please verify the URL and try again.'
+      setUrlErrors(prev => ({ ...prev, [idx]: msg }))
+    } finally {
+      setImportingIdx(null)
+    }
+  }
+
+  // Debounced draft saving (#533)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const hasContent = jds.some(j => j && j.trim())
+        if (hasContent) {
+          localStorage.setItem(BULK_JD_DRAFT_KEY, JSON.stringify(jds))
+        } else {
+          localStorage.removeItem(BULK_JD_DRAFT_KEY)
+        }
+      } catch {
+        // ignore
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [jds])
 
   const toggleExpand = (index: number) => {
     setExpandedJds((prev) => ({ ...prev, [index]: !prev[index] }))
@@ -79,6 +145,11 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
 
       const res = await axios.post<APIResponse>(`${BACKEND}/api/compare-bulk-jds/`, formData)
       setResults(res.data)
+      try {
+        localStorage.removeItem(BULK_JD_DRAFT_KEY)
+      } catch {
+        // ignore
+      }
     } catch (err) {
       const message =
         axios.isAxiosError(err) && err.response?.data?.error
@@ -196,7 +267,66 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({ onClose }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {jds.map((jd, idx) => (
                   <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>
+                          Job Description #{idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => toggleUrlInput(idx)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--color-primary, #6366f1)',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: 0
+                          }}
+                        >
+                          🔗 Import from URL
+                        </button>
+                      </div>
+
+                      {activeUrlInputs[idx] && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                          <input
+                            type="text"
+                            placeholder="Paste job URL here (LinkedIn, Indeed, etc.)..."
+                            value={urlInputs[idx] || ''}
+                            onChange={(e) => handleUrlInputChange(idx, e.target.value)}
+                            style={{
+                              flex: 1,
+                              padding: '6px 10px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              background: 'rgba(0,0,0,0.2)',
+                              color: '#fff',
+                              fontSize: '12.5px'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleImportFromUrl(idx)}
+                            disabled={importingIdx === idx}
+                            className="app-btn"
+                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                          >
+                            {importingIdx === idx ? 'Fetching...' : 'Import'}
+                          </button>
+                        </div>
+                      )}
+
+                      {urlErrors[idx] && (
+                        <p style={{ color: '#ef4444', fontSize: '11.5px', margin: '0 0 6px 0', fontWeight: '500' }}>
+                          ⚠️ {urlErrors[idx]}
+                        </p>
+                      )}
+
                       <textarea
                         placeholder={`Paste job description #${idx + 1} here...`}
                         value={jd}
