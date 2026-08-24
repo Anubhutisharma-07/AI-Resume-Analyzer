@@ -28,6 +28,7 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { JobDescriptionInput } from './components/JobDescriptionInput'
 
 type Theme = 'light' | 'dark'
 
@@ -156,10 +157,8 @@ function App() {
   })
   const [isDraftSaved, setIsDraftSaved] = useState<boolean>(false)
 
-  // Job Description Character Limit (#750)
-  const MAX_CHARS = 20000
-  const isClose = jobDescription.length >= MAX_CHARS * 0.9
-  const isOver = jobDescription.length > MAX_CHARS
+  // Job Description Character Limit (#750 / #754)
+  const MAX_CHARS = 2000
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -885,30 +884,10 @@ function App() {
                 </div>
               </div>
 
-              {/* Job Description Draft Input (#533) */}
+              {/* Job Description Draft Input (#533 / #754) */}
               <div style={{ marginTop: '16px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '6px',
-                  }}
-                >
-                  <label
-                    htmlFor="jobDescriptionInput"
-                    style={{
-                      fontWeight: '600',
-                      fontSize: '0.85rem',
-                      color: 'var(--heading-text, #fff)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
-                  </label>
-                  {isDraftSaved && (
+                {isDraftSaved && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
                     <span
                       style={{
                         fontSize: '0.75rem',
@@ -920,23 +899,12 @@ function App() {
                     >
                       💾 Draft auto-saved
                     </span>
-                  )}
-                </div>
-                 <textarea
-                  id="jobDescriptionInput"
-                  className="custom-textarea"
-                  placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
+                  </div>
+                )}
+                <JobDescriptionInput
                   value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  maxLength={MAX_CHARS}
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    minHeight: '76px',
-                    fontSize: '0.88rem',
-                    resize: 'vertical',
-                    boxSizing: 'border-box',
-                  }}
+                  onChange={setJobDescription}
+                  maxCharacters={MAX_CHARS}
                 />
                 {(() => {
                   const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
@@ -962,41 +930,6 @@ function App() {
                   }
                   return null;
                 })()}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: '6px',
-                    fontSize: '0.75rem',
-                  }}
-                >
-                  <span
-                    style={{
-                      color: isOver ? '#ef4444' : (isClose ? '#f97316' : 'var(--muted-text, #94a3b8)'),
-                      fontWeight: isOver ? 'bold' : 'normal',
-                      opacity: isOver || isClose ? 1 : 0.8,
-                    }}
-                  >
-                    {jobDescription.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
-                  </span>
-                  {jobDescription && (
-                    <button
-                      type="button"
-                      onClick={() => setJobDescription('')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--muted-text, #94a3b8)',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                        padding: 0,
-                      }}
-                    >
-                      Clear Draft
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
 
