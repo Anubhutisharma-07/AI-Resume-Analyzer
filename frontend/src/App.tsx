@@ -793,11 +793,15 @@ function App() {
                   textAlign: 'center',
                 }}
               >
-                <span style={{ fontSize: '13.5px', fontWeight: '600', color: '#a5b4fc', display: 'block', marginBottom: '6px' }}>
+                <label
+                  htmlFor="previewLevelSelect"
+                  style={{ fontSize: '13.5px', fontWeight: '600', color: '#a5b4fc', display: 'block', marginBottom: '6px' }}
+                >
                   📈 Preview suggestions at a different Experience Level:
-                </span>
+                </label>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
                   <select
+                    id="previewLevelSelect"
                     value={previewData ? previewData.experienceLevel : experienceLevel}
                     onChange={(e) => handlePreviewLevel(e.target.value)}
                     disabled={previewing}
