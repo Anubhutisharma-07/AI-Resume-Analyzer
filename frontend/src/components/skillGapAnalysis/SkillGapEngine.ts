@@ -8,7 +8,6 @@ import type {
   CareerRecommendation,
   SkillGapAuditLog,
   SkillProficiency,
-  SkillCategory,
   GapSeverity
 } from './skillGapTypes';
 const PROFICIENCY_ORDER: Record<SkillProficiency, number> = {
@@ -151,7 +150,7 @@ function generateLearningResources(skillName: string): LearningResource[] {
     GraphQL: [
       { resourceId: 'lr14', title: 'GraphQL with React', provider: 'Udemy', format: 'COURSE', url: '#', rating: 4.6, duration: '14 hours', cost: '$19.99', relevanceScore: 91, difficulty: 'INTERMEDIATE' },
     ],
-    CICD: [
+    CI/CD: [
       { resourceId: 'lr15', title: 'CI/CD Pipelines', provider: 'LinkedIn Learning', format: 'COURSE', url: '#', rating: 4.4, duration: '8 hours', cost: '$29.99/mo', relevanceScore: 86, difficulty: 'INTERMEDIATE' },
       { resourceId: 'lr16', title: 'GitHub Actions Mastery', provider: 'Project', format: 'PROJECT', url: '#', rating: 4.5, duration: '15 hours', cost: 'Free', relevanceScore: 89, difficulty: 'INTERMEDIATE' },
     ],
@@ -239,21 +238,61 @@ export function getOverlapAnalysis(): SkillOverlapAnalysis[] {
 
 export function getRecommendations(): CareerRecommendation[] {
   return [
-    { recommendationId: 'rec1', type: 'SKILL_UPGRADE', title: 'Level Up TypeScript to Advanced', description: 'TypeScript is in the top 3 most demanded skills. Bridging this gap will significantly boost your profile.', impactScore: 88, effort: 'MEDIUM', timeline: '2-4 months', priority: 1, skillsInvolved: ['TypeScript'] },
-    { recommendationId: 'rec2', type: 'CERTIFICATION', title: 'AWS Cloud Practitioner', description: 'Cloud skills are the highest-paying additions. Start with AWS certification to open cloud architect paths.', impactScore: 82, effort: 'MEDIUM', timeline: '3-4 months', priority: 2, skillsInvolved: ['AWS'] },
-    { recommendationId: 'rec3', type: 'PROJECT', title: 'Build a Dockerized Full-Stack App', description: 'Deploy your next project with Docker and CI/CD to build DevOps skills naturally.', impactScore: 78, effort: 'MEDIUM', timeline: '1-2 months', priority: 3, skillsInvolved: ['Docker', 'CI/CD', 'Node.js'] },
     {
-  recommendationId: 'rec4',
-  type: 'PROJECT',
-  title: 'System Design Course',
-  description: 'System design has the highest salary impact (+18%). Invest in this for long-term career growth.',
-  impactScore: 90,
-  effort: 'HIGH',
-  timeline: '4-8 months',
-  priority: 4,
-  skillsInvolved: ['System Design']
-}, impactScore: 90, effort: 'HIGH', timeline: '4-8 months', priority: 4, skillsInvolved: ['System Design'] },
-    { recommendationId: 'rec5', type: 'ROLE_CHANGE', title: 'Target Full-Stack Tech Lead', description: 'Your current skills align 72% with a Tech Lead role. With targeted upskilling, this is achievable in 12 months.', impactScore: 85, effort: 'HIGH', timeline: '12-18 months', priority: 5, skillsInvolved: ['System Design', 'Leadership', 'Node.js'] },
+      recommendationId: 'rec1',
+      type: 'SKILL_UPGRADE',
+      title: 'Level Up TypeScript to Advanced',
+      description: 'TypeScript is in the top 3 most demanded skills. Bridging this gap will significantly boost your profile.',
+      impactScore: 88,
+      effort: 'MEDIUM',
+      timeline: '2-4 months',
+      priority: 1,
+      skillsInvolved: ['TypeScript']
+    },
+    {
+      recommendationId: 'rec2',
+      type: 'CERTIFICATION',
+      title: 'AWS Cloud Practitioner',
+      description: 'Cloud skills are the highest-paying additions. Start with AWS certification to open cloud architect paths.',
+      impactScore: 82,
+      effort: 'MEDIUM',
+      timeline: '3-4 months',
+      priority: 2,
+      skillsInvolved: ['AWS']
+    },
+    {
+      recommendationId: 'rec3',
+      type: 'PROJECT',
+      title: 'Build a Dockerized Full-Stack App',
+      description: 'Deploy your next project with Docker and CI/CD to build DevOps skills naturally.',
+      impactScore: 78,
+      effort: 'MEDIUM',
+      timeline: '1-2 months',
+      priority: 3,
+      skillsInvolved: ['Docker', 'CI/CD', 'Node.js']
+    },
+    {
+      recommendationId: 'rec4',
+      type: 'PROJECT',
+      title: 'System Design Course',
+      description: 'System design has the highest salary impact (+18%). Invest in this for long-term career growth.',
+      impactScore: 90,
+      effort: 'HIGH',
+      timeline: '4-8 months',
+      priority: 4,
+      skillsInvolved: ['System Design']
+    },
+    {
+      recommendationId: 'rec5',
+      type: 'ROLE_CHANGE',
+      title: 'Target Full-Stack Tech Lead',
+      description: 'Your current skills align 72% with a Tech Lead role. With targeted upskilling, this is achievable in 12 months.',
+      impactScore: 85,
+      effort: 'HIGH',
+      timeline: '12-18 months',
+      priority: 5,
+      skillsInvolved: ['System Design', 'Leadership', 'Node.js']
+    }
   ];
 }
 
