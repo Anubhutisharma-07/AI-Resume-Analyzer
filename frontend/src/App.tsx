@@ -825,7 +825,7 @@ function App() {
               </select>
             </div>
           </div>
-
+          </div>
           {/* Custom Job Description (Optional) Box */}
           <div
             className="mb-4 p-3"
