@@ -1,8 +1,18 @@
-import {
-  UserSkill, TargetSkill, SkillGap, LearningResource, CareerPath,
-  CareerStep, SkillOverlapAnalysis, CareerRecommendation,
-  SkillGapReport, SkillGapAuditLog, SkillProficiency, SkillCategory,
-  GapSeverity, CareerPathDifficulty
+import type {
+  UserSkill,
+  TargetSkill,
+  SkillGap,
+  LearningResource,
+  CareerPath,
+  CareerStep,
+  SkillOverlapAnalysis,
+  CareerRecommendation,
+  SkillGapReport,
+  SkillGapAuditLog,
+  SkillProficiency,
+  SkillCategory,
+  GapSeverity,
+  CareerPathDifficulty,
 } from './skillGapTypes';
 
 const PROFICIENCY_ORDER: Record<SkillProficiency, number> = {
