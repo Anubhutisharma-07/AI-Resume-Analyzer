@@ -32,6 +32,11 @@ class ResumeAnalysis(models.Model):
     cover_letter_text = models.TextField(blank=True, null=True)
     cover_letter_feedback = models.JSONField(blank=True, null=True)
     interview_questions = models.JSONField(blank=True, null=True)
+    
+    # JD Match features
+    job_match_score = models.IntegerField(blank=True, null=True)
+    jd_missing_skills = models.JSONField(default=list, blank=True)
+    jd_matched_skills = models.JSONField(default=list, blank=True)
 
     # --- Public sharing ---------------------------------------------------
     #
@@ -151,6 +156,24 @@ class ResumeAnalysis(models.Model):
         type(self).objects.filter(pk=self.pk).update(
             share_view_count=models.F("share_view_count") + 1
         )
+
+
+class BatchUpload(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="batch_uploads", null=True, blank=True)
+    status = models.CharField(max_length=50, default="Pending")
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    total_files = models.IntegerField(default=0)
+    processed_files = models.IntegerField(default=0)
+    results = models.JSONField(default=list, blank=True)
+    error_message = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-uploaded_at"]
+
+    def __str__(self):
+        return f"Batch {self.id} ({self.status})"
+
 
 
 class UserProfile(models.Model):
