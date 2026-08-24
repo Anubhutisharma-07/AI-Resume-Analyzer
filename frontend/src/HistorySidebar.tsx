@@ -32,10 +32,10 @@ interface HistorySidebarProps {
   hasMoreOnServer?: boolean
   /** Fetches the next page from the server; resolves once entries are appended. */
   onLoadMoreFromServer?: () => Promise<void> | void
-  isLoggedIn: boolean
-  bookmarks: JobBookmark[]
-  onSelectBookmark: (bookmark: JobBookmark) => void
-  onDeleteBookmark: (id: string) => void
+  isLoggedIn?: boolean
+  bookmarks?: JobBookmark[]
+  onSelectBookmark?: (bookmark: JobBookmark) => void
+  onDeleteBookmark?: (id: string) => void
 }
 
 const SORT_MODE_STORAGE_KEY = "history_sort_mode";
@@ -54,11 +54,12 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   onCompare,
   hasMoreOnServer = false,
   onLoadMoreFromServer,
-  isLoggedIn,
-  bookmarks,
-  onSelectBookmark,
-  onDeleteBookmark,
+  isLoggedIn = false,
+  bookmarks = [],
+  onSelectBookmark = () => {},
+  onDeleteBookmark = () => {},
 }) => {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'history' | 'bookmarks'>('history');

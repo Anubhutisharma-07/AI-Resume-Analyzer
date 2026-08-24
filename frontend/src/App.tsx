@@ -8,7 +8,7 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory, type AnalysisEntry } from './hooks/useAnalysisHistory'
+import { useAnalysisHistory, type AnalysisEntry, type PartialSkillItem } from './hooks/useAnalysisHistory'
 import { HistorySidebar, type JobBookmark } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { useAuth } from './hooks/useAuth'
@@ -200,7 +200,15 @@ function App() {
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
-  const [jobDescription, setJobDescription] = useState('')
+
+  // Retry state
+  const [retryCount, setRetryCount] = useState(0)
+  const [cooldownRemaining, setCooldownRemaining] = useState(0)
+
+  // Auth
+  const { user, signup, login, loginWithOAuth, logout } = useAuth()
+  const [showAuthModal, setShowAuthModal] = useState(false)
+
   const [bookmarks, setBookmarks] = useState<JobBookmark[]>([])
 
   useEffect(() => {
@@ -252,14 +260,6 @@ function App() {
       return updated
     })
   }
-
-  // Retry state
-  const [retryCount, setRetryCount] = useState(0)
-  const [cooldownRemaining, setCooldownRemaining] = useState(0)
-
-  // Auth
-  const { user, signup, login, loginWithOAuth, logout } = useAuth()
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
