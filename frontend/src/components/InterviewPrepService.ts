@@ -9,8 +9,10 @@
  * @author Enterprise AI Resume Architecture Team
  */
 
+import type {
+  InterviewPrepSet
+} from './InterviewPrepModel';
 import {
-  InterviewPrepSet,
   InterviewPrepState
 } from './InterviewPrepModel';
 

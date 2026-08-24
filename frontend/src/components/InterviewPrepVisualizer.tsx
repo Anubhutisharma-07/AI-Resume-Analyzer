@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { InterviewPrepService } from './InterviewPrepService';
 
 export default function InterviewPrepVisualizer() {
