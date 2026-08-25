@@ -104,13 +104,13 @@ describe('Job Description Draft Auto-Save (#533)', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByText('0 / 20,000 characters')).toBeInTheDocument()
+    expect(screen.getByText('0 / 2,000 characters')).toBeInTheDocument()
 
     const textarea = screen.getByPlaceholderText(/Paste job description text here/i)
     fireEvent.change(textarea, {
       target: { value: 'A'.repeat(150) },
     })
 
-    expect(screen.getByText('150 / 20,000 characters')).toBeInTheDocument()
+    expect(screen.getByText('150 / 2,000 characters')).toBeInTheDocument()
   })
 })
