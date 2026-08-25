@@ -2241,6 +2241,42 @@ input {
   }
 }
 
+/* ── Career Track + Experience Level selector ───────────────── */
+/*
+   One responsive grid rather than a flex row of fixed-width controls. The two
+   dropdowns sit side by side wherever there is room for both at a usable
+   width, and stack below that instead of squeezing to the point where the
+   longest option ("Mid-Level (2-5 yrs)") is clipped.
+*/
+.career-track-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.career-track-selector__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Grid items default to min-width:auto, which lets a long <option> push the
+     column wider than its track and overflow the card. */
+  min-width: 0;
+}
+
+.career-track-selector__label {
+  font-weight: 600;
+  font-size: var(--text-sm, 0.85rem);
+  /* Themed, not hardcoded white: the duplicated copy of this markup set
+     `color: #fff` inline, which disappeared against a light background. */
+  color: var(--heading-text, #fff);
+  margin-bottom: 0;
+}
+
+.career-track-selector .custom-select-element:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* ── Target Career Track Custom Select (#261) ───────────────── */
 .custom-select-container {
   position: relative;
