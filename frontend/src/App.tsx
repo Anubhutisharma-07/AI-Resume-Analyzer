@@ -28,8 +28,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
-import { SkillGapMatrix } from './components/SkillGapMatrix'
-import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
+// import { SkillGapMatrix } from './components/SkillGapMatrix'
+// import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -265,32 +265,32 @@ function App() {
     }
   }, [user])
 
-  const saveJobBookmark = () => {
-    if (!jobDescription.trim()) return
-    const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
-    if (!name) return
+  // const saveJobBookmark = () => {
+  //   if (!jobDescription.trim()) return
+  //   const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
+  //   if (!name) return
 
-    const newBookmark: JobBookmark = {
-      id: Math.random().toString(36).substring(2, 9),
-      name: name.trim(),
-      role: targetRole,
-      experienceLevel: experienceLevel,
-      jobDescription: jobDescription.trim(),
-      timestamp: Date.now()
-    }
+  //   const newBookmark: JobBookmark = {
+  //     id: Math.random().toString(36).substring(2, 9),
+  //     name: name.trim(),
+  //     role: targetRole,
+  //     experienceLevel: experienceLevel,
+  //     jobDescription: jobDescription.trim(),
+  //     timestamp: Date.now()
+  //   }
 
-    setBookmarks((prev) => {
-      const updated = [newBookmark, ...prev]
-      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(updated))
-      } catch (e) {
-        console.error('Failed to save bookmarks', e)
-      }
-      return updated
-    })
-    alert('Job bookmark saved successfully!')
-  }
+  //   setBookmarks((prev) => {
+  //     const updated = [newBookmark, ...prev]
+  //     const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+  //     try {
+  //       localStorage.setItem(storageKey, JSON.stringify(updated))
+  //     } catch (e) {
+  //       console.error('Failed to save bookmarks', e)
+  //     }
+  //     return updated
+  //   })
+  //   alert('Job bookmark saved successfully!')
+  // }
 
   const deleteJobBookmark = (id: string) => {
     setBookmarks((prev) => {
