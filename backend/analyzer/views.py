@@ -159,8 +159,10 @@ def verify_captcha_token(token_string):
 
 
 from .file_validation import (
+    AVATAR_FORMATS,
     PDF,
     RESUME_FORMATS,
+    UploadValidationError,
     detect_format,
     get_max_upload_size,
     validate_optional_upload,
@@ -397,6 +399,87 @@ def social_auth_view(request):
         ),
     },
 )
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def preview_experience_level_view(request):
+    analysis_id = request.data.get("analysis_id")
+    resume_text = request.data.get("resume_text", "")
+    target_role = request.data.get("target_role", "")
+    experience_level = request.data.get("experience_level", "Mid-Level")
+    job_description = request.data.get("job_description", "")
+
+    if analysis_id:
+        try:
+            analysis = ResumeAnalysis.objects.get(id=analysis_id)
+            resume_text = analysis.resume_text or ""
+            target_role = analysis.target_role or ""
+            job_description = analysis.job_description or ""
+        except ResumeAnalysis.DoesNotExist:
+            return Response({"error": "Analysis not found"}, status=404)
+
+    if not resume_text:
+        return Response({"error": "resume_text is required"}, status=400)
+    if not target_role:
+        return Response({"error": "target_role is required"}, status=400)
+
+    # 1. Extract skills from resume
+    from .skill_matcher import extract_skills
+    detected = extract_skills(resume_text)
+
+    # 2. Get required skills
+    matched = []
+    missing = []
+    if job_description and job_description.strip():
+        required = extract_skills(job_description)
+    else:
+        from .services import get_role_skills_for_level
+        required = get_role_skills_for_level(target_role, experience_level)
+
+    for skill in required:
+        if skill in detected:
+            matched.append(skill)
+        else:
+            missing.append(skill)
+
+    # 3. Calculate score
+    score = (
+        int(len(matched) / len(required) * 100)
+        if required
+        else min(len(detected) * 10, 100)
+    )
+
+    # 4. Suggestions
+    from .services import generate_level_tailored_suggestions
+    suggestions = generate_level_tailored_suggestions(missing, experience_level, target_role)
+
+    # 5. Readability & Quantify
+    from .services import calculate_readability
+    from resume_analyzer.quantify_checker import flag_unquantified_bullets
+    readability_score, readability_label = calculate_readability(resume_text)
+    quantify_nudges = flag_unquantified_bullets(resume_text.split('\n'))
+
+    # 6. Score breakdown
+    from .scoring import compute_score_breakdown
+    score_breakdown = compute_score_breakdown(
+        text=resume_text,
+        matched_skills=matched,
+        required_skills=required,
+        detected_skills=detected,
+        readability_score=readability_score,
+        readability_label=readability_label,
+        quantify_nudges=quantify_nudges,
+    )
+
+    return Response({
+        "score": score,
+        "score_breakdown": score_breakdown.as_dict(),
+        "matched_skills": matched,
+        "missing_skills": missing,
+        "suggestions": suggestions,
+        "experience_level": experience_level,
+    })
+
 
 @api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
@@ -1550,13 +1633,15 @@ def profile_avatar_view(request):
         if not file_obj:
             return Response({"error": "No avatar file provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        ext = os.path.splitext(file_obj.name)[1].lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            return Response({"error": "Only PNG, JPG, JPEG, and WEBP images are allowed."}, status=status.HTTP_400_BAD_REQUEST)
-
-        max_size = 2 * 1024 * 1024
-        if file_obj.size > max_size:
-            return Response({"error": "Image size must be under 2MB."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_upload(
+                file_obj,
+                formats=AVATAR_FORMATS,
+                field_label="avatar",
+                max_size=2 * 1024 * 1024,
+            )
+        except UploadValidationError as error:
+            return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
 
         if profile.avatar:

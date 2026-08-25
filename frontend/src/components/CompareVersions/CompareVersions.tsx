@@ -3,11 +3,14 @@ import { X, GitCompare, TrendingUp, TrendingDown, Minus, Download, Loader2 } fro
 import type { AnalysisEntry } from '../../hooks/useAnalysisHistory'
 import { useCompareVersions } from '../../hooks/useCompareVersions'
 import { exportComparisonPdf } from '../../utils/exportComparisonPdf'
+import { CompareUploads } from './CompareUploads'
+import { CompareBulkJds } from './CompareBulkJds'
 import './CompareVersions.css'
 
 interface CompareVersionsProps {
   entries: AnalysisEntry[]
   token: string | undefined
+  username?: string
   onClose: () => void
 }
 
@@ -18,7 +21,8 @@ function isComparable(entry: AnalysisEntry) {
   return /^\d+$/.test(entry.id)
 }
 
-export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token, onClose }) => {
+export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token, username, onClose }) => {
+  const [activeTab, setActiveTab] = useState<'versions' | 'uploads' | 'bulk_jds'>('versions')
   const comparable = entries.filter(isComparable)
   const [olderId, setOlderId] = useState(comparable[1]?.id ?? '')
   const [newerId, setNewerId] = useState(comparable[0]?.id ?? '')
@@ -44,14 +48,75 @@ export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token
       <div className="compare-modal" onClick={(e) => e.stopPropagation()}>
         <div className="compare-modal__header">
           <h3>
-            <GitCompare size={18} /> Compare Resume Versions
+            <GitCompare size={18} /> Compare Resume & Job Descriptions
           </h3>
           <button className="compare-close-btn" onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        {!token ? (
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--surface-border)', marginBottom: '16px', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setActiveTab('versions')}
+            style={{
+              padding: '8px 12px',
+              border: 'none',
+              background: 'none',
+              color: activeTab === 'versions' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
+              borderBottom: activeTab === 'versions' ? '2px solid var(--color-primary, #6366f1)' : 'none',
+              fontWeight: 600,
+              fontSize: '13.5px',
+              cursor: 'pointer'
+            }}
+          >
+            Versions History
+          </button>
+          <button
+            onClick={() => setActiveTab('uploads')}
+            style={{
+              padding: '8px 12px',
+              border: 'none',
+              background: 'none',
+              color: activeTab === 'uploads' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
+              borderBottom: activeTab === 'uploads' ? '2px solid var(--color-primary, #6366f1)' : 'none',
+              fontWeight: 600,
+              fontSize: '13.5px',
+              cursor: 'pointer'
+            }}
+          >
+            Compare Local Files
+          </button>
+          <button
+            onClick={() => setActiveTab('bulk_jds')}
+            style={{
+              padding: '8px 12px',
+              border: 'none',
+              background: 'none',
+              color: activeTab === 'bulk_jds' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
+              borderBottom: activeTab === 'bulk_jds' ? '2px solid var(--color-primary, #6366f1)' : 'none',
+              fontWeight: 600,
+              fontSize: '13.5px',
+              cursor: 'pointer'
+            }}
+          >
+            Bulk Job Descriptions
+          </button>
+        </div>
+
+        {activeTab === 'uploads' ? (
+          <CompareUploads
+            onClose={onClose}
+            targetRole={entries[0]?.targetRole || 'Frontend Developer'}
+            isEmbed={true}
+          />
+        ) : activeTab === 'bulk_jds' ? (
+          <CompareBulkJds
+            onClose={onClose}
+            username={username}
+            isEmbed={true}
+          />
+        ) : !token ? (
           <p className="compare-empty">Sign in to compare your saved resume versions.</p>
         ) : comparable.length < 2 ? (
           <p className="compare-empty">

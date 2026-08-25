@@ -32,13 +32,13 @@ from .views import (
     manage_webhooks,
     webhook_detail,
     test_webhook,
-    import_jd_url_view,
+    preview_experience_level_view,
 )
 from .badge_views import manage_resume_badge, resume_score_badge
 
 urlpatterns = [
     path("upload/", upload_resume),
-    path("import-jd-url/", import_jd_url_view),
+    path("preview-level/", preview_experience_level_view),
     path("status/<str:task_id>/", task_status),
     path("mock-interview/", mock_interview_view),
     path("compare-uploads/", compare_uploads),
