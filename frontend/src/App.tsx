@@ -27,6 +27,7 @@ import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreak
 import { FormattingChecks, type FormattingChecksData } from './components/FormattingChecks'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
+import ReleaseNotes from './pages/ReleaseNotes'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { SkillGapMatrix } from './components/SkillGapMatrix'
@@ -701,6 +702,15 @@ function App() {
     )
   }
 
+  if (location.pathname === '/release-notes') {
+    return (
+      <>
+        <ReleaseNotes />
+        <Footer />
+      </>
+    )
+  }
+
   const displayScore = previewData ? previewData.score : score
   const displayScoreBreakdown = previewData ? previewData.scoreBreakdown : scoreBreakdown
   const displayMatchedSkills = previewData ? previewData.matchedSkills : matchedSkills
@@ -960,7 +970,7 @@ function App() {
                     </span>
                   )}
                 </div>
-                 <textarea
+                <textarea
                   id="jobDescriptionInput"
                   className="custom-textarea"
                   placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
@@ -1243,7 +1253,7 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={displayScore!}/>
+              <AtsScore score={displayScore!} />
 
               <ScoreBreakdown breakdown={displayScoreBreakdown} />
 
@@ -1623,7 +1633,12 @@ function App() {
         </div>{' '}
         {/* closes .main-card */}
       </div>{' '}
-      <Footer onOpenWhatsNew={() => setShowWhatsNew(true)} />
+      <Footer
+        onOpenWhatsNew={() => {
+          window.history.pushState({}, '', '/release-notes')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }}
+      />
       <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </>
   )
