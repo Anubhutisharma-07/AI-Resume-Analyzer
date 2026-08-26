@@ -520,7 +520,6 @@ function App() {
       // than the query string so it does not follow the id into those logs.
       // See #706.
       const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
-
       let result = null
       while (true) {
         const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
@@ -1104,7 +1103,6 @@ function App() {
               )}
             </label>
           </div>
- main
           <div
             style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
             className="mb-3"
