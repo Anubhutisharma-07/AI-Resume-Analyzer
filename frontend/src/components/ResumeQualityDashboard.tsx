@@ -12,7 +12,6 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
 import './ResumeQualityDashboard.css';
 
 // ===== Role Skill Database =====
@@ -319,7 +318,6 @@ function loadHistory(): HistoryEntry[] {
 
 // ===== Component =====
 export function ResumeQualityDashboard() {
-  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [resumeText, setResumeText] = useState('');
   const [isDragging, setIsDragging] = useState(false);

@@ -32,8 +32,6 @@ import { setResumeRoastConsent } from './utils/cookieConsent'
 import { ReadinessDisplay } from './components/ReadinessDisplay'
 import { calculateReadinessScore } from './utils/readinessEngine'
 
-import { SkillGapMatrix } from './components/SkillGapMatrix'
-import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
