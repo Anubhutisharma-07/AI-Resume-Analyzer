@@ -967,14 +967,49 @@ function App() {
                 boxSizing: 'border-box',
               }}
             />
-            {jobDescription && (
-              <div
+            {(() => {
+              const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
+              if (wordCount > 0 && wordCount < 50) {
+                return (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                      border: '1px solid rgba(234, 179, 8, 0.3)',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      color: '#facc15',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '6px',
+                fontSize: '0.75rem',
+              }}
+            >
+              <span
                 style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginTop: '6px',
+                  color: isOver ? '#ef4444' : (isClose ? '#f97316' : 'var(--muted-text, #94a3b8)'),
+                  fontWeight: isOver ? 'bold' : 'normal',
+                  opacity: isOver || isClose ? 1 : 0.8,
                 }}
               >
+                {jobDescription.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
+              </span>
+              {jobDescription && (
                 <button
                   type="button"
                   onClick={() => setJobDescription('')}
@@ -982,17 +1017,16 @@ function App() {
                     background: 'none',
                     border: 'none',
                     color: 'var(--muted-text, #94a3b8)',
-                    fontSize: '0.75rem',
                     cursor: 'pointer',
                     textDecoration: 'underline',
+                    padding: 0,
                   }}
                 >
                   Clear Draft
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
- main
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
             onDragOver={(e) => {

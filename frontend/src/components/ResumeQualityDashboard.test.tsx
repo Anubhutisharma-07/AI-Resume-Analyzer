@@ -25,7 +25,7 @@ describe('ResumeQualityDashboard', () => {
 
   it('renders the dashboard header', () => {
     render(<ResumeQualityDashboard />);
-    expect(screen.getByText(/Resume Quality Dashboard/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: /Resume Quality Dashboard/i })).toBeTruthy();
     expect(screen.getByText(/Quality Intelligence Engine v1.0/)).toBeTruthy();
   });
 
