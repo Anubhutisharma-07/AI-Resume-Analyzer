@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { X, GitCompare, TrendingUp, TrendingDown, Minus, Download, Loader2 } from 'lucide-react'
 import type { AnalysisEntry } from '../../hooks/useAnalysisHistory'
 import { useCompareVersions } from '../../hooks/useCompareVersions'
@@ -21,8 +21,34 @@ function isComparable(entry: AnalysisEntry) {
   return /^\d+$/.test(entry.id)
 }
 
-export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token, username, onClose }) => {
-  const [activeTab, setActiveTab] = useState<'versions' | 'uploads' | 'bulk_jds'>('versions')
+/**
+ * The three views this dialog switches between.
+ *
+ * Declared as data rather than three hand-written `<button>`s because every
+ * tab needs the same five attributes wired to the same two ids, and the
+ * previous copy-pasted version got the wiring wrong in the same way three
+ * times over.
+ */
+const TABS = [
+  { id: 'versions', label: 'Versions History' },
+  { id: 'uploads', label: 'Compare Local Files' },
+  { id: 'bulk_jds', label: 'Bulk Job Descriptions' },
+] as const
+
+type TabId = (typeof TABS)[number]['id']
+
+const tabButtonId = (id: TabId) => `compare-tab-${id}`
+const tabPanelId = (id: TabId) => `compare-tabpanel-${id}`
+
+export const CompareVersions: React.FC<CompareVersionsProps> = ({
+  entries,
+  token,
+  username,
+  onClose,
+}) => {
+  const [activeTab, setActiveTab] = useState<TabId>('versions')
+  // One ref per tab so arrow-key navigation can move focus, not just selection.
+  const tabRefs = useRef<Partial<Record<TabId, HTMLButtonElement | null>>>({})
   const comparable = entries.filter(isComparable)
   const [olderId, setOlderId] = useState(comparable[1]?.id ?? '')
   const [newerId, setNewerId] = useState(comparable[0]?.id ?? '')
@@ -32,6 +58,34 @@ export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token
   const handleCompare = () => {
     if (!olderId || !newerId) return
     compare(olderId, newerId)
+  }
+
+  /**
+   * Left/Right/Home/End move between tabs, per the WAI-ARIA tabs pattern.
+   *
+   * The tablist is a single tab stop (see the roving `tabIndex` below), so
+   * without this the second and third views are unreachable from the keyboard
+   * entirely — Tab now skips straight past the row to the controls inside the
+   * panel.
+   *
+   * Selection follows focus, which is the right choice here: switching tab
+   * renders an already-loaded local component and fires no request, so there
+   * is nothing expensive to trigger by arrowing through.
+   */
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    const current = TABS.findIndex((tab) => tab.id === activeTab)
+    let next = current
+
+    if (event.key === 'ArrowRight') next = (current + 1) % TABS.length
+    else if (event.key === 'ArrowLeft') next = (current - 1 + TABS.length) % TABS.length
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = TABS.length - 1
+    else return
+
+    event.preventDefault()
+    const nextTab = TABS[next].id
+    setActiveTab(nextTab)
+    tabRefs.current[nextTab]?.focus()
   }
 
   const scoreIcon =
@@ -55,226 +109,210 @@ export const CompareVersions: React.FC<CompareVersionsProps> = ({ entries, token
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--surface-border)', marginBottom: '16px', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setActiveTab('versions')}
-            style={{
-              padding: '8px 12px',
-              border: 'none',
-              background: 'none',
-              color: activeTab === 'versions' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
-              borderBottom: activeTab === 'versions' ? '2px solid var(--color-primary, #6366f1)' : 'none',
-              fontWeight: 600,
-              fontSize: '13.5px',
-              cursor: 'pointer'
-            }}
-          >
-            Versions History
-          </button>
-          <button
-            onClick={() => setActiveTab('uploads')}
-            style={{
-              padding: '8px 12px',
-              border: 'none',
-              background: 'none',
-              color: activeTab === 'uploads' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
-              borderBottom: activeTab === 'uploads' ? '2px solid var(--color-primary, #6366f1)' : 'none',
-              fontWeight: 600,
-              fontSize: '13.5px',
-              cursor: 'pointer'
-            }}
-          >
-            Compare Local Files
-          </button>
-          <button
-            onClick={() => setActiveTab('bulk_jds')}
-            style={{
-              padding: '8px 12px',
-              border: 'none',
-              background: 'none',
-              color: activeTab === 'bulk_jds' ? 'var(--color-primary, #6366f1)' : 'var(--text-secondary, #94a3b8)',
-              borderBottom: activeTab === 'bulk_jds' ? '2px solid var(--color-primary, #6366f1)' : 'none',
-              fontWeight: 600,
-              fontSize: '13.5px',
-              cursor: 'pointer'
-            }}
-          >
-            Bulk Job Descriptions
-          </button>
+        <div className="compare-tablist" role="tablist" aria-label="Comparison view">
+          {TABS.map((tab) => {
+            const selected = tab.id === activeTab
+            return (
+              <button
+                key={tab.id}
+                ref={(node) => {
+                  tabRefs.current[tab.id] = node
+                }}
+                id={tabButtonId(tab.id)}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={tabPanelId(tab.id)}
+                // Roving tabIndex: only the selected tab is in the tab order,
+                // so the whole row costs one Tab press instead of three.
+                tabIndex={selected ? 0 : -1}
+                className="compare-tab"
+                onClick={() => setActiveTab(tab.id)}
+                onKeyDown={handleTabKeyDown}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
-        {activeTab === 'uploads' ? (
-          <CompareUploads
-            onClose={onClose}
-            targetRole={entries[0]?.targetRole || 'Frontend Developer'}
-            isEmbed={true}
-          />
-        ) : activeTab === 'bulk_jds' ? (
-          <CompareBulkJds
-            onClose={onClose}
-            username={username}
-            isEmbed={true}
-          />
-        ) : !token ? (
-          <p className="compare-empty">Sign in to compare your saved resume versions.</p>
-        ) : comparable.length < 2 ? (
-          <p className="compare-empty">
-            You need at least two saved analyses to compare. Upload and analyze another version of
-            your resume first.
-          </p>
-        ) : (
-          <>
-            <div className="compare-picker-row">
-              <div className="compare-picker">
-                <label htmlFor="compare-older">Older version</label>
-                <select
-                  id="compare-older"
-                  value={olderId}
-                  onChange={(e) => setOlderId(e.target.value)}
-                >
-                  {comparable.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.fileName} · {entry.score}% ·{' '}
-                      {new Date(entry.timestamp).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="compare-picker">
-                <label htmlFor="compare-newer">Newer version</label>
-                <select
-                  id="compare-newer"
-                  value={newerId}
-                  onChange={(e) => setNewerId(e.target.value)}
-                >
-                  {comparable.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.fileName} · {entry.score}% ·{' '}
-                      {new Date(entry.timestamp).toLocaleDateString()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                className="app-btn app-btn--accent"
-                onClick={handleCompare}
-                disabled={loading || olderId === newerId}
-              >
-                {loading ? <Loader2 size={15} className="spin" /> : <GitCompare size={15} />}
-                Compare
-              </button>
-            </div>
-
-            {olderId === newerId && (
-              <p className="compare-warning">Choose two different versions.</p>
-            )}
-            {error && <p className="compare-warning">{error}</p>}
-
-            {comparison && (
-              <div className="compare-results">
-                <div className="compare-score-banner">
-                  {scoreIcon}
-                  <span className="compare-score-old">{comparison.older_score}%</span>
-                  <span className="compare-score-arrow">&rarr;</span>
-                  <span className="compare-score-new">{comparison.newer_score}%</span>
-                  <span
-                    className={`compare-score-delta ${
-                      comparison.score_delta > 0
-                        ? 'is-positive'
-                        : comparison.score_delta < 0
-                          ? 'is-negative'
-                          : ''
-                    }`}
+        <div
+          id={tabPanelId(activeTab)}
+          role="tabpanel"
+          aria-labelledby={tabButtonId(activeTab)}
+          // Focusable so that moving past the tablist lands in the panel the
+          // tab controls rather than somewhere arbitrary in the dialog.
+          tabIndex={0}
+          className="compare-tabpanel"
+        >
+          {activeTab === 'uploads' ? (
+            <CompareUploads
+              onClose={onClose}
+              targetRole={entries[0]?.targetRole || 'Frontend Developer'}
+              isEmbed={true}
+            />
+          ) : activeTab === 'bulk_jds' ? (
+            <CompareBulkJds onClose={onClose} username={username} isEmbed={true} />
+          ) : !token ? (
+            <p className="compare-empty">Sign in to compare your saved resume versions.</p>
+          ) : comparable.length < 2 ? (
+            <p className="compare-empty">
+              You need at least two saved analyses to compare. Upload and analyze another version of
+              your resume first.
+            </p>
+          ) : (
+            <>
+              <div className="compare-picker-row">
+                <div className="compare-picker">
+                  <label htmlFor="compare-older">Older version</label>
+                  <select
+                    id="compare-older"
+                    value={olderId}
+                    onChange={(e) => setOlderId(e.target.value)}
                   >
-                    {comparison.score_delta > 0 ? '+' : ''}
-                    {comparison.score_delta} pts
-                  </span>
-                </div>
-
-                <div className="compare-section">
-                  <h4>AI-Generated Insights</h4>
-                  <ul className="compare-insight-list">
-                    {comparison.insights.map((insight, i) => (
-                      <li key={i}>{insight}</li>
+                    {comparable.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.fileName} · {entry.score}% ·{' '}
+                        {new Date(entry.timestamp).toLocaleDateString()}
+                      </option>
                     ))}
-                  </ul>
+                  </select>
                 </div>
-
-                <div className="compare-skill-grid">
-                  <div>
-                    <h5 className="is-positive">Added Skills</h5>
-                    {comparison.added_skills.length === 0 ? (
-                      <p className="compare-none">None</p>
-                    ) : (
-                      <div className="compare-badges">
-                        {comparison.added_skills.map((s) => (
-                          <span key={s} className="badge bg-success">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <h5 className="is-negative">Removed Skills</h5>
-                    {comparison.removed_skills.length === 0 ? (
-                      <p className="compare-none">None</p>
-                    ) : (
-                      <div className="compare-badges">
-                        {comparison.removed_skills.map((s) => (
-                          <span key={s} className="badge bg-danger">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <h5>Still Missing For Role</h5>
-                    {comparison.still_missing_skills.length === 0 ? (
-                      <p className="compare-none">None</p>
-                    ) : (
-                      <div className="compare-badges">
-                        {comparison.still_missing_skills.map((s) => (
-                          <span key={s} className="badge bg-secondary">
-                            {s}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                <div className="compare-picker">
+                  <label htmlFor="compare-newer">Newer version</label>
+                  <select
+                    id="compare-newer"
+                    value={newerId}
+                    onChange={(e) => setNewerId(e.target.value)}
+                  >
+                    {comparable.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.fileName} · {entry.score}% ·{' '}
+                        {new Date(entry.timestamp).toLocaleDateString()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <button
+                  className="app-btn app-btn--accent"
+                  onClick={handleCompare}
+                  disabled={loading || olderId === newerId}
+                >
+                  {loading ? <Loader2 size={15} className="spin" /> : <GitCompare size={15} />}
+                  Compare
+                </button>
+              </div>
 
-                {comparison.text_diff.length > 0 && (
+              {olderId === newerId && (
+                <p className="compare-warning">Choose two different versions.</p>
+              )}
+              {error && <p className="compare-warning">{error}</p>}
+
+              {comparison && (
+                <div className="compare-results">
+                  <div className="compare-score-banner">
+                    {scoreIcon}
+                    <span className="compare-score-old">{comparison.older_score}%</span>
+                    <span className="compare-score-arrow">&rarr;</span>
+                    <span className="compare-score-new">{comparison.newer_score}%</span>
+                    <span
+                      className={`compare-score-delta ${
+                        comparison.score_delta > 0
+                          ? 'is-positive'
+                          : comparison.score_delta < 0
+                            ? 'is-negative'
+                            : ''
+                      }`}
+                    >
+                      {comparison.score_delta > 0 ? '+' : ''}
+                      {comparison.score_delta} pts
+                    </span>
+                  </div>
+
                   <div className="compare-section">
-                    <h4>Content Changes</h4>
-                    <div className="compare-text-diff">
-                      {comparison.text_diff.map((line, i) => (
-                        <div
-                          key={i}
-                          className={`compare-diff-line compare-diff-line--${line.type}`}
-                        >
-                          {line.type === 'added' ? '+ ' : '- '}
-                          {line.text}
-                        </div>
+                    <h4>AI-Generated Insights</h4>
+                    <ul className="compare-insight-list">
+                      {comparison.insights.map((insight, i) => (
+                        <li key={i}>{insight}</li>
                       ))}
+                    </ul>
+                  </div>
+
+                  <div className="compare-skill-grid">
+                    <div>
+                      <h5 className="is-positive">Added Skills</h5>
+                      {comparison.added_skills.length === 0 ? (
+                        <p className="compare-none">None</p>
+                      ) : (
+                        <div className="compare-badges">
+                          {comparison.added_skills.map((s) => (
+                            <span key={s} className="badge bg-success">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h5 className="is-negative">Removed Skills</h5>
+                      {comparison.removed_skills.length === 0 ? (
+                        <p className="compare-none">None</p>
+                      ) : (
+                        <div className="compare-badges">
+                          {comparison.removed_skills.map((s) => (
+                            <span key={s} className="badge bg-danger">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h5>Still Missing For Role</h5>
+                      {comparison.still_missing_skills.length === 0 ? (
+                        <p className="compare-none">None</p>
+                      ) : (
+                        <div className="compare-badges">
+                          {comparison.still_missing_skills.map((s) => (
+                            <span key={s} className="badge bg-secondary">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
 
-                <div className="compare-actions">
-                  <button
-                    className="app-btn app-btn--secondary"
-                    onClick={() => exportComparisonPdf(comparison)}
-                  >
-                    <Download size={15} /> Export Report as PDF
-                  </button>
+                  {comparison.text_diff.length > 0 && (
+                    <div className="compare-section">
+                      <h4>Content Changes</h4>
+                      <div className="compare-text-diff">
+                        {comparison.text_diff.map((line, i) => (
+                          <div
+                            key={i}
+                            className={`compare-diff-line compare-diff-line--${line.type}`}
+                          >
+                            {line.type === 'added' ? '+ ' : '- '}
+                            {line.text}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="compare-actions">
+                    <button
+                      className="app-btn app-btn--secondary"
+                      onClick={() => exportComparisonPdf(comparison)}
+                    >
+                      <Download size={15} /> Export Report as PDF
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
