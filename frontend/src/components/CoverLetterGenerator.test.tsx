@@ -19,7 +19,7 @@ describe('CoverLetterGenerator', () => {
 
   it('renders the generator header', () => {
     render(<CoverLetterGenerator />);
-    expect(screen.getByText(/Cover Letter Generator/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: /Cover Letter Generator/i })).toBeTruthy();
     expect(screen.getByText(/AI-Powered Template Engine v1.0/)).toBeTruthy();
   });
 
