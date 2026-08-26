@@ -807,6 +807,34 @@ h3 {
   color: #60a5fa;
 }
 
+/* One-line summary of where the history has got to, above the score chart.
+ * The three tones differ by icon and by the word/sign in the label as well as
+ * by colour, so the direction survives a greyscale render. */
+.resume-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.resume-streak-badge.is-up {
+  color: var(--success-color, #16a34a);
+}
+
+.resume-streak-badge.is-down {
+  color: var(--danger-color, #b91c1c);
+}
+
+.resume-streak-badge.is-flat {
+  color: var(--muted-text, #94a3b8);
+}
+
 .history-empty {
   display: flex;
   flex-direction: column;

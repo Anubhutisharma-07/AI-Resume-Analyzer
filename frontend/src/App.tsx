@@ -8,10 +8,10 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory } from './hooks/useAnalysisHistory'
-import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
-import { HistorySidebar } from './HistorySidebar'
+import { useAnalysisHistory, type AnalysisEntry, type PartialSkillItem } from './hooks/useAnalysisHistory'
+import { HistorySidebar, type JobBookmark } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
+import { BulkResumeAnalysisModal } from './components/BulkResumeAnalysisModal'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
 import { analysisTokenHeaders } from './utils/analysisToken'
@@ -32,8 +32,8 @@ import { ExperienceLevelSelector } from './components/ExperienceLevelSelector'
 import { estimateExperienceFromText } from './utils/experienceParser'
 import type { ExperienceLevel } from './utils/experienceParser'
 import { setResumeRoastConsent } from './utils/cookieConsent'
-import { SkillGapMatrix } from './components/SkillGapMatrix'
-import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
+// import { SkillGapMatrix } from './components/SkillGapMatrix'
+// import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -257,6 +257,58 @@ function App() {
   // Auth
   const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+
+  const [bookmarks, setBookmarks] = useState<JobBookmark[]>([])
+
+  useEffect(() => {
+    const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+    try {
+      const data = localStorage.getItem(storageKey)
+      setBookmarks(data ? JSON.parse(data) : [])
+    } catch {
+      setBookmarks([])
+    }
+  }, [user])
+
+  // const saveJobBookmark = () => {
+  //   if (!jobDescription.trim()) return
+  //   const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
+  //   if (!name) return
+
+  //   const newBookmark: JobBookmark = {
+  //     id: Math.random().toString(36).substring(2, 9),
+  //     name: name.trim(),
+  //     role: targetRole,
+  //     experienceLevel: experienceLevel,
+  //     jobDescription: jobDescription.trim(),
+  //     timestamp: Date.now()
+  //   }
+
+  //   setBookmarks((prev) => {
+  //     const updated = [newBookmark, ...prev]
+  //     const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+  //     try {
+  //       localStorage.setItem(storageKey, JSON.stringify(updated))
+  //     } catch (e) {
+  //       console.error('Failed to save bookmarks', e)
+  //     }
+  //     return updated
+  //   })
+  //   alert('Job bookmark saved successfully!')
+  // }
+
+  const deleteJobBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.filter((b) => b.id !== id)
+      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+      } catch (e) {
+        console.error('Failed to delete bookmark', e)
+      }
+      return updated
+    })
+  }
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
@@ -274,6 +326,8 @@ function App() {
   const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
+  // Modal for bulk resume analysis (#57)
+  const [showBulkModal, setShowBulkModal] = useState(false)
 
   const fetchDbHistory = useCallback(async () => {
     try {
@@ -375,7 +429,15 @@ function App() {
   // }
 
   useEffect(() => {
-    if (user) fetchDbHistory()
+    if (user) {
+      fetchDbHistory()
+      return
+    }
+    // The session ended. `useAnalysisHistory` drops the entries and clears
+    // storage on its own, but the "load more" cursor lives here, and a URL
+    // pointing at page 2 of the previous account's history must not survive
+    // into the next one (#864).
+    setHistoryNextUrl(null)
   }, [user, fetchDbHistory])
 
   useEffect(() => {
@@ -433,6 +495,7 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
+      formData.append('experience_level', experienceLevel)
       if (jobDescription.trim()) {
         formData.append('job_description', jobDescription.trim())
       }
@@ -738,6 +801,14 @@ function App() {
         onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
+        isLoggedIn={!!user}
+        bookmarks={bookmarks}
+        onSelectBookmark={(b) => {
+          setTargetRole(b.role)
+          setExperienceLevel(b.experienceLevel)
+          setJobDescription(b.jobDescription)
+        }}
+        onDeleteBookmark={deleteJobBookmark}
       />
       {showCompare && (
         <CompareVersions
@@ -745,6 +816,14 @@ function App() {
           token={user?.token}
           username={user?.username}
           onClose={() => setShowCompare(false)}
+        />
+      )}
+      {showBulkModal && (
+        <BulkResumeAnalysisModal
+          onClose={() => setShowBulkModal(false)}
+          initialTargetRole={targetRole}
+          initialExperienceLevel={experienceLevel}
+          initialJobDescription={jobDescription}
         />
       )}
       <div className="container mt-5">
@@ -857,11 +936,7 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label
                     htmlFor="roleSelect"
-                    style={{
-                      fontWeight: '600',
-                      fontSize: '0.85rem',
-                      color: 'var(--heading-text, #fff)',
-                    }}
+                    style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
                   >
                     Target Career Track:
                   </label>
@@ -931,16 +1006,7 @@ function App() {
                       gap: '6px',
                     }}
                   >
-                    💼 Target Job Description{' '}
-                    <span
-                      style={{
-                        fontSize: '0.8rem',
-                        fontWeight: 'normal',
-                        color: 'var(--muted-text, #94a3b8)',
-                      }}
-                    >
-                      (Optional)
-                    </span>
+                    💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
                   </label>
                   {isDraftSaved && (
                     <span
@@ -956,7 +1022,7 @@ function App() {
                     </span>
                   )}
                 </div>
-                 <textarea
+                <textarea
                   id="jobDescriptionInput"
                   className="custom-textarea"
                   placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
@@ -973,9 +1039,7 @@ function App() {
                   }}
                 />
                 {(() => {
-                  const wordCount = jobDescription.trim()
-                    ? jobDescription.trim().split(/\s+/).length
-                    : 0
+                  const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
                   if (wordCount > 0 && wordCount < 50) {
                     return (
                       <div
@@ -992,15 +1056,11 @@ function App() {
                           gap: '6px',
                         }}
                       >
-                        ⚠️{' '}
-                        <span>
-                          Friendly tip: Very short job descriptions might yield less accurate
-                          analysis. Consider pasting the full description!
-                        </span>
+                        ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
                       </div>
-                    )
+                    );
                   }
-                  return null
+                  return null;
                 })()}
                 <div
                   style={{
@@ -1082,10 +1142,9 @@ function App() {
                     color: 'var(--heading-text, #fff)',
                   }}
                 >
-                  Upload Your Resume
+                  Upload Document
                 </h3>
               </div>
-
               <div
                 className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
                 onDragOver={(e) => {
@@ -1147,14 +1206,9 @@ function App() {
                   {file ? (
                     <span
                       className="upload-text-secondary"
-                      style={{
-                        display: 'block',
-                        marginTop: '4px',
-                        fontWeight: '600',
-                        color: '#4ade80',
-                      }}
+                      style={{ display: 'block', marginTop: '4px' }}
                     >
-                      ✓ Selected: {file.name}
+                      Selected: {file.name}
                     </span>
                   ) : uploadError ? (
                     <span
@@ -1164,23 +1218,13 @@ function App() {
                       {uploadError}
                     </span>
                   ) : (
-                    <span className="upload-text-secondary">
-                      {describeUploadLimits(MAX_FILE_SIZE)}
-                    </span>
+                    <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
                   )}
                 </label>
               </div>
-
-              {/* Action Buttons */}
               <div
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  marginTop: '16px',
-                }}
+                style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
+                className="mb-3"
               >
                 <button
                   className="analyze-btn"
@@ -1213,10 +1257,19 @@ function App() {
                       ? `Retry available in ${cooldownRemaining}s`
                       : 'Try Sample Resume'}
                 </button>
+                <button
+                  className="secondary-btn"
+                  onClick={() => setShowBulkModal(true)}
+                  disabled={loading}
+                  type="button"
+                  title="Upload and analyze multiple resumes at once"
+                  style={{ padding: '12px 20px', fontSize: '0.95rem' }}
+                >
+                  📂 Bulk Analysis
+                </button>
               </div>
             </div>
-          </div>
-          {/* Loading spinner — shown while the resume is being analyzed */}
+          </div>{/* Loading spinner — shown while the resume is being analyzed */}
           {loading && (
             <div
               className="loader"
