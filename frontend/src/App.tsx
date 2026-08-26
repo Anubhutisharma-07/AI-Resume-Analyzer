@@ -165,6 +165,8 @@ function App() {
 
   // Job Description Character Limit (#750)
   const MAX_CHARS = 2000
+  const isClose = jobDescription.length >= MAX_CHARS * 0.9
+  const isOver = jobDescription.length > MAX_CHARS
 
   useEffect(() => {
     const timer = setTimeout(() => {
