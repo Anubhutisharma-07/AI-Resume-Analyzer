@@ -785,6 +785,8 @@ function App() {
             />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
+ feature/document-semver-process-756
+
           {/* Role and Experience Level Selectors */}
           <div className="mb-4 d-flex flex-wrap gap-3 align-items-center justify-content-center">
             <div className="d-flex align-items-center">
@@ -914,6 +916,7 @@ function App() {
               </div>
             )}
           </div>
+ main
           <div
             className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
             onDragOver={(e) => {
