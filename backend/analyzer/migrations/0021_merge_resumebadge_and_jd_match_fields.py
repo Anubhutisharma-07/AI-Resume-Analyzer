@@ -14,6 +14,14 @@ touches the loader failed on ``main`` with:
 
 This migration has no operations. Its only job is to depend on both leaves so
 there is a single tip again. It is what ``makemigrations --merge`` generates.
+
+A second, byte-identical merge — ``0021_merge_0020_merge_20260824_0025_0020_-
+resumebadge`` — was committed from another branch for the same collision, which
+put the graph straight back into the state this file was written to fix. That
+duplicate has been deleted (#862); this file is the surviving merge. If you hit
+the leaf-node error again, check whether somebody else has already committed a
+merge before adding one — ``makemigrations --merge`` will happily write a
+second one that depends on exactly the same pair.
 """
 
 from django.db import migrations
