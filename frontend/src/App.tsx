@@ -789,23 +789,6 @@ function App() {
             />
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
- feature/auto-detect-experience-759
-
-          {/* Role and Experience Level Selectors */}
-          <div
-            className="role-selector-container mb-4 p-3 d-flex flex-wrap gap-3 align-items-center justify-content-center"
-            style={{
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1.5px solid var(--surface-border)',
-              borderRadius: 'var(--radius-lg)',
-              maxWidth: '680px',
-              margin: '0 auto var(--space-4)',
-            }}
-          >
-            Optimize your resume for Applicant Tracking Systems in 3 simple steps: choose your
-            target career track, upload your resume, and get actionable scoring.
-          </div>
- main
           <div
             className="upload-flow-container"
             style={{
@@ -909,15 +892,7 @@ function App() {
                   />
                   <label
                     htmlFor="experienceLevelSelect"
- feature/auto-detect-experience-759
                     style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-
-                    style={{
-                      fontWeight: '600',
-                      fontSize: '0.85rem',
-                      color: 'var(--heading-text, #fff)',
-                    }}
- main
                   >
                     Experience Level:
                   </label>
