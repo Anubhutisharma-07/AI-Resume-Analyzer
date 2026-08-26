@@ -152,7 +152,7 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
           }`}
           aria-label={`Character count: ${characterCount} out of ${maxCharacters}`}
         >
-          {characterCount}/{maxCharacters}
+          {characterCount.toLocaleString()}/{maxCharacters.toLocaleString()}
         </div>
       </div>
     </div>

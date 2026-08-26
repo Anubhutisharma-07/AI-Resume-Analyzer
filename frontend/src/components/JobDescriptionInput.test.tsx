@@ -34,7 +34,7 @@ describe('JobDescriptionInput Component', () => {
 
     expect(screen.getByText('Target Job Description')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Paste or type the core engineering skills/i)).toBeInTheDocument();
-    expect(screen.getByText('0/2000')).toBeInTheDocument();
+    expect(screen.getByText('0/2,000')).toBeInTheDocument();
   });
 
   it('shows Paste from Clipboard button when clipboard API is supported', () => {
@@ -153,7 +153,7 @@ describe('JobDescriptionInput Component', () => {
   it('triggers onChange callback when text is entered via keyboard', () => {
     render(<JobDescriptionInput value="Initial text" onChange={mockOnChange} maxCharacters={2000} />);
 
-    expect(screen.getByText('12/2000')).toBeInTheDocument();
+    expect(screen.getByText('12/2,000')).toBeInTheDocument();
 
     const textarea = screen.getByPlaceholderText(/Paste or type the core engineering skills/i);
     fireEvent.change(textarea, { target: { value: 'New text entered' } });
