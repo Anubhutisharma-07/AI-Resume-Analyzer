@@ -386,8 +386,8 @@ export function CoverLetterGenerator() {
       {/* Config Row */}
       <div className="clg-config-row">
         <div className="clg-config-field">
-          <label>Target Role</label>
-          <select value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
+          <label htmlFor="clgTargetRole">Target Role</label>
+          <select id="clgTargetRole" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
             <option>Software Engineer</option>
             <option>Data Analyst</option>
             <option>Product Manager</option>
@@ -401,16 +401,17 @@ export function CoverLetterGenerator() {
           </select>
         </div>
         <div className="clg-config-field">
-          <label>Tone</label>
-          <select value={tone} onChange={(e) => setTone(e.target.value)}>
+          <label htmlFor="clgTone">Tone</label>
+          <select id="clgTone" value={tone} onChange={(e) => setTone(e.target.value)}>
             {Object.keys(TONE_PRESETS).map((k) => (
               <option key={k} value={k}>{TONE_PRESETS[k].label} — {TONE_PRESETS[k].description}</option>
             ))}
           </select>
         </div>
         <div className="clg-config-field">
-          <label>Company Name (optional)</label>
+          <label htmlFor="clgCompany">Company Name (optional)</label>
           <input
+            id="clgCompany"
             type="text"
             placeholder="e.g. Google, Stripe, Acme Inc."
             value={companyName}

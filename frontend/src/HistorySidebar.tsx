@@ -106,8 +106,19 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       // localStorage may be unavailable
     }
   }, [sortMode]);
+
+  // Focus restoration on transition from open to closed
+  const prevIsOpen = useRef(isOpen);
+  useEffect(() => {
+    if (prevIsOpen.current && !isOpen) {
+      triggerRef.current?.focus();
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen]);
+
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const loadMoreTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -124,6 +135,14 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onToggle])
 
+  useEffect(() => {
+    return () => {
+      if (loadMoreTimeoutRef.current) {
+        clearTimeout(loadMoreTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleToggleClick = () => {
     onToggle()
   }
@@ -133,7 +152,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     // once every locally held entry is on screen.
     if (visibleCount < entries.length) {
       setIsLoadingMore(true)
-      setTimeout(() => {
+      loadMoreTimeoutRef.current = setTimeout(() => {
         setVisibleCount((prev) => prev + PAGE_SIZE)
         setIsLoadingMore(false)
       }, 300)
