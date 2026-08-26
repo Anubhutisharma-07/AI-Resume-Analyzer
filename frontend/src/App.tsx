@@ -8,9 +8,8 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory } from './hooks/useAnalysisHistory'
-import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
-import { HistorySidebar } from './HistorySidebar'
+import { useAnalysisHistory, type AnalysisEntry, type PartialSkillItem } from './hooks/useAnalysisHistory'
+import { HistorySidebar, type JobBookmark } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
 import { BulkResumeAnalysisModal } from './components/BulkResumeAnalysisModal'
 import { useAuth } from './hooks/useAuth'
@@ -30,8 +29,8 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
-import { SkillGapMatrix } from './components/SkillGapMatrix'
-import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
+// import { SkillGapMatrix } from './components/SkillGapMatrix'
+// import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
 
 type Theme = 'light' | 'dark'
 
@@ -254,6 +253,58 @@ function App() {
   // Auth
   const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+
+  const [bookmarks, setBookmarks] = useState<JobBookmark[]>([])
+
+  useEffect(() => {
+    const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+    try {
+      const data = localStorage.getItem(storageKey)
+      setBookmarks(data ? JSON.parse(data) : [])
+    } catch {
+      setBookmarks([])
+    }
+  }, [user])
+
+  // const saveJobBookmark = () => {
+  //   if (!jobDescription.trim()) return
+  //   const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
+  //   if (!name) return
+
+  //   const newBookmark: JobBookmark = {
+  //     id: Math.random().toString(36).substring(2, 9),
+  //     name: name.trim(),
+  //     role: targetRole,
+  //     experienceLevel: experienceLevel,
+  //     jobDescription: jobDescription.trim(),
+  //     timestamp: Date.now()
+  //   }
+
+  //   setBookmarks((prev) => {
+  //     const updated = [newBookmark, ...prev]
+  //     const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+  //     try {
+  //       localStorage.setItem(storageKey, JSON.stringify(updated))
+  //     } catch (e) {
+  //       console.error('Failed to save bookmarks', e)
+  //     }
+  //     return updated
+  //   })
+  //   alert('Job bookmark saved successfully!')
+  // }
+
+  const deleteJobBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.filter((b) => b.id !== id)
+      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+      } catch (e) {
+        console.error('Failed to delete bookmark', e)
+      }
+      return updated
+    })
+  }
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
@@ -440,6 +491,7 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
+      formData.append('experience_level', experienceLevel)
       if (jobDescription.trim()) {
         formData.append('job_description', jobDescription.trim())
       }
@@ -734,6 +786,14 @@ function App() {
         onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
+        isLoggedIn={!!user}
+        bookmarks={bookmarks}
+        onSelectBookmark={(b) => {
+          setTargetRole(b.role)
+          setExperienceLevel(b.experienceLevel)
+          setJobDescription(b.jobDescription)
+        }}
+        onDeleteBookmark={deleteJobBookmark}
       />
       {showCompare && (
         <CompareVersions
