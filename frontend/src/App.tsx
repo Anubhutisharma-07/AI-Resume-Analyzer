@@ -374,7 +374,15 @@ function App() {
   // }
 
   useEffect(() => {
-    if (user) fetchDbHistory()
+    if (user) {
+      fetchDbHistory()
+      return
+    }
+    // The session ended. `useAnalysisHistory` drops the entries and clears
+    // storage on its own, but the "load more" cursor lives here, and a URL
+    // pointing at page 2 of the previous account's history must not survive
+    // into the next one (#864).
+    setHistoryNextUrl(null)
   }, [user, fetchDbHistory])
 
   useEffect(() => {
