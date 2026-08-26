@@ -665,6 +665,9 @@ export function ResumeQualityDashboard() {
           </div>
         </>
       )}
+      <footer className="rqd-footer" style={{ marginTop: '2rem', padding: '1rem 0', opacity: 0.5, fontSize: '0.85rem' }}>
+        Resume Quality Dashboard · Part of AI Resume Analyzer · Built with ❤️
+      </footer>
     </div>
   );
 }

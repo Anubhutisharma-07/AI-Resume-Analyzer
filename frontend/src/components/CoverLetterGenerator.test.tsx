@@ -137,7 +137,9 @@ describe('CoverLetterGenerator', () => {
     const toneSelect = screen.getByLabelText('Tone');
     fireEvent.change(toneSelect, { target: { value: 'professional' } });
     fireEvent.click(screen.getByRole('button', { name: /Generate Cover Letter/ }));
-    const letter1 = (screen.getByRole('textbox', { name: '' }) as HTMLTextAreaElement).value;
+    const textareas = screen.getAllByRole('textbox');
+    const outputTextarea = textareas.find(ta => ta.classList.contains('clg-output-text')) as HTMLTextAreaElement;
+    const letter1 = outputTextarea.value;
 
     // Generate with enthusiastic tone
     fireEvent.change(toneSelect, { target: { value: 'enthusiastic' } });
