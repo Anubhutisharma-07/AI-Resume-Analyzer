@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { X, ClipboardList, BookOpen, Trash2, GitCompare, Archive, Check } from 'lucide-react'
 import type { AnalysisEntry } from './hooks/useAnalysisHistory'
 import { ScoreHistoryChart } from './components/ScoreHistoryChart'
+import { ResumeStreakBadge } from './components/ResumeStreakBadge'
 import { downloadBulkReportsZip, type BulkReportItem } from './utils/exportZipReports'
 const PAGE_SIZE = 10
 
@@ -448,6 +449,9 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
               </div>
             ) : (
               <>
+                {/* The chart shows the shape of the history; this says what it
+                  * adds up to. Both read the same `entries`. */}
+                <ResumeStreakBadge analysisHistory={entries} />
                 <ScoreHistoryChart entries={entries} />
                 <ul className="history-list">
                   {sortedEntries.slice(0, visibleCount).map((entry) => {
