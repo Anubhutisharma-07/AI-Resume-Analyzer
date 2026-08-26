@@ -27,6 +27,7 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+import SkillGapAnalyzer from './components/SkillGapAnalyzer'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 
 type Theme = 'light' | 'dark'
@@ -633,6 +634,15 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setHistoryOpen(false)
+  }
+
+  if (location.pathname === '/skill-gap-analyzer') {
+    return (
+      <>
+        <SkillGapAnalyzer />
+        <Footer />
+      </>
+    )
   }
 
   if (location.pathname === '/privacy') {
