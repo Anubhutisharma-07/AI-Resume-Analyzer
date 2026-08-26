@@ -512,14 +512,14 @@ export function ResumeQualityDashboard() {
       {/* Config */}
       <div className="rqd-config-row">
         <div className="rqd-config-field">
-          <label>Target Role</label>
-          <select value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
+          <label htmlFor="rqdTargetRole">Target Role</label>
+          <select id="rqdTargetRole" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
             {Object.keys(ROLE_SKILLS).map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className="rqd-config-field">
-          <label>Experience Level</label>
-          <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)}>
+          <label htmlFor="rqdExpLevel">Experience Level</label>
+          <select id="rqdExpLevel" value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)}>
             <option value="Junior">Junior (0–2 yrs)</option>
             <option value="Mid-Level">Mid-Level (2–5 yrs)</option>
             <option value="Senior">Senior (5+ yrs)</option>
@@ -665,6 +665,9 @@ export function ResumeQualityDashboard() {
           </div>
         </>
       )}
+      <footer className="rqd-footer" style={{ marginTop: '2rem', padding: '1rem 0', opacity: 0.5, fontSize: '0.85rem' }}>
+        Resume Quality Dashboard · Part of AI Resume Analyzer · Built with ❤️
+      </footer>
     </div>
   );
 }
