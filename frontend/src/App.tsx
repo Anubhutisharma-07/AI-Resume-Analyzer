@@ -27,6 +27,7 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+import ResumeCompareDashboard from './components/ResumeCompareDashboard'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 
 type Theme = 'light' | 'dark'
@@ -633,6 +634,15 @@ function App() {
     setShowAllSkills(false)
     setCopied(false)
     setHistoryOpen(false)
+  }
+
+  if (location.pathname === '/resume-compare') {
+    return (
+      <>
+        <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
   }
 
   if (location.pathname === '/privacy') {
