@@ -97,7 +97,8 @@ describe('CoverLetterGenerator', () => {
 
   it('shows character count for resume text', () => {
     render(<CoverLetterGenerator />);
-    expect(screen.getByText('0 characters')).toBeTruthy();
+    const counts = screen.getAllByText('0 characters');
+    expect(counts.length).toBe(2);
     const textarea = screen.getByPlaceholderText(/Paste your resume text here/);
     fireEvent.change(textarea, { target: { value: 'hello world' } });
     expect(screen.getByText('11 characters')).toBeTruthy();
@@ -107,7 +108,7 @@ describe('CoverLetterGenerator', () => {
     render(<CoverLetterGenerator />);
     const jdArea = screen.getByPlaceholderText(/Paste the job description here/);
     fireEvent.change(jdArea, { target: { value: 'We are looking for a software engineer...' } });
-    expect(screen.getByText('40 characters')).toBeTruthy();
+    expect(screen.getByText('41 characters')).toBeTruthy();
   });
 
   it('shows generation history section', () => {

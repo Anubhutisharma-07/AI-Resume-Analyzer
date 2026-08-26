@@ -175,7 +175,8 @@ function analyzeText(text: string): AnalysisResult {
     : 0;
 
   const allSectionNames = Object.keys(SECTION_PATTERNS);
-  const missingSections = allSectionNames.filter((s) => !detectedSections.includes(s));
+  const detectedForMissing = detectSections(text);
+  const missingSections = allSectionNames.filter((s) => !detectedForMissing.includes(s));
 
   return {
     totalWords, totalChars, uniqueKeywords: Object.keys(freq).length,
