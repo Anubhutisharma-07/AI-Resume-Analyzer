@@ -7,11 +7,11 @@ interface JobDescriptionInputProps {
 }
 
 export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
-  value,
+  value = '',
   onChange,
   maxCharacters = 2000,
 }) => {
-  // Support check for the Clipboard API layer
+  const [isFocused, setIsFocused] = useState<boolean>(false);
   const [isClipboardSupported, setIsClipboardSupported] = useState<boolean>(false);
   const [pasteError, setPasteError] = useState<string | null>(null);
 
@@ -21,6 +21,14 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
       setIsClipboardSupported(true);
     }
   }, []);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    // Enforce the strict backend character ceiling boundary right at the input loop
+    if (text.length <= maxCharacters) {
+      onChange(text);
+    }
+  };
 
   const handlePasteFromClipboard = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -61,16 +69,28 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
     }
   };
 
-  const isClose = value.length >= maxCharacters * 0.9;
-  const isOver = value.length > maxCharacters;
+  const characterCount = value.length;
+  const isNearLimit = characterCount >= maxCharacters * 0.9;
+  const isAtLimit = characterCount === maxCharacters;
 
   return (
-    <div className="w-full max-w-2xl rounded-xl border border-slate-200 bg-white p-4 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-      {/* Label and Toolbar Node */}
-      <div className="mb-2 flex items-center justify-between">
-        <label htmlFor="jobDescription" className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <span>💼</span> Target Job Description <span className="text-xs font-normal text-slate-400">(Optional)</span>
-        </label>
+    <div 
+      className={`w-full max-w-2xl rounded-xl border p-4 bg-white shadow-sm transition-all duration-200 ${
+        isFocused 
+          ? 'border-blue-500 ring-1 ring-blue-500/30' 
+          : 'border-slate-200 hover:border-slate-300'
+      }`}
+    >
+      {/* Label and New Redesigned Icon Section */}
+      <div className="mb-2.5 flex items-center justify-between text-slate-700">
+        <div className="flex items-center gap-2">
+          <span className="text-base text-slate-500 flex items-center justify-center">
+            📄
+          </span>
+          <label htmlFor="jobDescription" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            Target Job Description
+          </label>
+        </div>
         
         {/* Quick Paste Context Button */}
         {isClipboardSupported && (
@@ -86,41 +106,53 @@ export const JobDescriptionInput: React.FC<JobDescriptionInputProps> = ({
         )}
       </div>
 
-      {/* Input Core Area */}
+      {/* Input Text Area Wrapper */}
       <div className="relative">
         <textarea
           id="jobDescription"
-          rows={3}
+          rows={6}
           value={value}
-          onChange={(e) => onChange(e.target.value.slice(0, maxCharacters))}
-          placeholder="Paste or type the target engineering role details here..."
-          className="w-full resize-y bg-transparent py-1 text-sm text-slate-800 placeholder-slate-400 focus:outline-none leading-relaxed border border-slate-100 p-2 rounded-lg"
-          style={{ minHeight: '76px' }}
+          onChange={handleTextChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder="Redesigned Placeholder: Paste or type the core engineering skills, requirements, or complete job description profile here to begin analysis..."
+          className="w-full resize-none bg-transparent py-1 text-sm text-slate-800 placeholder-slate-400 focus:outline-none leading-relaxed min-h-[120px]"
         />
       </div>
 
-      {/* Footer System Status Bar */}
-      <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-2 text-xs">
+      {/* Bottom Status Bar holding the validated Character Counter */}
+      <div className="mt-2 flex items-center justify-between border-t border-slate-50 pt-2">
         <div className="flex items-center gap-3">
           {pasteError ? (
-            <span className="font-medium text-amber-600 animate-fadeIn">{pasteError}</span>
+            <span className="text-[11px] font-medium text-amber-600 animate-fadeIn">{pasteError}</span>
           ) : (
-            <span className="text-slate-400">Quick-paste saves time formatting text profiles.</span>
+            <p className="text-[11px] text-slate-400 italic">
+              ATS analytical engine parses keywords automatically below.
+            </p>
           )}
           {value && (
             <button
               type="button"
               onClick={() => onChange('')}
-              className="text-slate-500 hover:text-slate-700 underline focus:outline-none cursor-pointer"
+              className="text-[11px] text-slate-500 hover:text-slate-700 underline focus:outline-none cursor-pointer"
             >
               Clear Draft
             </button>
           )}
         </div>
-        
-        {/* Live Character Limit Counter (#750 Verification Anchor) */}
-        <div className={`font-semibold transition-colors ${isOver ? 'text-rose-600' : isClose ? 'text-amber-600' : 'text-slate-400'}`}>
-          {value.length.toLocaleString()}/{maxCharacters.toLocaleString()}
+
+        {/* Live Character Limit Counter Utility Element */}
+        <div 
+          className={`text-xs font-mono font-bold px-2 py-0.5 rounded transition-colors duration-150 ${
+            isAtLimit 
+              ? 'bg-rose-50 text-rose-600' 
+              : isNearLimit 
+                ? 'bg-amber-50 text-amber-600' 
+                : 'text-slate-400'
+          }`}
+          aria-label={`Character count: ${characterCount} out of ${maxCharacters}`}
+        >
+          {characterCount}/{maxCharacters}
         </div>
       </div>
     </div>

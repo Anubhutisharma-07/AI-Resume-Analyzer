@@ -24,6 +24,7 @@ from .views import (
     social_auth_view,
     profile_avatar_view,
     compare_bulk_jds_view,
+    compare_bulk_resumes_view,
     skills_leaderboard_view,
     unsubscribe_digest_view,
     task_status,
@@ -32,18 +33,19 @@ from .views import (
     manage_webhooks,
     webhook_detail,
     test_webhook,
-    import_jd_url_view,
+    preview_experience_level_view,
 )
 from .badge_views import manage_resume_badge, resume_score_badge
 
 urlpatterns = [
     path("upload/", upload_resume),
-    path("import-jd-url/", import_jd_url_view),
+    path("preview-level/", preview_experience_level_view),
     path("status/<str:task_id>/", task_status),
     path("mock-interview/", mock_interview_view),
     path("compare-uploads/", compare_uploads),
     path("analyze-jd/", analyze_jd_view),
     path("compare-bulk-jds/", compare_bulk_jds_view),
+    path("compare-bulk-resumes/", compare_bulk_resumes_view),
     path("profile/", user_profile_view),
     path("profile/avatar/", profile_avatar_view, name="profile_avatar"),
     path("contact/", contact_us_view),

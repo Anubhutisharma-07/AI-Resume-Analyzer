@@ -32,9 +32,9 @@ describe('JobDescriptionInput Component', () => {
       />
     );
 
-    expect(screen.getByLabelText(/Target Job Description/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Paste or type the target engineering role/i)).toBeInTheDocument();
-    expect(screen.getByText('0/2,000')).toBeInTheDocument();
+    expect(screen.getByText('Target Job Description')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Paste or type the core engineering skills/i)).toBeInTheDocument();
+    expect(screen.getByText('0/2000')).toBeInTheDocument();
   });
 
   it('shows Paste from Clipboard button when clipboard API is supported', () => {
@@ -148,5 +148,30 @@ describe('JobDescriptionInput Component', () => {
     await waitFor(() => {
       expect(screen.getByText('Permission denied or clipboard access blocked.')).toBeInTheDocument();
     });
+  });
+
+  it('triggers onChange callback when text is entered via keyboard', () => {
+    render(<JobDescriptionInput value="Initial text" onChange={mockOnChange} maxCharacters={2000} />);
+
+    expect(screen.getByText('12/2000')).toBeInTheDocument();
+
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering skills/i);
+    fireEvent.change(textarea, { target: { value: 'New text entered' } });
+
+    expect(mockOnChange).toHaveBeenCalledWith('New text entered');
+  });
+
+  it('enforces character ceiling and does not allow typing beyond maxCharacters', () => {
+    render(<JobDescriptionInput value="" onChange={mockOnChange} maxCharacters={10} />);
+
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering skills/i);
+    
+    // Type 9 chars -> allowed
+    fireEvent.change(textarea, { target: { value: '123456789' } });
+    expect(mockOnChange).toHaveBeenCalledWith('123456789');
+
+    // Type 11 chars -> ignored
+    fireEvent.change(textarea, { target: { value: '12345678901' } });
+    expect(mockOnChange).not.toHaveBeenCalledWith('12345678901');
   });
 });

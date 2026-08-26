@@ -262,6 +262,16 @@ Before submitting a PR:
 - Link the related issue.
 - Update 'CHANGELOG.md' if you pull request introduces a notable feature, bug fix, enhancement, or other user-visible change.
 
+### Review Requirements
+
+All pull requests targeting the `main` branch require at least **one approving review** from a contributor before they can be merged. This ensures a human check alongside automated tests to maintain code quality.
+
+#### Exception Process for Urgent Fixes
+In genuinely urgent situations (e.g., critical production bug fixes or security patches), maintainers may bypass the review requirement. To do so, the maintainer should:
+1. Clearly state the urgency and reason for bypassing the review in the PR description.
+2. Ensure all automated tests and CI checks pass.
+3. Post-merge, ideally have another contributor review the merged changes as soon as possible.
+
 ### Updating the Changelog
 
 This project follows the **Keep a Changelog** format.
