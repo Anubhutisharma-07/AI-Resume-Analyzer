@@ -2,14 +2,19 @@
  * CoverLetterGenerator.test.tsx — unit tests for the Cover Letter Generator
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CoverLetterGenerator } from './CoverLetterGenerator';
 
 describe('CoverLetterGenerator', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the generator header', () => {
@@ -67,6 +72,11 @@ describe('CoverLetterGenerator', () => {
     fireEvent.change(textarea, { target: { value: 'Software Engineer with 5 years of experience in React, Python, and SQL.' } });
     const btn = screen.getByRole('button', { name: /Generate Cover Letter/ });
     fireEvent.click(btn);
+
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
 
     // After generation, output section should appear
     expect(screen.getByText(/Generated Cover Letter/)).toBeTruthy();
@@ -137,6 +147,12 @@ describe('CoverLetterGenerator', () => {
     const toneSelect = screen.getByLabelText('Tone');
     fireEvent.change(toneSelect, { target: { value: 'professional' } });
     fireEvent.click(screen.getByRole('button', { name: /Generate Cover Letter/ }));
+
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
     const textareas = screen.getAllByRole('textbox');
     const outputTextarea = textareas.find(ta => ta.classList.contains('clg-output-text')) as HTMLTextAreaElement;
     const letter1 = outputTextarea.value;
@@ -144,6 +160,11 @@ describe('CoverLetterGenerator', () => {
     // Generate with enthusiastic tone
     fireEvent.change(toneSelect, { target: { value: 'enthusiastic' } });
     fireEvent.click(screen.getByRole('button', { name: /Generate Cover Letter/ }));
+
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
 
     // The letter should exist (might be same text due to randomness, but it should be non-empty)
     expect(letter1.length).toBeGreaterThan(100);
