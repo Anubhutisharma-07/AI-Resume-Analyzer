@@ -30,6 +30,7 @@ import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
 import ResumeCompareDashboard from './components/ResumeCompareDashboard'
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
 
@@ -770,6 +771,10 @@ function App() {
     return (
       <>
         <ResumeCompareDashboard />
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
         <Footer />
       </>
     )
