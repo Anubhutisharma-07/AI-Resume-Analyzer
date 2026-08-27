@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Share2, Check, Copy, Link2Off, RefreshCw, ShieldCheck, Eye } from 'lucide-react'
+import { Share2, Check, Copy, Link2Off, RefreshCw, ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import { api } from '../api/client'
 import {
   DEFAULT_LIFETIME_DAYS,
@@ -9,35 +9,29 @@ import {
 } from '../utils/shareLink'
 import './ShareResult.css'
 
-/**
- * Controls for publishing one analysis behind a public link.
- *
- * This component used to render a link unconditionally, built in the browser
- * from a `share_id` the backend assigned to every analysis at creation. That
- * link already worked before it was shown, and there was nothing here — or
- * anywhere else — that could turn it off again (#705).
- *
- * Sharing is now server-side state, so the component reads it rather than
- * assuming it: `GET` on mount, and every button is a request whose response is
- * the new state. Nothing is inferred locally from "the request returned 200",
- * because the server also decides the expiry and can clamp a requested one.
- */
-
 interface ShareResultProps {
   /** Primary key of the analysis. Null while no saved analysis is on screen. */
   analysisId: number | null
 }
 
-/**
- * What has been loaded, and which analysis it was loaded for.
- *
- * Kept as one object so switching analyses cannot render the previous one's
- * link against the new id — the alternative, clearing state in an effect, is a
- * cascading render for something that is really a derived value.
- */
 interface Loaded {
   forId: number
   data: ShareState
+}
+
+interface BadgeState {
+  badge_id: string
+  enabled: boolean
+  /**
+   * Present whether or not the badge is enabled.
+   *
+   * Unlike a revoked share link, a disabled badge keeps its URL and starts
+   * working again the moment it is switched back on — it is paused, not dead.
+   * Rotating is what invalidates a badge URL, and rotating returns the new one.
+   */
+  badge_url: string
+  markdown: string
+  updated_at: string | null
 }
 
 export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
@@ -46,14 +40,16 @@ export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [badge, setBadge] = useState<BadgeState | null>(null)
+  const [badgeCopied, setBadgeCopied] = useState<'url' | 'markdown' | null>(null)
+  const [badgeBusy, setBadgeBusy] = useState(false)
+  const [badgeError, setBadgeError] = useState('')
 
   const endpoint = analysisId === null ? null : `/api/history/${analysisId}/share/`
 
   useEffect(() => {
     if (analysisId === null || !endpoint) return
 
-    // Guards against a stale response overwriting a newer one when the user
-    // switches analyses faster than the requests come back.
     let current = true
 
     api
@@ -61,15 +57,33 @@ export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
       .then((res) => {
         if (current) setLoaded({ forId: analysisId, data: res.data })
       })
-      .catch(() => {
-        // Leave whatever is on screen alone. The share state is not worth an
-        // error banner over the analysis the user actually came to read.
-      })
+      .catch(() => {})
 
     return () => {
       current = false
     }
   }, [analysisId, endpoint])
+
+  useEffect(() => {
+    if (analysisId === null) {
+      setBadge(null)
+      return
+    }
+
+    let current = true
+    api
+      .get<BadgeState>('/api/badge/')
+      .then((res) => {
+        if (current) setBadge(res.data)
+      })
+      .catch(() => {
+        if (current) setBadge(null)
+      })
+
+    return () => {
+      current = false
+    }
+  }, [analysisId])
 
   const run = useCallback(
     async (request: () => Promise<{ data: ShareState }>) => {
@@ -88,8 +102,6 @@ export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
     [analysisId]
   )
 
-  // `forId` is checked rather than trusted: a response for the previous
-  // analysis must not be rendered against the current one.
   const state = loaded && loaded.forId === analysisId ? loaded.data : null
 
   const handleEnable = () =>
@@ -100,6 +112,45 @@ export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
     run(() => api.post<ShareState>(endpoint, { lifetime_days: lifetimeDays, rotate: true }))
 
   const handleRevoke = () => endpoint && run(() => api.delete<ShareState>(endpoint))
+
+  /**
+   * Send a badge change and adopt whatever the server says the state now is.
+   *
+   * The response is the source of truth rather than an optimistic local flip:
+   * rotating changes `badge_id`, `badge_url` and `markdown` together, and
+   * guessing the new UUID client-side is not a thing that can be done.
+   */
+  const runBadge = useCallback(async (body: Record<string, boolean> | null) => {
+    setBadgeBusy(true)
+    setBadgeError('')
+    try {
+      const res =
+        body === null
+          ? await api.delete<BadgeState>('/api/badge/')
+          : await api.post<BadgeState>('/api/badge/', body)
+      setBadge(res.data)
+    } catch {
+      setBadgeError('Could not reach the server. The badge was not changed.')
+    } finally {
+      setBadgeBusy(false)
+    }
+  }, [])
+
+  const handleBadgePublish = () => runBadge({ enabled: true })
+  const handleBadgeRotate = () => runBadge({ rotate: true })
+  const handleBadgeUnpublish = () => runBadge(null)
+
+  const copyBadge = async (kind: 'url' | 'markdown') => {
+    if (!badge) return
+    const value = kind === 'url' ? badge.badge_url : badge.markdown
+    try {
+      await navigator.clipboard?.writeText(value)
+      setBadgeCopied(kind)
+      window.setTimeout(() => setBadgeCopied(null), 2000)
+    } catch {
+      // Clipboard access can be denied by browser permissions; the value remains selectable.
+    }
+  }
 
   const handleCopy = () => {
     if (!state?.share_url) return
@@ -199,6 +250,111 @@ export const ShareResult: React.FC<ShareResultProps> = ({ analysisId }) => {
         <p className="share-error-text" role="alert">
           {error}
         </p>
+      )}
+
+      {badge && (
+        <div className="share-badge-panel mt-4">
+          <div className="share-badge-title">
+            <span aria-hidden="true">🏅</span>
+            <strong>Latest ATS Score Badge</strong>
+            <span className={`share-badge-status${badge.enabled ? '' : ' is-off'}`} role="status">
+              {badge.enabled ? 'Public' : 'Not published'}
+            </span>
+          </div>
+
+          {badge.enabled ? (
+            <>
+              <p className="share-help-text share-badge-blurb">
+                Embed this badge in your GitHub README, portfolio, or personal website. It keeps the
+                same URL and refreshes to your latest ATS score — including scores from analyses you
+                have not run yet.
+              </p>
+
+              <div className="share-badge-preview">
+                <img src={badge.badge_url} alt="Latest ATS score badge" />
+              </div>
+
+              <div className="share-input-group share-badge-row">
+                <input
+                  type="text"
+                  value={badge.badge_url}
+                  readOnly
+                  className="share-url-input"
+                  aria-label="ATS score badge URL"
+                />
+                <button className="share-copy-btn" onClick={() => copyBadge('url')}>
+                  {badgeCopied === 'url' ? <Check size={14} /> : <Copy size={14} />}
+                  {badgeCopied === 'url' ? 'Copied' : 'Copy URL'}
+                </button>
+              </div>
+
+              <div className="share-input-group">
+                <input
+                  type="text"
+                  value={badge.markdown}
+                  readOnly
+                  className="share-url-input"
+                  aria-label="ATS score badge Markdown"
+                />
+                <button className="share-copy-btn" onClick={() => copyBadge('markdown')}>
+                  {badgeCopied === 'markdown' ? <Check size={14} /> : <Copy size={14} />}
+                  {badgeCopied === 'markdown' ? 'Copied' : 'Copy Markdown'}
+                </button>
+              </div>
+
+              <div className="share-actions">
+                <button
+                  className="share-secondary-btn"
+                  onClick={handleBadgeRotate}
+                  disabled={badgeBusy}
+                >
+                  <RefreshCw size={13} /> New badge URL
+                </button>
+                <button
+                  className="share-danger-btn"
+                  onClick={handleBadgeUnpublish}
+                  disabled={badgeBusy}
+                >
+                  <EyeOff size={13} /> Stop publishing
+                </button>
+              </div>
+
+              <p className="share-help-text">
+                <strong>New badge URL</strong> stops every copy of the current one from working, so
+                anywhere you have already embedded it will show a broken image until you replace it.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="share-help-text share-badge-blurb">
+                Your badge is not published. Nobody can load it, and the URL below stays reserved
+                for you — publishing again brings the same address back to life.
+              </p>
+
+              <div className="share-actions">
+                <button
+                  className="share-copy-btn"
+                  onClick={handleBadgePublish}
+                  disabled={badgeBusy}
+                >
+                  <Eye size={14} /> Publish badge
+                </button>
+              </div>
+
+              <p className="share-help-text">
+                A published badge is readable by anyone who has the URL, with no sign-in. It shows
+                your most recent ATS score and nothing else — no file name, no skills, no resume
+                text.
+              </p>
+            </>
+          )}
+
+          {badgeError && (
+            <p className="share-error-text" role="alert">
+              {badgeError}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )
