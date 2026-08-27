@@ -28,7 +28,11 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
+
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
 
@@ -757,6 +761,15 @@ function App() {
     return (
       <>
         <SkillGapAnalyzer />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
         <Footer />
       </>
     )
