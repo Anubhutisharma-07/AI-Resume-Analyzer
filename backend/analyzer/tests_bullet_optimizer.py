@@ -3,9 +3,9 @@ Comprehensive unit and integration tests validating STAR component detection,
 metric preservation, and rewrite quality.
 """
 
-from unittest import skip
-
 from django.test import TestCase
+
+from analyzer.quarantine import skip_while_broken
 from analyzer.bullet_optimizer import BulletOptimizer, BulletAnalysis
 from analyzer.bullet_serializers import BulletOptimizationRequestSerializer
 
@@ -16,12 +16,19 @@ from analyzer.bullet_serializers import BulletOptimizationRequestSerializer
 #: back on without quarantining them would land a red build for bugs this
 #: change is not making.
 #:
-#: Each skip names the issue that tracks the bug. Delete the decorator in the
-#: pull request that fixes it — a quarantine nobody removes is how a suite
-#: goes quiet a second time.
+#: Each quarantine names the issue that tracks its bug and carries a probe for
+#: it, so the test starts running again on its own once the fix lands — in
+#: whatever order these pull requests are merged. See `analyzer/quarantine.py`
+#: for why a plain @skip would outlive its reason here.
 
 class BulletOptimizerTestCase(TestCase):
-    @skip("#915: verb detection does not survive punctuation or a bullet marker")
+    @skip_while_broken(
+        lambda: BulletOptimizer.analyze(
+            "\u2022 Spearheaded a caching layer, cutting API latency by 40%."
+        ).has_action_verb
+        is False,
+        "#915: the bullet marker is read as the first word, so no bullet has a verb",
+    )
     def test_strong_bullet_analysis(self):
         bullet = "Spearheaded a new caching system, reducing API latency by 40%."
         analysis = BulletOptimizer.analyze(bullet)
@@ -32,7 +39,11 @@ class BulletOptimizerTestCase(TestCase):
         self.assertGreaterEqual(analysis.score, 90)
         self.assertEqual(len(analysis.suggestions), 0)
 
-    @skip("#915: a bullet with no verb, no metric and passive voice still scores 50")
+    @skip_while_broken(
+        lambda: BulletOptimizer.analyze("Was responsible for managing the team.").score
+        >= 50,
+        "#915: scoring starts at 50, so the weakest possible bullet reads as a pass",
+    )
     def test_weak_bullet_analysis(self):
         bullet = "Was responsible for managing the team."
         analysis = BulletOptimizer.analyze(bullet)
@@ -43,7 +54,13 @@ class BulletOptimizerTestCase(TestCase):
         self.assertLess(analysis.score, 50)
         self.assertGreater(len(analysis.suggestions), 2)
 
-    @skip("#915: _find_result misses the trailing participial clause")
+    @skip_while_broken(
+        lambda: BulletOptimizer.analyze(
+            "Increased sales by $1.5M and improved retention by 15%."
+        ).star_components["result"]
+        is None,
+        "#915: a result stated as a quantified change is not recognised",
+    )
     def test_metric_extraction(self):
         bullet = "Increased sales by $1.5M and improved retention by 15%."
         analysis = BulletOptimizer.analyze(bullet)
