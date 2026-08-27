@@ -22,7 +22,7 @@ describe('Job Description Draft Auto-Save (#533)', () => {
       </MemoryRouter>
     )
 
-    const textarea = screen.getByPlaceholderText(/Paste job description text here/i) as HTMLTextAreaElement
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering/i) as HTMLTextAreaElement
     expect(textarea.value).toBe('Senior React Developer with TypeScript experience')
   })
 
@@ -33,7 +33,7 @@ describe('Job Description Draft Auto-Save (#533)', () => {
       </MemoryRouter>
     )
 
-    const textarea = screen.getByPlaceholderText(/Paste job description text here/i)
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering/i)
 
     fireEvent.change(textarea, {
       target: { value: 'Python Django Backend Engineer with PostgreSQL' },
@@ -68,7 +68,7 @@ describe('Job Description Draft Auto-Save (#533)', () => {
     })
 
     expect(localStorage.getItem('jd_draft')).toBeNull()
-    const textarea = screen.getByPlaceholderText(/Paste job description text here/i) as HTMLTextAreaElement
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering/i) as HTMLTextAreaElement
     expect(textarea.value).toBe('')
   })
 
@@ -79,7 +79,7 @@ describe('Job Description Draft Auto-Save (#533)', () => {
       </MemoryRouter>
     )
 
-    const textarea = screen.getByPlaceholderText(/Paste job description text here/i)
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering/i)
 
     // Type a short JD (5 words)
     fireEvent.change(textarea, {
@@ -95,5 +95,22 @@ describe('Job Description Draft Auto-Save (#533)', () => {
     })
 
     expect(screen.queryByText(/Friendly tip: Very short job descriptions/i)).not.toBeInTheDocument()
+  })
+
+  it('renders character counter and updates live', () => {
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText('0/2,000')).toBeInTheDocument()
+
+    const textarea = screen.getByPlaceholderText(/Paste or type the core engineering/i)
+    fireEvent.change(textarea, {
+      target: { value: 'A'.repeat(150) },
+    })
+
+    expect(screen.getByText('150/2,000')).toBeInTheDocument()
   })
 })
