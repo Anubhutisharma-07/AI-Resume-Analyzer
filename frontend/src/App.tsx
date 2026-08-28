@@ -30,6 +30,7 @@ import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
 import InterviewPrepCoach from './components/InterviewPrepCoach'
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
 
@@ -588,6 +589,7 @@ function App() {
     }
   }
 
+
   const uploadResume = async () => {
     if (!file) {
       alert('Please upload resume')
@@ -770,6 +772,10 @@ function App() {
     return (
       <>
         <InterviewPrepCoach />
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
         <Footer />
       </>
     )
@@ -1538,13 +1544,70 @@ function App() {
                     </label>
                   </div>
                   {displaySuggestions.length > 0 && (
-                    <button
-                      type="button"
-                      className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                      onClick={copySuggestionsToClipboard}
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                        onClick={copySuggestionsToClipboard}
+                      >
+                        {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
+                      </button>
+                      <button
+                        type="button"
+                        className="app-btn app-btn--primary"
+                        onClick={() => {
+                          import('jspdf').then(({ default: jsPDF }) => {
+                            const doc = new jsPDF()
+                            doc.setFontSize(22)
+                            doc.text("AI Resume Analyzer - Report", 20, 20)
+                            doc.setFontSize(11)
+                            doc.setTextColor(100)
+                            const timestamp = new Date().toLocaleString()
+                            doc.text(`Generated on: ${timestamp}`, 20, 30)
+                            doc.text(`File: ${activeFileName}`, 20, 36)
+                            doc.text(`Target Role: ${targetRole}`, 20, 42)
+                            doc.setTextColor(0)
+                            doc.setFontSize(16)
+                            const reportScore = displayScore !== null ? displayScore : 0
+                            doc.text(`ATS Score: ${reportScore}/100`, 20, 56)
+                            doc.setFontSize(14)
+                            doc.text(`Skills Found (${skills.length})`, 20, 70)
+                            doc.setFontSize(11)
+                            let y = 78
+                            const wrappedSkills = doc.splitTextToSize(skills.join(", ") || "None", 170)
+                            doc.text(wrappedSkills, 20, y)
+                            y += wrappedSkills.length * 6 + 10
+                            if (y > 270) {
+                              doc.addPage()
+                              y = 20
+                            }
+                            doc.setFontSize(14)
+                            doc.text("Suggestions", 20, y)
+                            y += 10
+                            doc.setFontSize(11)
+                            if (displaySuggestions.length === 0) {
+                              doc.text("No suggestions.", 20, y)
+                            } else {
+                              displaySuggestions.forEach((s: string) => {
+                                const lines = doc.splitTextToSize(`• ${s}`, 170)
+                                if (y + lines.length * 6 > 280) {
+                                  doc.addPage()
+                                  y = 20
+                                }
+                                doc.text(lines, 20, y)
+                                y += lines.length * 6 + 3
+                              })
+                            }
+                            doc.save(`ATS_Report_${activeFileName ? activeFileName.replace(/\.[^/.]+$/, "") : "resume"}.pdf`)
+                          }).catch(err => {
+                            console.error("Failed to load jsPDF:", err)
+                            alert("Failed to generate PDF report.")
+                          })
+                        }}
+                      >
+                        📄 Download Report
+                      </button>
+                    </div>
                   )}
                 </div>
 
