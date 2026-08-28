@@ -4,20 +4,33 @@ Views for LinkedIn Profile Optimization.
 Exposes the POST /api/optimize-linkedin/ endpoint.
 """
 
+import logging
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.throttling import AnonRateThrottle
 from .linkedin_optimizer import generate_linkedin_profile
 from .linkedin_serializers import (
     LinkedInOptimizationRequestSerializer,
     LinkedInOptimizationResponseSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
+
+class LinkedInOptimizationThrottle(AnonRateThrottle):
+    """Caps /api/optimize-linkedin/, an open endpoint that rewrites caller-sized text."""
+
+    scope = "linkedin_optimization"
+
 
 class LinkedInOptimizationView(APIView):
     """
     API View to handle LinkedIn profile optimization requests.
     """
+
+    throttle_classes = [LinkedInOptimizationThrottle]
 
     def post(self, request, *args, **kwargs):
         """
@@ -45,11 +58,9 @@ class LinkedInOptimizationView(APIView):
 
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
+            logger.exception("LinkedIn optimization failed")
             return Response(
-                {
-                    "error": "An unexpected error occurred during optimization.",
-                    "details": str(e),
-                },
+                {"error": "An unexpected error occurred during optimization."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

@@ -47,6 +47,16 @@ from .interview_views import InterviewQuestionGenerateView
 from .layout_views import LayoutAnalysisView
 from .multilingual_views import LanguageDetectionView, TranslationView
 
+# Same again, for the five features merged in #929-#933. Seven view classes,
+# no paths. These sit at the top level rather than under `analyzer/` because
+# that is where the frontend and the view docstrings already agree they are —
+# see the ROUTES table in tests_api_routes.py for who calls each one.
+from .ab_testing_views import ABTestingStatsView, LogApplicationView
+from .accessibility_views import AccessibilityCheckView
+from .cliche_views import ClicheDetectorView
+from .linkedin_views import LinkedInOptimizationView
+from .sanitizer_views import FileMetadataView, SanitizeResumeView
+
 urlpatterns = [
     path("upload/", upload_resume),
     path("preview-level/", preview_experience_level_view),
@@ -129,5 +139,50 @@ urlpatterns = [
         "analyzer/translate/",
         TranslationView.as_view(),
         name="translate_resume_text",
+    ),
+
+    # Resume A/B testing (#925).
+    path(
+        "log-application/",
+        LogApplicationView.as_view(),
+        name="log_application",
+    ),
+    path(
+        "ab-testing-stats/",
+        ABTestingStatsView.as_view(),
+        name="ab_testing_stats",
+    ),
+
+    # Screen-reader compliance (#926).
+    path(
+        "check-accessibility/",
+        AccessibilityCheckView.as_view(),
+        name="check_accessibility",
+    ),
+
+    # Cliché detection and modernisation.
+    path(
+        "detect-cliches/",
+        ClicheDetectorView.as_view(),
+        name="detect_cliches",
+    ),
+
+    # LinkedIn profile optimisation.
+    path(
+        "optimize-linkedin/",
+        LinkedInOptimizationView.as_view(),
+        name="optimize_linkedin",
+    ),
+
+    # Metadata sanitiser and privacy scrubber (#924).
+    path(
+        "file-metadata/",
+        FileMetadataView.as_view(),
+        name="file_metadata",
+    ),
+    path(
+        "sanitize-resume/",
+        SanitizeResumeView.as_view(),
+        name="sanitize_resume",
     ),
 ]

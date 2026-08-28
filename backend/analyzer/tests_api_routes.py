@@ -76,7 +76,49 @@ ROUTES = [
     # Not called from the frontend yet. Routed in the same pass rather than
     # left as the next 404.
     ("/api/analyzer/layout-analysis/", "components/LayoutAnalysisReport.tsx"),
+    # And again, for the five features merged in #929-#933. Seven more view
+    # classes written, tested and never given a path. The React components
+    # below were merged calling these exact URLs.
+    ("/api/ab-testing-stats/", "components/ResumeABTesting.tsx"),
+    ("/api/log-application/", "components/ResumeABTesting.tsx"),
+    ("/api/check-accessibility/", "components/AccessibilityReport.tsx"),
+    ("/api/detect-cliches/", "components/ClicheDetector.tsx"),
+    ("/api/optimize-linkedin/", "components/LinkedInOptimizer.tsx"),
+    ("/api/file-metadata/", "components/PrivacyScrubber.tsx"),
+    ("/api/sanitize-resume/", "components/PrivacyScrubber.tsx"),
 ]
+
+#: Endpoints that are open by default and therefore must declare a throttle.
+#:
+#: ``DEFAULT_PERMISSION_CLASSES`` is ``AllowAny``. A view that neither
+#: overrides it nor sets ``throttle_classes`` is an unauthenticated endpoint
+#: with no ceiling, which settings.py already states the project does not
+#: ship. Asserting it here means the next such view fails the build instead of
+#: reaching production, which is how all five of these got in.
+THROTTLE_EXEMPT_VIEW_NAMES = frozenset(
+    {
+        # Authenticated: the user id is the natural bound.
+        "ABTestingStatsView",
+        "LogApplicationView",
+        # --- Pre-existing, not introduced by this pass ---
+        #
+        # The list below is a baseline, not an endorsement. The assertion's
+        # job is to stop the *next* unbounded open endpoint, and it can only
+        # do that if it is green today. Each of these deserves its own look;
+        # tightening them is a change to their own behaviour and belongs with
+        # whoever owns them, not bundled into a routing fix.
+        #
+        # Third-party views this project does not define:
+        "SpectacularAPIView",
+        "SpectacularSwaggerView",
+        "TokenRefreshView",
+        "CustomTokenObtainPairView",
+        # Project views that predate this check:
+        "preview_experience_level_view",
+        "resume_score_badge",
+        "unsubscribe_digest_view",
+    }
+)
 
 
 class FrontendRouteContractTests(TestCase):
@@ -603,3 +645,101 @@ class RoutedFeatureEndpointTests(TestCase):
 
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.data)
+
+
+class OpenEndpointThrottleTests(TestCase):
+    """Every routed view that is open to anonymous callers declares a ceiling.
+
+    The five features merged in #929-#933 each shipped a view with no
+    ``permission_classes`` and no ``throttle_classes``. Routing them without
+    fixing that would have opened five unauthenticated endpoints with no
+    limit, one of which writes its request body to disk.
+
+    This walks what is actually routed rather than a hand-written list, so a
+    new open endpoint is covered the day it is added.
+    """
+
+    @staticmethod
+    def _routed_view_classes():
+        from django.urls import get_resolver
+
+        routed = {}
+
+        def walk(patterns):
+            for pattern in patterns:
+                sub = getattr(pattern, "url_patterns", None)
+                if sub is not None:
+                    walk(sub)
+                    continue
+                callback = getattr(pattern, "callback", None)
+                view_class = getattr(callback, "cls", None)
+                if view_class is not None:
+                    routed[view_class] = str(pattern.pattern)
+
+        walk(get_resolver().url_patterns)
+        return routed
+
+    def test_every_open_routed_view_declares_a_throttle(self):
+        from rest_framework.permissions import AllowAny
+
+        unlimited = []
+
+        for view_class, route in self._routed_view_classes().items():
+            if view_class.__name__ in THROTTLE_EXEMPT_VIEW_NAMES:
+                continue
+
+            permissions = getattr(view_class, "permission_classes", [])
+            is_open = not permissions or all(p is AllowAny for p in permissions)
+            if not is_open:
+                continue
+
+            if not getattr(view_class, "throttle_classes", []):
+                unlimited.append(f"{view_class.__name__}  ({route})")
+
+        self.assertEqual(
+            sorted(unlimited),
+            [],
+            "These views are reachable without authentication and declare no "
+            "throttle, so they are unbounded:\n  " + "\n  ".join(sorted(unlimited)),
+        )
+
+    def test_every_declared_throttle_scope_has_a_rate(self):
+        """A scope with no entry in DEFAULT_THROTTLE_RATES raises at request time.
+
+        ``ScopedRateThrottle``/``AnonRateThrottle`` look the scope up in
+        ``DEFAULT_THROTTLE_RATES`` and raise ``ImproperlyConfigured`` if it is
+        missing — but only when a request arrives, so a typo in either half of
+        the pair is invisible until the endpoint is called.
+        """
+        from django.conf import settings
+        from rest_framework.throttling import SimpleRateThrottle
+
+        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        missing = []
+
+        for view_class in self._routed_view_classes():
+            for throttle_class in getattr(view_class, "throttle_classes", []):
+                scope = getattr(throttle_class, "scope", None)
+                if scope is None:
+                    continue
+                # A throttle that hardcodes `rate`, or overrides `get_rate` to
+                # read a setting of its own (UploadRateThrottle, and the two
+                # in views.py that size themselves), never consults
+                # DEFAULT_THROTTLE_RATES and so cannot be missing from it.
+                if getattr(throttle_class, "rate", None):
+                    continue
+                if throttle_class.get_rate is not SimpleRateThrottle.get_rate:
+                    continue
+                if scope not in rates:
+                    missing.append(
+                        f"{view_class.__name__} -> "
+                        f"{throttle_class.__name__}(scope={scope!r})"
+                    )
+
+        self.assertEqual(
+            sorted(missing),
+            [],
+            "These throttle scopes have no rate in DEFAULT_THROTTLE_RATES, so "
+            "the endpoint raises ImproperlyConfigured on its first request:\n  "
+            + "\n  ".join(sorted(missing)),
+        )
