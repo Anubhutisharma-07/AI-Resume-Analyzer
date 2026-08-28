@@ -97,6 +97,13 @@ jobs:
         # `analyzer/__init__.py` was missing: `manage.py test` cheerfully
         # reported "NO TESTS RAN" and exited 0. A green run on an empty suite
         # must never look like a passing one, so assert a floor on the count.
+        #
+        # A floor is a backstop, not the check. It cannot notice one corner of
+        # the suite going quiet while the rest keeps counting: 28 tests under
+        # `analyzer/tests/` were never collected for weeks and the count stayed
+        # comfortably over this line the whole time. `analyzer/tests_discovery.py`
+        # is the check that catches that, by asserting every test file in the
+        # app resolves to itself under the name the loader will import.
         run: |
           count=$(grep -oE 'Found [0-9]+ test' test-output.txt \
                     | grep -oE '[0-9]+' \

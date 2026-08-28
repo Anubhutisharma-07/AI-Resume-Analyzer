@@ -37,6 +37,15 @@ from .views import (
 )
 from .badge_views import manage_resume_badge, resume_score_badge
 
+# The feature modules below were written with views, serializers and tests, and
+# were never given a path. Everything under `analyzer/` matches the URLs the
+# frontend has been requesting all along — see `tests_api_routes.ROUTES`.
+from .bullet_views import BulletOptimizeView
+from .diff_views import SemanticDiffView
+from .interview_views import InterviewQuestionGenerateView
+from .layout_views import LayoutAnalysisView
+from .multilingual_views import LanguageDetectionView, TranslationView
+
 urlpatterns = [
     path("upload/", upload_resume),
     path("preview-level/", preview_experience_level_view),
@@ -79,4 +88,43 @@ urlpatterns = [
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path("admin/stats/", admin_stats_view, name="admin_stats"),
+
+    # Resume-improvement tools.
+    #
+    # These sit under an `analyzer/` prefix rather than alongside the routes
+    # above. That is not a preference: `frontend/src/services/`,
+    # `frontend/src/hooks/useInterviewQuestions.ts` and
+    # `components/ResumeDiffViewer.tsx` already post to these exact paths, and
+    # moving the frontend instead would break any client already deployed
+    # against them.
+    path(
+        "analyzer/optimize-bullets/",
+        BulletOptimizeView.as_view(),
+        name="optimize_bullets",
+    ),
+    path(
+        "analyzer/semantic-diff/",
+        SemanticDiffView.as_view(),
+        name="semantic_diff",
+    ),
+    path(
+        "analyzer/generate-interview-questions/",
+        InterviewQuestionGenerateView.as_view(),
+        name="generate_interview_questions",
+    ),
+    path(
+        "analyzer/layout-analysis/",
+        LayoutAnalysisView.as_view(),
+        name="layout_analysis",
+    ),
+    path(
+        "analyzer/detect-language/",
+        LanguageDetectionView.as_view(),
+        name="detect_language",
+    ),
+    path(
+        "analyzer/translate/",
+        TranslationView.as_view(),
+        name="translate_resume_text",
+    ),
 ]

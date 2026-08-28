@@ -36,6 +36,7 @@ const BULK_JD_DRAFT_KEY = 'bulk_jd_drafts'
 
 export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({onClose,username,isEmbed = false}) => {
   const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [resumeUrl, setResumeUrl] = useState('')
   const [jds, setJds] = useState<string[]>(() => {
     try {
@@ -214,12 +215,26 @@ export const CompareBulkJds: React.FC<CompareBulkJdsProps> = ({onClose,username,
             <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>1. Choose Resume</h4>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
               <div
+                className={isDragging ? 'dragging' : ''}
                 style={{
                   flex: 1,
                   minWidth: '250px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '6px',
+                  padding: '1rem',
+                  border: isDragging ? '2px dashed #4f46e5' : '1px solid transparent',
+                  borderRadius: '8px',
+                  transition: 'all 0.2s ease',
+                }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault(); setIsDragging(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    setFile(e.dataTransfer.files[0]);
+                    setResumeUrl('');
+                  }
                 }}
               >
                 <label style={{ fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>

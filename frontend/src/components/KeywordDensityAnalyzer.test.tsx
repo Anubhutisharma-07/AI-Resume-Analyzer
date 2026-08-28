@@ -11,7 +11,7 @@ describe('KeywordDensityAnalyzer', () => {
 
   it('renders the header', () => {
     render(<KeywordDensityAnalyzer />);
-    expect(screen.getByText(/Keyword Density Analyzer/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: /Keyword Density Analyzer/i })).toBeTruthy();
     expect(screen.getByText(/NLP Keyword Engine v1.0/)).toBeTruthy();
   });
 
@@ -38,7 +38,7 @@ describe('KeywordDensityAnalyzer', () => {
     expect(screen.getByText('0 characters · 0 words')).toBeTruthy();
     const ta = screen.getByPlaceholderText(/Paste your resume text here/);
     fireEvent.change(ta, { target: { value: 'hello world test' } });
-    expect(screen.getByText(/17 characters · 3 words/)).toBeTruthy();
+    expect(screen.getByText(/16 characters · 3 words/)).toBeTruthy();
   });
 
   it('produces analysis results when text is analyzed', () => {

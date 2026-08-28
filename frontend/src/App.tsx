@@ -28,9 +28,13 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
+
+import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+
 import { setResumeRoastConsent } from './utils/cookieConsent'
-// import { SkillGapMatrix } from './components/SkillGapMatrix'
-// import { parseAndClassifyJdSkills } from './utils/jdSkillParser'
+import { JobDescriptionInput } from './components/JobDescriptionInput'
 
 type Theme = 'light' | 'dark'
 
@@ -161,8 +165,6 @@ function App() {
 
   // Job Description Character Limit (#750)
   const MAX_CHARS = 2000
-  const isClose = jobDescription.length >= MAX_CHARS * 0.9
-  const isOver = jobDescription.length > MAX_CHARS
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -586,6 +588,7 @@ function App() {
     }
   }
 
+
   const uploadResume = async () => {
     if (!file) {
       alert('Please upload resume')
@@ -755,6 +758,24 @@ function App() {
     setPreviewError(null)
   }
 
+  if (location.pathname === '/skill-gap-analyzer') {
+    return (
+      <>
+        <SkillGapAnalyzer />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/privacy') {
     return (
       <>
@@ -854,211 +875,284 @@ function App() {
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
 
-          {/* Role and Experience Level Selectors */}
-          <div className="mb-4 d-flex flex-wrap gap-3 align-items-center justify-content-center">
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="roleSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Target Career Track:
-              </label>
-              <select
-                id="roleSelect"
-                value={targetRole}
-                onChange={(e) => setTargetRole(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
-              >
-                <option value="Frontend Developer">Frontend Developer</option>
-                <option value="Backend Developer">Backend Developer</option>
-                <option value="Data Analyst">Data Analyst</option>
-              </select>
-            </div>
-
-            <div className="d-flex align-items-center">
-              <label
-                htmlFor="experienceLevelSelect"
-                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
-              >
-                Experience Level:
-              </label>
-              <select
-                id="experienceLevelSelect"
-                value={experienceLevel}
-                onChange={(e) => setExperienceLevel(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
-              >
-                <option value="Junior">Junior (0-2 yrs)</option>
-                <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
-                <option value="Senior">Senior (5+ yrs)</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Job Description Draft Input (#533) */}
+          {/* Step 1: Configuration */}
           <div
-            className="mb-4"
+            className="step-card mb-4"
             style={{
-              textAlign: 'left',
-              maxWidth: '680px',
-              margin: '0 auto 20px',
-              background: 'rgba(255, 255, 255, 0.03)',
+              background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
               border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
               borderRadius: 'var(--radius-lg, 12px)',
-              padding: '16px',
+              padding: '20px',
             }}
           >
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '8px',
+                gap: '10px',
+                marginBottom: '14px',
               }}
             >
-              <label
-                htmlFor="jobDescriptionInput"
+              <span
                 style={{
-                  fontWeight: '600',
-                  fontSize: '0.9rem',
-                  color: 'var(--heading-text, #fff)',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
                 }}
               >
-                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
-              </label>
-              {isDraftSaved && (
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#4ade80',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  💾 Draft auto-saved
-                </span>
-              )}
-            </div>
-            <textarea
-              id="jobDescriptionInput"
-              className="custom-textarea"
-              placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              rows={3}
-              style={{
-                width: '100%',
-                minHeight: '80px',
-                fontSize: '0.9rem',
-                resize: 'vertical',
-                boxSizing: 'border-box',
-              }}
-            />
-            {jobDescription && (
-              <div
+                1
+              </span>
+              <h3
                 style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginTop: '6px',
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: '600',
+                  color: 'var(--heading-text, #fff)',
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => setJobDescription('')}
+                Set Career Track &amp; Experience
+              </h3>
+            </div>
+
+            {/* Role and Experience Level Selectors */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '14px',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label
+                  htmlFor="roleSelect"
+                  style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                >
+                  Target Career Track:
+                </label>
+                <select
+                  id="roleSelect"
+                  value={targetRole}
+                  onChange={(e) => setTargetRole(e.target.value)}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--muted-text, #94a3b8)',
-                    fontSize: '0.75rem',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                    background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                    color: 'var(--control-text, #fff)',
+                    fontSize: '0.9rem',
                   }}
                 >
-                  Clear Draft
-                </button>
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="Backend Developer">Backend Developer</option>
+                  <option value="Data Analyst">Data Analyst</option>
+                </select>
               </div>
-            )}
-          </div>
-          <div
-            className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
-            onDragOver={(e) => {
-              e.preventDefault()
-              setIsDragging(true)
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setIsDragging(false)
-              if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                const f = e.dataTransfer.files[0]
-                setUploadError(null)
-                const result = validateResumeFile(f, {
-                  maxSizeBytes: MAX_FILE_SIZE,
-                  label: 'resume',
-                })
-                if (!result.ok) {
-                  setUploadError(result.error)
-                  setFile(null)
-                  return
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label
+                  htmlFor="experienceLevelSelect"
+                  style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                >
+                  Experience Level:
+                </label>
+                <select
+                  id="experienceLevelSelect"
+                  value={experienceLevel}
+                  onChange={(e) => setExperienceLevel(e.target.value)}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                    background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                    color: 'var(--control-text, #fff)',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="Junior">Junior (0-2 yrs)</option>
+                  <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                  <option value="Senior">Senior (5+ yrs)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Job Description Draft Input (#533 / #754) */}
+            <div style={{ marginTop: '16px' }}>
+              {isDraftSaved && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#4ade80',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    💾 Draft auto-saved
+                  </span>
+                </div>
+              )}
+              <JobDescriptionInput
+                value={jobDescription}
+                onChange={setJobDescription}
+                maxCharacters={MAX_CHARS}
+              />
+              {(() => {
+                const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
+                if (wordCount > 0 && wordCount < 50) {
+                  return (
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        border: '1px solid rgba(234, 179, 8, 0.3)',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        color: '#facc15',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
+                    </div>
+                  );
                 }
-                setFile(f)
-              }
+                return null;
+              })()}
+            </div>
+          </div>
+
+          {/* Step 2: Upload Document */}
+          <div
+            className="step-card"
+            style={{
+              background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
+              border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '20px',
             }}
           >
-            <input
-              type="file"
-              id="fileUpload"
-              className="sr-only"
-              accept={RESUME_ACCEPT_ATTRIBUTE}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setUploadError(null)
-                const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
-                if (!f) {
-                  setFile(null)
-                  return
-                }
-                const result = validateResumeFile(f, {
-                  maxSizeBytes: MAX_FILE_SIZE,
-                  label: 'resume',
-                })
-                if (!result.ok) {
-                  setUploadError(result.error)
-                  setFile(null)
-                  return
-                }
-                setFile(f)
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '14px',
               }}
-            />
-            <label htmlFor="fileUpload" className="upload-label">
-              <span className="upload-icon-wrapper" aria-hidden="true">
-                📄
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
+                }}
+              >
+                2
               </span>
-              <span className="upload-text-primary">
-                Drag &amp; Drop Resume or{' '}
-                <span className="upload-text-browse">Click to Browse</span>
-              </span>
-              {file ? (
-                <span
-                  className="upload-text-secondary"
-                  style={{ display: 'block', marginTop: '4px' }}
-                >
-                  Selected: {file.name}
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: '600',
+                  color: 'var(--heading-text, #fff)',
+                }}
+              >
+                Upload Document
+              </h3>
+            </div>
+            <div
+              className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setIsDragging(true)
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setIsDragging(false)
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  const f = e.dataTransfer.files[0]
+                  setUploadError(null)
+                  const result = validateResumeFile(f, {
+                    maxSizeBytes: MAX_FILE_SIZE,
+                    label: 'resume',
+                  })
+                  if (!result.ok) {
+                    setUploadError(result.error)
+                    setFile(null)
+                    return
+                  }
+                  setFile(f)
+                }
+              }}
+            >
+              <input
+                type="file"
+                id="fileUpload"
+                className="sr-only"
+                accept={RESUME_ACCEPT_ATTRIBUTE}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setUploadError(null)
+                  const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
+                  if (!f) {
+                    setFile(null)
+                    return
+                  }
+                  const result = validateResumeFile(f, {
+                    maxSizeBytes: MAX_FILE_SIZE,
+                    label: 'resume',
+                  })
+                  if (!result.ok) {
+                    setUploadError(result.error)
+                    setFile(null)
+                    return
+                  }
+                  setFile(f)
+                }}
+              />
+              <label htmlFor="fileUpload" className="upload-label">
+                <span className="upload-icon-wrapper" aria-hidden="true">
+                  📄
                 </span>
-              ) : uploadError ? (
-                <span
-                  className="upload-text-error"
-                  style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
-                >
-                  {uploadError}
+                <span className="upload-text-primary">
+                  Drag &amp; Drop Resume or{' '}
+                  <span className="upload-text-browse">Click to Browse</span>
                 </span>
-              ) : (
-                <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
-              )}
-            </label>
+                {file ? (
+                  <span
+                    className="upload-text-secondary"
+                    style={{ display: 'block', marginTop: '4px' }}
+                  >
+                    Selected: {file.name}
+                  </span>
+                ) : uploadError ? (
+                  <span
+                    className="upload-text-error"
+                    style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
+                  >
+                    {uploadError}
+                  </span>
+                ) : (
+                  <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
+                )}
+              </label>
+            </div>
           </div>
           <div
             style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
@@ -1445,13 +1539,70 @@ function App() {
                     </label>
                   </div>
                   {displaySuggestions.length > 0 && (
-                    <button
-                      type="button"
-                      className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                      onClick={copySuggestionsToClipboard}
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                        onClick={copySuggestionsToClipboard}
+                      >
+                        {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
+                      </button>
+                      <button
+                        type="button"
+                        className="app-btn app-btn--primary"
+                        onClick={() => {
+                          import('jspdf').then(({ default: jsPDF }) => {
+                            const doc = new jsPDF()
+                            doc.setFontSize(22)
+                            doc.text("AI Resume Analyzer - Report", 20, 20)
+                            doc.setFontSize(11)
+                            doc.setTextColor(100)
+                            const timestamp = new Date().toLocaleString()
+                            doc.text(`Generated on: ${timestamp}`, 20, 30)
+                            doc.text(`File: ${activeFileName}`, 20, 36)
+                            doc.text(`Target Role: ${targetRole}`, 20, 42)
+                            doc.setTextColor(0)
+                            doc.setFontSize(16)
+                            const reportScore = displayScore !== null ? displayScore : 0
+                            doc.text(`ATS Score: ${reportScore}/100`, 20, 56)
+                            doc.setFontSize(14)
+                            doc.text(`Skills Found (${skills.length})`, 20, 70)
+                            doc.setFontSize(11)
+                            let y = 78
+                            const wrappedSkills = doc.splitTextToSize(skills.join(", ") || "None", 170)
+                            doc.text(wrappedSkills, 20, y)
+                            y += wrappedSkills.length * 6 + 10
+                            if (y > 270) {
+                              doc.addPage()
+                              y = 20
+                            }
+                            doc.setFontSize(14)
+                            doc.text("Suggestions", 20, y)
+                            y += 10
+                            doc.setFontSize(11)
+                            if (displaySuggestions.length === 0) {
+                              doc.text("No suggestions.", 20, y)
+                            } else {
+                              displaySuggestions.forEach((s: string) => {
+                                const lines = doc.splitTextToSize(`• ${s}`, 170)
+                                if (y + lines.length * 6 > 280) {
+                                  doc.addPage()
+                                  y = 20
+                                }
+                                doc.text(lines, 20, y)
+                                y += lines.length * 6 + 3
+                              })
+                            }
+                            doc.save(`ATS_Report_${activeFileName ? activeFileName.replace(/\.[^/.]+$/, "") : "resume"}.pdf`)
+                          }).catch(err => {
+                            console.error("Failed to load jsPDF:", err)
+                            alert("Failed to generate PDF report.")
+                          })
+                        }}
+                      >
+                        📄 Download Report
+                      </button>
+                    </div>
                   )}
                 </div>
 

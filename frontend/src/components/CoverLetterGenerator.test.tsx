@@ -2,19 +2,24 @@
  * CoverLetterGenerator.test.tsx — unit tests for the Cover Letter Generator
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { CoverLetterGenerator } from './CoverLetterGenerator';
 
 describe('CoverLetterGenerator', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('renders the generator header', () => {
     render(<CoverLetterGenerator />);
-    expect(screen.getByText(/Cover Letter Generator/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: /Cover Letter Generator/i })).toBeTruthy();
     expect(screen.getByText(/AI-Powered Template Engine v1.0/)).toBeTruthy();
   });
 
@@ -68,6 +73,11 @@ describe('CoverLetterGenerator', () => {
     const btn = screen.getByRole('button', { name: /Generate Cover Letter/ });
     fireEvent.click(btn);
 
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
     // After generation, output section should appear
     expect(screen.getByText(/Generated Cover Letter/)).toBeTruthy();
     expect(screen.getByText(/Copy/)).toBeTruthy();
@@ -97,7 +107,8 @@ describe('CoverLetterGenerator', () => {
 
   it('shows character count for resume text', () => {
     render(<CoverLetterGenerator />);
-    expect(screen.getByText('0 characters')).toBeTruthy();
+    const counts = screen.getAllByText('0 characters');
+    expect(counts.length).toBe(2);
     const textarea = screen.getByPlaceholderText(/Paste your resume text here/);
     fireEvent.change(textarea, { target: { value: 'hello world' } });
     expect(screen.getByText('11 characters')).toBeTruthy();
@@ -107,7 +118,7 @@ describe('CoverLetterGenerator', () => {
     render(<CoverLetterGenerator />);
     const jdArea = screen.getByPlaceholderText(/Paste the job description here/);
     fireEvent.change(jdArea, { target: { value: 'We are looking for a software engineer...' } });
-    expect(screen.getByText('40 characters')).toBeTruthy();
+    expect(screen.getByText('41 characters')).toBeTruthy();
   });
 
   it('shows generation history section', () => {
@@ -136,11 +147,24 @@ describe('CoverLetterGenerator', () => {
     const toneSelect = screen.getByLabelText('Tone');
     fireEvent.change(toneSelect, { target: { value: 'professional' } });
     fireEvent.click(screen.getByRole('button', { name: /Generate Cover Letter/ }));
-    const letter1 = (screen.getByRole('textbox', { name: '' }) as HTMLTextAreaElement).value;
+
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const textareas = screen.getAllByRole('textbox');
+    const outputTextarea = textareas.find(ta => ta.classList.contains('clg-output-text')) as HTMLTextAreaElement;
+    const letter1 = outputTextarea.value;
 
     // Generate with enthusiastic tone
     fireEvent.change(toneSelect, { target: { value: 'enthusiastic' } });
     fireEvent.click(screen.getByRole('button', { name: /Generate Cover Letter/ }));
+
+    // Fast-forward generation timeout
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
 
     // The letter should exist (might be same text due to randomness, but it should be non-empty)
     expect(letter1.length).toBeGreaterThan(100);
