@@ -30,6 +30,7 @@ import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
 import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
+import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
@@ -772,6 +773,10 @@ function App() {
     return (
       <>
         <CareerRoadmapPlanner />
+  if (location.pathname === '/interview-prep') {
+    return (
+      <>
+        <InterviewPrepCoach />
   if (location.pathname === '/portfolio') {
     return (
       <>
