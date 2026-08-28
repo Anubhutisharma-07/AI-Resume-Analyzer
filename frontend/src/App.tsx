@@ -29,11 +29,19 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
  feature/auto-detect-experience-759
+ feature/auto-detect-experience-759
 import { ExperienceLevelSelector } from './components/ExperienceLevelSelector'
 import { estimateExperienceFromText } from './utils/experienceParser'
 import type { ExperienceLevel } from './utils/experienceParser'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+ main
+
+
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
+
+import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+
  main
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
@@ -775,6 +783,15 @@ function App() {
     return (
       <>
         <SkillGapAnalyzer />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
         <Footer />
       </>
     )
