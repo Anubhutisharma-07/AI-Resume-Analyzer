@@ -30,6 +30,7 @@ import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
 import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
+import ResumeCompareDashboard from './components/ResumeCompareDashboard'
 import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
@@ -773,6 +774,10 @@ function App() {
     return (
       <>
         <CareerRoadmapPlanner />
+  if (location.pathname === '/resume-compare') {
+    return (
+      <>
+        <ResumeCompareDashboard />
   if (location.pathname === '/interview-prep') {
     return (
       <>

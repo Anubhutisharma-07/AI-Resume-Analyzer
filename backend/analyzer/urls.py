@@ -9,6 +9,7 @@ from .views import (
     upload_resume,
     compare_uploads,
     signup,
+    check_availability,
     analysis_history,
     history_detail,
     clear_user_history,
@@ -63,6 +64,8 @@ urlpatterns = [
     path("account/export/", export_user_data, name="export_user_data"),
 
     path("auth/signup/", signup),
+    path("auth/check-availability/", check_availability, name="check_availability"),
+    path("auth/check-availability", check_availability),
     path("auth/login/", CustomTokenObtainPairView.as_view()),
     path("auth/oauth/", social_auth_view, name="social_auth"),
     path("auth/refresh/", TokenRefreshView.as_view()),

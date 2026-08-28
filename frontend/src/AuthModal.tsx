@@ -32,6 +32,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [usernameStatus, setUsernameStatus] = useState<{ state: 'idle' | 'loading' | 'available' | 'taken'; message: string }>({ state: 'idle', message: '' })
+
+  React.useEffect(() => {
+    if (mode !== 'signup' || !username.trim()) {
+      setUsernameStatus({ state: 'idle', message: '' })
+      return
+    }
+
+    const timer = setTimeout(async () => {
+      setUsernameStatus({ state: 'loading', message: 'Checking...' })
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || ''
+        const res = await fetch(`${backendUrl}/api/auth/check-availability?field=username&value=${encodeURIComponent(username.trim())}`)
+        const data = await res.json()
+        if (data.isAvailable) {
+          setUsernameStatus({ state: 'available', message: '✓ Available' })
+        } else {
+          setUsernameStatus({ state: 'taken', message: '✖ Username is already taken.' })
+        }
+      } catch {
+        setUsernameStatus({ state: 'idle', message: '' })
+      }
+    }, 400)
+
+    return () => clearTimeout(timer)
+  }, [username, mode])
 
   const handleSocialLogin = async (provider: 'google' | 'github') => {
     setError('')
@@ -193,6 +219,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 autoFocus
                 autoComplete="username"
               />
+              {mode === 'signup' && usernameStatus.message && (
+                <span className={`text-xs mt-1 font-semibold ${usernameStatus.state === 'available' ? 'text-green-500' : 'text-red-400'}`} style={{ display: 'block', fontSize: '0.8rem', marginTop: '4px', marginBottom: '8px', color: usernameStatus.state === 'available' ? '#22c55e' : '#ef4444' }}>
+                  {usernameStatus.message}
+                </span>
+              )}
               <div style={{ position: 'relative', width: '100%' }}>
                 <input
                   id="auth-password"
