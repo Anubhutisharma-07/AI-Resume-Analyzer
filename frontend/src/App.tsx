@@ -29,6 +29,7 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 
+import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
@@ -767,6 +768,10 @@ function App() {
     )
   }
 
+  if (location.pathname === '/interview-prep') {
+    return (
+      <>
+        <InterviewPrepCoach />
   if (location.pathname === '/portfolio') {
     return (
       <>
