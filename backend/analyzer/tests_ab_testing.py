@@ -22,11 +22,21 @@ class ABTestingTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
+        # `ats_score` is not a field on ResumeAnalysis — the column is
+        # `score` — and `score` and `target_role` are both non-null with no
+        # default, so the original fixture raised in setUp and every test in
+        # this class errored before its first assertion.
         self.resume1 = ResumeAnalysis.objects.create(
-            user=self.user, file_name="resume_v1.pdf", ats_score=85
+            user=self.user,
+            file_name="resume_v1.pdf",
+            score=85,
+            target_role="Software Engineer",
         )
         self.resume2 = ResumeAnalysis.objects.create(
-            user=self.user, file_name="resume_v2.pdf", ats_score=90
+            user=self.user,
+            file_name="resume_v2.pdf",
+            score=90,
+            target_role="Software Engineer",
         )
 
     def test_log_application_success(self):
@@ -46,7 +56,10 @@ class ABTestingTests(TestCase):
         """Test that a user cannot log an application for another user's resume."""
         other_user = User.objects.create_user(username="otheruser", password="pass")
         other_resume = ResumeAnalysis.objects.create(
-            user=other_user, file_name="other.pdf"
+            user=other_user,
+            file_name="other.pdf",
+            score=70,
+            target_role="Software Engineer",
         )
 
         data = {
@@ -91,7 +104,10 @@ class ABTestingTests(TestCase):
             status="interviewed",
         )
 
-        # Resume 2: 1 applied, 1 offered (100% success)
+        # Resume 2: 2 applications, 1 of them an offer (50% success).
+        # The comment here used to read "1 applied, 1 offered (100% success)",
+        # which is two different counts of the same two rows; the assertion
+        # below was written against the wrong one.
         ApplicationLog.objects.create(
             user=self.user,
             resume_analysis=self.resume2,
@@ -112,9 +128,11 @@ class ABTestingTests(TestCase):
         self.assertEqual(stats["total_applications"], 5)
         self.assertEqual(len(stats["resume_stats"]), 2)
 
-        # Check sorting (Resume 2 should be first due to 100% success rate)
+        # Check sorting: resume 2 first, 50% beating resume 1's 33.33%.
         self.assertEqual(stats["resume_stats"][0]["resume_id"], self.resume2.id)
-        self.assertEqual(stats["resume_stats"][0]["success_rate"], 100.0)
+        self.assertEqual(stats["resume_stats"][0]["success_rate"], 50.0)
+        self.assertEqual(stats["resume_stats"][1]["resume_id"], self.resume1.id)
+        self.assertEqual(stats["resume_stats"][1]["success_rate"], 33.33)
         self.assertEqual(stats["best_performing_resume_id"], self.resume2.id)
 
     def test_ab_testing_stats_endpoint(self):
