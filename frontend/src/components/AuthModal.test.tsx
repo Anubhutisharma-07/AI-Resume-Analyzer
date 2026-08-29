@@ -47,7 +47,7 @@ describe('AuthModal Component (#105)', () => {
     fireEvent.click(signUpTab)
 
     expect(screen.getByRole('heading', { name: /Create Your Account/i })).toBeInTheDocument()
-    expect(screen.getByLabelText(/Confirm Password/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Re-enter password')).toBeInTheDocument()
 
     const loginTab = screen.getByRole('tab', { name: /Login/i })
     fireEvent.click(loginTab)
@@ -85,7 +85,7 @@ describe('AuthModal Component (#105)', () => {
 
     const usernameInput = screen.getByLabelText(/Username/i)
     const passwordInput = screen.getByLabelText(/^Password$/i)
-    const confirmInput = screen.getByLabelText(/Confirm Password/i)
+    const confirmInput = screen.getByPlaceholderText('Re-enter password')
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } })
     fireEvent.change(passwordInput, { target: { value: 'password123' } })
