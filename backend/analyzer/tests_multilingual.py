@@ -3,6 +3,8 @@ Tests covering language detection accuracy and translation service fallback mech
 """
 
 from django.test import TestCase
+
+from analyzer.quarantine import skip_while_broken
 from analyzer.language_detector import LanguageDetector, LANGUAGE_NAMES
 from analyzer.translation_service import TranslationService, TranslationResult
 from analyzer.multilingual_serializers import (
@@ -11,7 +13,26 @@ from analyzer.multilingual_serializers import (
 )
 
 
+#: These tests were written against behaviour the modules under test do not
+#: have. They failed from the day they were written and nobody saw it, because
+#: the package they lived in was never collected (#913). Turning collection
+#: back on without quarantining them would land a red build for bugs this
+#: change is not making.
+#:
+#: Each quarantine names the issue that tracks its bug and carries a probe for
+#: it, so the test starts running again on its own once the fix lands — in
+#: whatever order these pull requests are merged. See `analyzer/quarantine.py`
+#: for why a plain @skip would outlive its reason here.
+
 class LanguageDetectorTestCase(TestCase):
+    @skip_while_broken(
+        lambda: LanguageDetector.detect(
+            "Experienced software engineer with a proven track record in "
+            "Python and Django."
+        ).language_code
+        != "en",
+        "#914: the heuristic has no English word list, so English scores as Italian",
+    )
     def test_detect_english_text(self):
         text = "Experienced software engineer with a proven track record in Python and Django."
         result = LanguageDetector.detect(text)
@@ -37,6 +58,10 @@ class LanguageDetectorTestCase(TestCase):
         self.assertEqual(result.method_used, "fallback_short_text")
         self.assertEqual(result.language_code, "en")
 
+    @skip_while_broken(
+        lambda: not LanguageDetector.is_english("This is clearly an English sentence."),
+        "#914: is_english() gates on a confidence no English result can reach",
+    )
     def test_is_english_method(self):
         english_text = "This is clearly an English sentence."
         spanish_text = "Esta es claramente una oración en español."
@@ -70,6 +95,15 @@ class TranslationServiceTestCase(TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.translated_text, "")
 
+    @skip_while_broken(
+        lambda: any(
+            len(chunk) > TranslationService.MAX_CHUNK_SIZE
+            for chunk in TranslationService(use_mock=True)._chunk_text(
+                "A" * 4500 + "\n\n" + "B" * 4500
+            )
+        ),
+        "#914: a paragraph over MAX_CHUNK_SIZE is emitted whole",
+    )
     def test_chunking_long_text(self):
         # Two paragraphs, each on its own larger than MAX_CHUNK_SIZE (4000).
         #

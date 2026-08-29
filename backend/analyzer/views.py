@@ -216,6 +216,37 @@ def signup(request):
 
 
 @extend_schema(
+    summary="Check real-time username/email availability",
+    description="Checks if a given username or email address is available during signup.",
+    parameters=[
+        OpenApiParameter(name="field", type=str, location=OpenApiParameter.QUERY, description="Field to check: 'username' or 'email'"),
+        OpenApiParameter(name="value", type=str, location=OpenApiParameter.QUERY, description="The username or email value to check"),
+    ],
+    responses={
+        200: OpenApiResponse(description="Returns availability status for the requested field"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def check_availability(request):
+    field = request.GET.get("field", "").strip().lower()
+    value = request.GET.get("value", "").strip()
+
+    if not value or field not in ("username", "email"):
+        return Response({"isAvailable": True, "field": field}, status=status.HTTP_200_OK)
+
+    User = get_user_model()
+    if field == "username":
+        is_available = not User.objects.filter(username__iexact=value).exists()
+    elif field == "email":
+        is_available = not User.objects.filter(email__iexact=value).exists()
+    else:
+        is_available = True
+
+    return Response({"isAvailable": is_available, "field": field}, status=status.HTTP_200_OK)
+
+
+@extend_schema(
     summary="Social OAuth login / signup",
     description="Authenticates a user via Google or GitHub OAuth, automatically creating an account or linking to an existing account.",
     request={

@@ -28,7 +28,11 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+import { Button } from './components/Button'
 
+import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
+import ResumeCompareDashboard from './components/ResumeCompareDashboard'
+import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
@@ -36,12 +40,12 @@ import SkillGapAnalyzer from './components/SkillGapAnalyzer'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'high-contrast'
 
 function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'light' || saved === 'dark' || saved === 'high-contrast') return saved as Theme
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
@@ -475,7 +479,7 @@ function App() {
   }, [cooldownRemaining])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => (prev === 'light' ? 'dark' : prev === 'dark' ? 'high-contrast' : 'light'))
   }
 
   const getRetryDelay = (attemptNumber: number): number => {
@@ -587,6 +591,7 @@ function App() {
       setCooldownRemaining(getRetryDelay(newRetryCount))
     }
   }
+
 
   const uploadResume = async () => {
     if (!file) {
@@ -766,6 +771,33 @@ function App() {
     )
   }
 
+  if (location.pathname === '/career-roadmap') {
+    return (
+      <>
+        <CareerRoadmapPlanner />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/resume-compare') {
+    return (
+      <>
+        <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/interview-prep') {
+    return (
+      <>
+        <InterviewPrepCoach />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/portfolio') {
     return (
       <>
@@ -834,15 +866,17 @@ function App() {
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
-          <button
-            type="button"
-            className="app-btn theme-toggle-btn"
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label="Toggle theme"
             aria-pressed={theme === 'dark'}
           >
             {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
+          </Button>
           {/* Auth bar */}
           <div className="auth-bar">
             {user ? (
@@ -854,14 +888,14 @@ function App() {
                 >
                   👤 {user.username}
                 </Link>
-                <button className="auth-bar-btn" onClick={logout}>
+                <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={logout}>
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
-              <button className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
+              <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
                 🔐 Login / Sign Up
-              </button>
+              </Button>
             )}
           </div>
           {showAuthModal && (
@@ -1157,7 +1191,9 @@ function App() {
             style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
             className="mb-3"
           >
-            <button
+            <Button
+              variant="primary"
+              size="lg"
               className="analyze-btn"
               onClick={uploadResume}
               disabled={loading || cooldownRemaining > 0}
@@ -1167,28 +1203,30 @@ function App() {
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : '🚀 Analyze Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={handleSampleResume}
               disabled={loading || cooldownRemaining > 0}
-              type="button"
             >
               {loading && analysisSource === 'sample'
                 ? '⏳ Loading Sample...'
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : 'Try Sample Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={() => setShowBulkModal(true)}
               disabled={loading}
-              type="button"
               title="Upload and analyze multiple resumes at once"
             >
               📂 Bulk Analysis
-            </button>
+            </Button>
           </div>
           {/* Loading spinner — shown while the resume is being analyzed */}
           {loading && (
@@ -1311,20 +1349,17 @@ function App() {
                     <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>
                   )}
                   {previewData && !previewing && (
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={() => setPreviewData(null)}
-                      className="app-btn"
                       style={{
                         padding: '4px 10px',
                         fontSize: '12px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        borderColor: 'rgba(239, 68, 68, 0.3)',
-                        color: '#f87171',
-                        cursor: 'pointer',
                       }}
                     >
                       Reset to Actual Selection
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {previewError && (
@@ -1355,14 +1390,14 @@ function App() {
                   )}
                 </div>
                 {skills.length > 15 && (
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     style={{ marginTop: '16px' }}
                     onClick={() => setShowAllSkills(!showAllSkills)}
                   >
                     {showAllSkills ? 'Show Less ▲' : `Show More (${skills.length - 15} more) ▼`}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1538,13 +1573,71 @@ function App() {
                     </label>
                   </div>
                   {displaySuggestions.length > 0 && (
-                    <button
-                      type="button"
-                      className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                      onClick={copySuggestionsToClipboard}
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                        onClick={copySuggestionsToClipboard}
+                      >
+                        {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          import('jspdf').then(({ default: jsPDF }) => {
+                            const doc = new jsPDF()
+                            doc.setFontSize(22)
+                            doc.text("AI Resume Analyzer - Report", 20, 20)
+                            doc.setFontSize(11)
+                            doc.setTextColor(100)
+                            const timestamp = new Date().toLocaleString()
+                            doc.text(`Generated on: ${timestamp}`, 20, 30)
+                            doc.text(`File: ${activeFileName}`, 20, 36)
+                            doc.text(`Target Role: ${targetRole}`, 20, 42)
+                            doc.setTextColor(0)
+                            doc.setFontSize(16)
+                            const reportScore = displayScore !== null ? displayScore : 0
+                            doc.text(`ATS Score: ${reportScore}/100`, 20, 56)
+                            doc.setFontSize(14)
+                            doc.text(`Skills Found (${skills.length})`, 20, 70)
+                            doc.setFontSize(11)
+                            let y = 78
+                            const wrappedSkills = doc.splitTextToSize(skills.join(", ") || "None", 170)
+                            doc.text(wrappedSkills, 20, y)
+                            y += wrappedSkills.length * 6 + 10
+                            if (y > 270) {
+                              doc.addPage()
+                              y = 20
+                            }
+                            doc.setFontSize(14)
+                            doc.text("Suggestions", 20, y)
+                            y += 10
+                            doc.setFontSize(11)
+                            if (displaySuggestions.length === 0) {
+                              doc.text("No suggestions.", 20, y)
+                            } else {
+                              displaySuggestions.forEach((s: string) => {
+                                const lines = doc.splitTextToSize(`• ${s}`, 170)
+                                if (y + lines.length * 6 > 280) {
+                                  doc.addPage()
+                                  y = 20
+                                }
+                                doc.text(lines, 20, y)
+                                y += lines.length * 6 + 3
+                              })
+                            }
+                            doc.save(`ATS_Report_${activeFileName ? activeFileName.replace(/\.[^/.]+$/, "") : "resume"}.pdf`)
+                          }).catch(err => {
+                            console.error("Failed to load jsPDF:", err)
+                            alert("Failed to generate PDF report.")
+                          })
+                        }}
+                      >
+                        📄 Download Report
+                      </Button>
+                    </div>
                   )}
                 </div>
 
@@ -1576,13 +1669,13 @@ function App() {
 
                 {/* Reset Button */}
                 <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={resetAnalysis}
                   >
                     🔄 Start New Analysis
-                  </button>
+                  </Button>
                 </div>
               </div>
 
