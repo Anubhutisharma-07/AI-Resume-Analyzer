@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
@@ -29,6 +29,35 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { Button } from './components/Button'
+import {
+  AnalysisAbortedError,
+  abortableSleep,
+  pollAnalysisTask,
+} from './utils/pollAnalysisTask'
+
+/**
+ * The subset of the analysis payload this screen reads.
+ *
+ * Not the full response — the point is that every field `runAnalysis` pulls
+ * off the result is declared, so adding a `setX(result.y)` line for an
+ * undeclared `y` is a compile error rather than an `undefined` at runtime.
+ * `timeline` and `partial_skills` landed on `main` while this branch was open
+ * and were caught exactly that way on the rebase.
+ */
+interface AnalysisResult {
+  id?: number
+  score: number
+  score_breakdown?: ScoreBreakdownData | null
+  formatting_checks?: FormattingChecksData | null
+  timeline?: TimelineData | null
+  skills_found?: string[]
+  suggestions?: string[]
+  matched_skills?: string[]
+  partial_skills?: PartialSkillItem[]
+  missing_skills?: string[]
+  resume_text?: string
+  interview_questions?: string[]
+}
 
 import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
 import ResumeCompareDashboard from './components/ResumeCompareDashboard'
@@ -482,6 +511,17 @@ function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : prev === 'dark' ? 'high-contrast' : 'light'))
   }
 
+  // Holds the in-flight analysis poll so it can be abandoned when a new run
+  // starts or the component unmounts. Previously the loop had no owner and
+  // simply kept polling after the user navigated away.
+  const pollAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      pollAbortRef.current?.abort()
+    }
+  }, [])
+
   const getRetryDelay = (attemptNumber: number): number => {
     // Exponential backoff: 2^attemptNumber seconds, capped at 30 seconds
     const delay = Math.pow(2, attemptNumber)
@@ -521,17 +561,29 @@ function App() {
       // See #706.
       const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
 
-      let result = null
-      while (true) {
-        const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
-        if (statusRes.data.state === 'SUCCESS') {
-          result = statusRes.data.result
-          break
-        } else if (statusRes.data.state === 'FAILURE') {
-          throw new Error(statusRes.data.error || 'Analysis failed')
-        }
-        await new Promise((r) => setTimeout(r, 1000))
-      }
+      // Any previous run is abandoned before this one starts, so two
+      // analyses cannot race to write the result state.
+      pollAbortRef.current?.abort()
+      const pollController = new AbortController()
+      pollAbortRef.current = pollController
+
+      const result = (await pollAnalysisTask(
+        taskId,
+        {
+          // `api`, not a bare axios call: it is the client that refreshes an
+          // expired access token (#633), and an analysis can outlive one.
+          fetchStatus: async (id, signal) => {
+            const statusRes = await api.get(`/api/status/${id}/`, {
+              signal,
+              headers: analysisHeaders,
+            })
+            return statusRes.data
+          },
+          sleep: abortableSleep,
+          now: () => Date.now(),
+        },
+        { signal: pollController.signal }
+      )) as AnalysisResult
 
       setScore(result.score)
       setScoreBreakdown(result.score_breakdown || null)
@@ -569,6 +621,12 @@ function App() {
         await fetchDbHistory()
       }
     } catch (error: unknown) {
+      // The run was superseded or the component went away. There is nobody to
+      // tell, and the state it would write belongs to a newer run.
+      if (error instanceof AnalysisAbortedError) {
+        return
+      }
+
       console.error(error)
 
       let errorMsg = 'Unknown error'
