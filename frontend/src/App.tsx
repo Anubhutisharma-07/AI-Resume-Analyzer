@@ -28,6 +28,7 @@ import { FormattingChecks, type FormattingChecksData } from './components/Format
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
+import { Button } from './components/Button'
 
 import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
 import ResumeCompareDashboard from './components/ResumeCompareDashboard'
@@ -865,15 +866,17 @@ function App() {
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
-          <button
-            type="button"
-            className="app-btn theme-toggle-btn"
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label="Toggle theme"
             aria-pressed={theme === 'dark'}
           >
             {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
+          </Button>
           {/* Auth bar */}
           <div className="auth-bar">
             {user ? (
@@ -885,14 +888,14 @@ function App() {
                 >
                   👤 {user.username}
                 </Link>
-                <button className="auth-bar-btn" onClick={logout}>
+                <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={logout}>
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
-              <button className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
+              <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
                 🔐 Login / Sign Up
-              </button>
+              </Button>
             )}
           </div>
           {showAuthModal && (
@@ -1188,7 +1191,9 @@ function App() {
             style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
             className="mb-3"
           >
-            <button
+            <Button
+              variant="primary"
+              size="lg"
               className="analyze-btn"
               onClick={uploadResume}
               disabled={loading || cooldownRemaining > 0}
@@ -1198,28 +1203,30 @@ function App() {
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : '🚀 Analyze Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={handleSampleResume}
               disabled={loading || cooldownRemaining > 0}
-              type="button"
             >
               {loading && analysisSource === 'sample'
                 ? '⏳ Loading Sample...'
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : 'Try Sample Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={() => setShowBulkModal(true)}
               disabled={loading}
-              type="button"
               title="Upload and analyze multiple resumes at once"
             >
               📂 Bulk Analysis
-            </button>
+            </Button>
           </div>
           {/* Loading spinner — shown while the resume is being analyzed */}
           {loading && (
@@ -1342,20 +1349,17 @@ function App() {
                     <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>
                   )}
                   {previewData && !previewing && (
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={() => setPreviewData(null)}
-                      className="app-btn"
                       style={{
                         padding: '4px 10px',
                         fontSize: '12px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        borderColor: 'rgba(239, 68, 68, 0.3)',
-                        color: '#f87171',
-                        cursor: 'pointer',
                       }}
                     >
                       Reset to Actual Selection
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {previewError && (
@@ -1386,14 +1390,14 @@ function App() {
                   )}
                 </div>
                 {skills.length > 15 && (
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     style={{ marginTop: '16px' }}
                     onClick={() => setShowAllSkills(!showAllSkills)}
                   >
                     {showAllSkills ? 'Show Less ▲' : `Show More (${skills.length - 15} more) ▼`}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1570,16 +1574,17 @@ function App() {
                   </div>
                   {displaySuggestions.length > 0 && (
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
+                      <Button
+                        variant="accent"
+                        size="sm"
                         className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
                         onClick={copySuggestionsToClipboard}
                       >
                         {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                      </button>
-                      <button
-                        type="button"
-                        className="app-btn app-btn--primary"
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
                         onClick={() => {
                           import('jspdf').then(({ default: jsPDF }) => {
                             const doc = new jsPDF()
@@ -1631,7 +1636,7 @@ function App() {
                         }}
                       >
                         📄 Download Report
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1664,13 +1669,13 @@ function App() {
 
                 {/* Reset Button */}
                 <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={resetAnalysis}
                   >
                     🔄 Start New Analysis
-                  </button>
+                  </Button>
                 </div>
               </div>
 
