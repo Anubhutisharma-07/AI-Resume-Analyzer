@@ -774,14 +774,29 @@ function App() {
     return (
       <>
         <CareerRoadmapPlanner />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/resume-compare') {
     return (
       <>
         <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/interview-prep') {
     return (
       <>
         <InterviewPrepCoach />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/portfolio') {
     return (
       <>
