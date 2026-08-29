@@ -39,12 +39,12 @@ import SkillGapAnalyzer from './components/SkillGapAnalyzer'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'high-contrast'
 
 function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'light' || saved === 'dark' || saved === 'high-contrast') return saved as Theme
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
@@ -478,7 +478,7 @@ function App() {
   }, [cooldownRemaining])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => (prev === 'light' ? 'dark' : prev === 'dark' ? 'high-contrast' : 'light'))
   }
 
   const getRetryDelay = (attemptNumber: number): number => {
@@ -774,14 +774,29 @@ function App() {
     return (
       <>
         <CareerRoadmapPlanner />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/resume-compare') {
     return (
       <>
         <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/interview-prep') {
     return (
       <>
         <InterviewPrepCoach />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/portfolio') {
     return (
       <>
