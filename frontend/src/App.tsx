@@ -27,6 +27,7 @@ import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreak
 import { FormattingChecks, type FormattingChecksData } from './components/FormattingChecks'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
+import ReleaseNotes from './pages/ReleaseNotes'
 import { ShareResult } from './components/ShareResult'
 import { Button } from './components/Button'
 import {
@@ -874,6 +875,15 @@ function App() {
     )
   }
 
+  if (location.pathname === '/release-notes') {
+    return (
+      <>
+        <ReleaseNotes />
+        <Footer />
+      </>
+    )
+  }
+
   const displayScore = previewData ? previewData.score : score
   const displayScoreBreakdown = previewData ? previewData.scoreBreakdown : scoreBreakdown
   const displayMatchedSkills = previewData ? previewData.matchedSkills : matchedSkills
@@ -1008,6 +1018,210 @@ function App() {
                   color: 'var(--heading-text, #fff)',
                 }}
               >
+                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+              </label>
+              {isDraftSaved && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'var(--color-primary, #6366f1)',
+                    color: '#fff',
+                    fontWeight: '700',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  1
+                </span>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '1.05rem',
+                    fontWeight: '600',
+                    color: 'var(--heading-text, #fff)',
+                  }}
+                >
+                  Set Career Track &amp; Experience
+                </h3>
+              </div>
+
+              {/* Role and Experience Level Selectors */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label
+                    htmlFor="roleSelect"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
+                  >
+                    Target Career Track:
+                  </label>
+                  <select
+                    id="roleSelect"
+                    value={targetRole}
+                    onChange={(e) => setTargetRole(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                      background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                      color: 'var(--control-text, #fff)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <option value="Frontend Developer">Frontend Developer</option>
+                    <option value="Backend Developer">Backend Developer</option>
+                    <option value="Data Analyst">Data Analyst</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label
+                    htmlFor="experienceLevelSelect"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
+                  >
+                    Experience Level:
+                  </label>
+                  <select
+                    id="experienceLevelSelect"
+                    value={experienceLevel}
+                    onChange={(e) => setExperienceLevel(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                      background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                      color: 'var(--control-text, #fff)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <option value="Junior">Junior (0-2 yrs)</option>
+                    <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                    <option value="Senior">Senior (5+ yrs)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Job Description Draft Input (#533) */}
+              <div style={{ marginTop: '16px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <label
+                    htmlFor="jobDescriptionInput"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    💼 Target Job Description{' '}
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'normal',
+                        color: 'var(--muted-text, #94a3b8)',
+                      }}
+                    >
+                      (Optional)
+                    </span>
+                  </label>
+                  {isDraftSaved && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#4ade80',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      💾 Draft auto-saved
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  id="jobDescriptionInput"
+                  className="custom-textarea"
+                  placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  maxLength={MAX_CHARS}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    minHeight: '76px',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                {(() => {
+                  const wordCount = jobDescription.trim()
+                    ? jobDescription.trim().split(/\s+/).length
+                    : 0
+                  if (wordCount > 0 && wordCount < 50) {
+                    return (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '8px 12px',
+                          backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                          border: '1px solid rgba(234, 179, 8, 0.3)',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          color: '#facc15',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        ⚠️{' '}
+                        <span>
+                          Friendly tip: Very short job descriptions might yield less accurate
+                          analysis. Consider pasting the full description!
+                        </span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💾 Draft auto-saved
+                </span>
+              )}
                 Set Career Track &amp; Experience
               </h3>
             </div>
@@ -1309,7 +1523,7 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={displayScore!}/>
+              <AtsScore score={displayScore!} />
 
               <ScoreBreakdown breakdown={displayScoreBreakdown} />
 
@@ -1744,7 +1958,12 @@ function App() {
         </div>{' '}
         {/* closes .main-card */}
       </div>{' '}
-      <Footer onOpenWhatsNew={() => setShowWhatsNew(true)} />
+      <Footer
+        onOpenWhatsNew={() => {
+          window.history.pushState({}, '', '/release-notes')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }}
+      />
       <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </>
   )
