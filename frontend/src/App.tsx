@@ -27,6 +27,7 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SectionAnalyzer } from './components/SectionAnalyzer'
 
 type Theme = 'light' | 'dark'
 
@@ -1103,6 +1104,8 @@ function App() {
               <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
+
+              <SectionAnalyzer resumeText={resumeText} skills={skills} />
 
               {/*
                 Share controls. Previously there was no way to publish or
