@@ -38,6 +38,7 @@ import {
 } from './utils/pollAnalysisTask'
 import { SectionAnalyzer } from './components/SectionAnalyzer'
 import { SkillsRadarChart } from './components/SkillsRadarChart'
+import { AtsSimulator } from './components/atsAnalytics/AtsSimulator'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -1559,6 +1560,7 @@ function App() {
 
               <ResumePreview text={resumeText} skills={skills} />
 
+              {analysisId !== null && <AtsSimulator analysisId={analysisId} />}
               <SectionAnalyzer resumeText={resumeText} skills={skills} />
 
               {/*
