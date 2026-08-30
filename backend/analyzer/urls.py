@@ -36,7 +36,13 @@ from .views import (
     test_webhook,
     preview_experience_level_view,
 )
+from . import career_roadmap
 from .badge_views import manage_resume_badge, resume_score_badge
+from .application_tracker_views import (
+    ApplicationLogListView,
+    ApplicationLogDetailView,
+    application_stats_view,
+)
 
 # The feature modules below were written with views, serializers and tests, and
 # were never given a path. Everything under `analyzer/` matches the URLs the
@@ -54,8 +60,9 @@ from .multilingual_views import LanguageDetectionView, TranslationView
 from .ab_testing_views import ABTestingStatsView, LogApplicationView
 from .accessibility_views import AccessibilityCheckView
 from .cliche_views import ClicheDetectorView
-from .linkedin_views import LinkedInOptimizationView
+from .linkedin_views import LinkedInOptimizationView, LinkedInConsistencyView
 from .sanitizer_views import FileMetadataView, SanitizeResumeView
+from .ats_simulator_views import list_ats_profiles, simulate_ats
 
 urlpatterns = [
     path("upload/", upload_resume),
@@ -89,6 +96,9 @@ urlpatterns = [
         name="manage_analysis_share",
     ),
 
+    path("ats-simulator/profiles/", list_ats_profiles, name="list_ats_profiles"),
+    path("history/<int:analysis_id>/ats-simulate/", simulate_ats, name="simulate_ats"),
+
     path("webhooks/", manage_webhooks, name="manage_webhooks"),
     path("webhooks/<int:pk>/", webhook_detail, name="webhook_detail"),
     path("webhooks/<int:pk>/test/", test_webhook, name="test_webhook"),
@@ -96,11 +106,18 @@ urlpatterns = [
     path("compare/", compare_versions_view),
     path("suggestion-feedback/", suggestion_feedback),
     path("shared/<uuid:share_id>/", get_shared_result),
+    # Job Application Tracker
+    path("applications/", ApplicationLogListView.as_view(), name="application_list"),
+    path("applications/<int:pk>/", ApplicationLogDetailView.as_view(), name="application_detail"),
+    path("applications/stats/", application_stats_view, name="application_stats"),
+
     path("badge/", manage_resume_badge, name="manage_resume_badge"),
     path("badge/<uuid:badge_id>/svg/", resume_score_badge, name="resume_score_badge"),
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset_request'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path("admin/stats/", admin_stats_view, name="admin_stats"),
+    path("roadmap/generate/", career_roadmap.generate_career_roadmap, name="generate_career_roadmap"),
+    path("roadmap/courses/", career_roadmap.get_course_recommendations, name="get_course_recommendations"),
 
     # Resume-improvement tools.
     #
@@ -185,4 +202,5 @@ urlpatterns = [
         SanitizeResumeView.as_view(),
         name="sanitize_resume",
     ),
+    path("check-linkedin-consistency/", LinkedInConsistencyView.as_view(), name="check_linkedin_consistency"),
 ]

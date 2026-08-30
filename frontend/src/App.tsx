@@ -19,6 +19,7 @@ import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import LinkedInConsistencyChecker from './components/LinkedInConsistencyChecker'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
@@ -35,6 +36,9 @@ import {
   abortableSleep,
   pollAnalysisTask,
 } from './utils/pollAnalysisTask'
+import { SectionAnalyzer } from './components/SectionAnalyzer'
+import { SkillsRadarChart } from './components/SkillsRadarChart'
+import { AtsSimulator } from './components/atsAnalytics/AtsSimulator'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -866,6 +870,16 @@ function App() {
     )
   }
 
+
+  if (location.pathname === '/linkedin-consistency') {
+    return (
+      <>
+        <LinkedInConsistencyChecker />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/privacy') {
     return (
       <>
@@ -949,6 +963,13 @@ function App() {
           <div className="auth-bar">
             {user ? (
               <>
+                <Link
+                  to="/career-roadmap"
+                  className="auth-bar-btn"
+                  style={{ textDecoration: 'none', marginRight: '8px', background: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8' }}
+                >
+                  🗺️ Career Roadmap
+                </Link>
                 <Link
                   to="/profile"
                   className="auth-username"
@@ -1539,6 +1560,9 @@ function App() {
 
               <ResumePreview text={resumeText} skills={skills} />
 
+              {analysisId !== null && <AtsSimulator analysisId={analysisId} />}
+              <SectionAnalyzer resumeText={resumeText} skills={skills} />
+
               {/*
                 Share controls. Previously there was no way to publish or
                 unpublish an analysis from the UI at all — the link simply
@@ -1726,6 +1750,9 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Skills Radar Chart */}
+              <SkillsRadarChart skills={skills} />
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
