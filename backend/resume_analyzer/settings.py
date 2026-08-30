@@ -246,6 +246,12 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+# Fraud / Abuse Detection settings for Signup
+SIGNUP_ABUSE_ENABLED = os.environ.get('SIGNUP_ABUSE_ENABLED', 'True') == 'True'
+SIGNUP_ABUSE_THRESHOLD = int(os.environ.get('SIGNUP_ABUSE_THRESHOLD', '50'))
+SIGNUP_ABUSE_WINDOW_MINUTES = int(os.environ.get('SIGNUP_ABUSE_WINDOW_MINUTES', '60'))
+SIGNUP_ABUSE_COOLDOWN_MINUTES = int(os.environ.get('SIGNUP_ABUSE_COOLDOWN_MINUTES', '60'))
+
 # JWT lifetimes. These were previously inherited from SimpleJWT's defaults
 # rather than chosen, which meant a 5-minute access token — fine in itself, but
 # the frontend was discarding the refresh token, so a session simply stopped

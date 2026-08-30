@@ -69,6 +69,10 @@ class ResumeAnalysis(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at", "-id"]),
+            models.Index(fields=["target_role"]),
+        ]
 
     def __str__(self):
         return f"{self.user.username} — {self.file_name} ({self.score}%)"
@@ -411,3 +415,29 @@ class ApplicationLog(models.Model):
 
     def __str__(self):
         return f"{self.job_title} at {self.company_name} - {self.status}"
+
+
+class SignupAbuseEvent(models.Model):
+    """
+    Records an instance where an IP address exceeded the signup rate limit threshold.
+    Useful for maintainers to audit potential abuse, such as bot registrations.
+    """
+    STATUS_CHOICES = [
+        ('flagged', 'Flagged'),
+        ('throttled', 'Throttled'),
+        ('reviewed', 'Reviewed'),
+    ]
+
+    ip_address = models.GenericIPAddressField(db_index=True)
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    signup_count = models.IntegerField(help_text="Number of signups in the time window")
+    window_minutes = models.IntegerField(help_text="The time window in minutes")
+    user_agent = models.TextField(blank=True, help_text="The user agent of the last request")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='flagged')
+    notes = models.TextField(blank=True, help_text="Maintainer notes")
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.ip_address} - {self.status} at {self.timestamp}"
