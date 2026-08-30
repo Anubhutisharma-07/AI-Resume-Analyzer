@@ -51,6 +51,7 @@ import { Routes, Route } from 'react-router-dom'
 import { TermsOfService } from './pages/TermsOfService'
 import { ProfilePage } from './components/ProfilePage'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
+import { ATSCompatibilityScanner } from './components/ATSCompatibilityScanner'
 
 
 createRoot(document.getElementById('root')!).render(
@@ -63,6 +64,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/*" element={<App />} />
           <Route path="/docs" element={<ApiDocs />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/ats-scanner" element={<ATSCompatibilityScanner />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
