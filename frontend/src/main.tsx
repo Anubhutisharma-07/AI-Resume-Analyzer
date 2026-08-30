@@ -50,6 +50,7 @@ if (import.meta.env.VITE_SENTRY_DSN) {
 import { Routes, Route } from 'react-router-dom'
 import { TermsOfService } from './pages/TermsOfService'
 import { ProfilePage } from './components/ProfilePage'
+import { SkillGapAnalyzer } from './components/SkillGapAnalyzer'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
 
 
@@ -63,6 +64,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/*" element={<App />} />
           <Route path="/docs" element={<ApiDocs />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/skill-gap" element={<SkillGapAnalyzer />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
