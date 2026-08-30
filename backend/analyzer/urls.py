@@ -59,7 +59,7 @@ from .multilingual_views import LanguageDetectionView, TranslationView
 from .ab_testing_views import ABTestingStatsView, LogApplicationView
 from .accessibility_views import AccessibilityCheckView
 from .cliche_views import ClicheDetectorView
-from .linkedin_views import LinkedInOptimizationView
+from .linkedin_views import LinkedInOptimizationView, LinkedInConsistencyView
 from .sanitizer_views import FileMetadataView, SanitizeResumeView
 
 urlpatterns = [
@@ -195,4 +195,5 @@ urlpatterns = [
         SanitizeResumeView.as_view(),
         name="sanitize_resume",
     ),
+    path("check-linkedin-consistency/", LinkedInConsistencyView.as_view(), name="check_linkedin_consistency"),
 ]
