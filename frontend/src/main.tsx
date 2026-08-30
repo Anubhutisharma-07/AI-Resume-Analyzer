@@ -51,6 +51,7 @@ import { Routes, Route } from 'react-router-dom'
 import { TermsOfService } from './pages/TermsOfService'
 import { ProfilePage } from './components/ProfilePage'
 import { CareerRoadmap } from './pages/CareerRoadmap'
+import { SkillGapAnalyzer } from './components/SkillGapAnalyzer'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
 
 
@@ -65,6 +66,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/docs" element={<ApiDocs />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/career-roadmap" element={<CareerRoadmap />} />
+          <Route path="/skill-gap" element={<SkillGapAnalyzer />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
