@@ -61,6 +61,7 @@ from .accessibility_views import AccessibilityCheckView
 from .cliche_views import ClicheDetectorView
 from .linkedin_views import LinkedInOptimizationView, LinkedInConsistencyView
 from .sanitizer_views import FileMetadataView, SanitizeResumeView
+from .ats_simulator_views import list_ats_profiles, simulate_ats
 
 urlpatterns = [
     path("upload/", upload_resume),
@@ -93,6 +94,9 @@ urlpatterns = [
         manage_analysis_share,
         name="manage_analysis_share",
     ),
+
+    path("ats-simulator/profiles/", list_ats_profiles, name="list_ats_profiles"),
+    path("history/<int:analysis_id>/ats-simulate/", simulate_ats, name="simulate_ats"),
 
     path("webhooks/", manage_webhooks, name="manage_webhooks"),
     path("webhooks/<int:pk>/", webhook_detail, name="webhook_detail"),

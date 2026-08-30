@@ -38,6 +38,7 @@ import {
 } from './utils/pollAnalysisTask'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { SkillsRadarChart } from './components/SkillsRadarChart'
+import { AtsSimulator } from './components/atsAnalytics/AtsSimulator'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -1551,6 +1552,8 @@ function App() {
               <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
+
+              {analysisId !== null && <AtsSimulator analysisId={analysisId} />}
 
               {/*
                 Share controls. Previously there was no way to publish or
