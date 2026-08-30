@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
@@ -8,10 +8,10 @@ import {
   describeUploadLimits,
   validateResumeFile,
 } from './utils/fileValidation'
-import { useAnalysisHistory } from './hooks/useAnalysisHistory'
-import type { AnalysisEntry, PartialSkillItem } from './hooks/useAnalysisHistory'
-import { HistorySidebar } from './HistorySidebar'
+import { useAnalysisHistory, type AnalysisEntry, type PartialSkillItem } from './hooks/useAnalysisHistory'
+import { HistorySidebar, type JobBookmark } from './HistorySidebar'
 import { CompareVersions } from './components/CompareVersions/CompareVersions'
+import { BulkResumeAnalysisModal } from './components/BulkResumeAnalysisModal'
 import { useAuth } from './hooks/useAuth'
 import { api } from './api/client'
 import { analysisTokenHeaders } from './utils/analysisToken'
@@ -22,19 +22,62 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
+// import CareerTrackSelector from './components/CareerTrackSelector'
 import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreakdown'
+import { FormattingChecks, type FormattingChecksData } from './components/FormattingChecks'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
+import ReleaseNotes from './pages/ReleaseNotes'
 import { ShareResult } from './components/ShareResult'
+import { Button } from './components/Button'
+import {
+  AnalysisAbortedError,
+  abortableSleep,
+  pollAnalysisTask,
+} from './utils/pollAnalysisTask'
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { SkillsRadarChart } from './components/SkillsRadarChart'
 
-type Theme = 'light' | 'dark'
+/**
+ * The subset of the analysis payload this screen reads.
+ *
+ * Not the full response — the point is that every field `runAnalysis` pulls
+ * off the result is declared, so adding a `setX(result.y)` line for an
+ * undeclared `y` is a compile error rather than an `undefined` at runtime.
+ * `timeline` and `partial_skills` landed on `main` while this branch was open
+ * and were caught exactly that way on the rebase.
+ */
+interface AnalysisResult {
+  id?: number
+  score: number
+  score_breakdown?: ScoreBreakdownData | null
+  formatting_checks?: FormattingChecksData | null
+  timeline?: TimelineData | null
+  skills_found?: string[]
+  suggestions?: string[]
+  matched_skills?: string[]
+  partial_skills?: PartialSkillItem[]
+  missing_skills?: string[]
+  resume_text?: string
+  interview_questions?: string[]
+}
+
+import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
+import ResumeCompareDashboard from './components/ResumeCompareDashboard'
+import InterviewPrepCoach from './components/InterviewPrepCoach'
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
+
+import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+
+import { setResumeRoastConsent } from './utils/cookieConsent'
+import { JobDescriptionInput } from './components/JobDescriptionInput'
+
+type Theme = 'light' | 'dark' | 'high-contrast'
 
 function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'light' || saved === 'dark' || saved === 'high-contrast') return saved as Theme
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
@@ -135,6 +178,7 @@ function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
+  const [formattingChecks, setFormattingChecks] = useState<FormattingChecksData | null>(null)
   const [timeline, setTimeline] = useState<TimelineData | null>(null)
   const [skills, setSkills] = useState<string[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -155,6 +199,9 @@ function App() {
   })
   const [isDraftSaved, setIsDraftSaved] = useState<boolean>(false)
 
+  // Job Description Character Limit (#750)
+  const MAX_CHARS = 2000
+
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -173,7 +220,13 @@ function App() {
   }, [jobDescription])
 
   // Component States
-  const [targetRole, setTargetRole] = useState('Frontend Developer')
+  const [targetRole, setTargetRole] = useState(() => {
+    try {
+      return localStorage.getItem('selected_target_role') || 'Frontend Developer'
+    } catch {
+      return 'Frontend Developer'
+    }
+  })
   const [experienceLevel, setExperienceLevel] = useState(() => {
     try {
       return localStorage.getItem('selected_experience_level') || 'Mid-Level'
@@ -189,6 +242,47 @@ function App() {
   const [analysisSource, setAnalysisSource] = useState<'sample' | 'upload' | null>(null)
   const [resumeText, setResumeText] = useState<string>('')
   const [interviewQuestions, setInterviewQuestions] = useState<string[]>([])
+  const [previewData, setPreviewData] = useState<{
+    score: number
+    scoreBreakdown: ScoreBreakdownData | null
+    matchedSkills: string[]
+    missingSkills: string[]
+    suggestions: string[]
+    experienceLevel: string
+  } | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  const handlePreviewLevel = async (level: string) => {
+    if (level === experienceLevel) {
+      setPreviewData(null)
+      setPreviewError(null)
+      return
+    }
+    setPreviewing(true)
+    setPreviewError(null)
+    try {
+      const res = await api.post('/api/preview-level/', {
+        analysis_id: analysisId,
+        resume_text: resumeText,
+        target_role: targetRole,
+        experience_level: level,
+      })
+      setPreviewData({
+        score: res.data.score,
+        scoreBreakdown: res.data.score_breakdown || null,
+        matchedSkills: res.data.matched_skills || [],
+        missingSkills: res.data.missing_skills || [],
+        suggestions: res.data.suggestions || [],
+        experienceLevel: res.data.experience_level,
+      })
+    } catch (err: any) {
+      console.error(err)
+      setPreviewError('Failed to fetch preview for ' + level)
+    } finally {
+      setPreviewing(false)
+    }
+  }
 
   // Retry state
   const [retryCount, setRetryCount] = useState(0)
@@ -197,6 +291,58 @@ function App() {
   // Auth
   const { user, signup, login, loginWithOAuth, logout } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
+
+  const [bookmarks, setBookmarks] = useState<JobBookmark[]>([])
+
+  useEffect(() => {
+    const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+    try {
+      const data = localStorage.getItem(storageKey)
+      setBookmarks(data ? JSON.parse(data) : [])
+    } catch {
+      setBookmarks([])
+    }
+  }, [user])
+
+  // const saveJobBookmark = () => {
+  //   if (!jobDescription.trim()) return
+  //   const name = prompt('Enter a name for this job bookmark:', `${targetRole} - ${new Date().toLocaleDateString()}`)
+  //   if (!name) return
+
+  //   const newBookmark: JobBookmark = {
+  //     id: Math.random().toString(36).substring(2, 9),
+  //     name: name.trim(),
+  //     role: targetRole,
+  //     experienceLevel: experienceLevel,
+  //     jobDescription: jobDescription.trim(),
+  //     timestamp: Date.now()
+  //   }
+
+  //   setBookmarks((prev) => {
+  //     const updated = [newBookmark, ...prev]
+  //     const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+  //     try {
+  //       localStorage.setItem(storageKey, JSON.stringify(updated))
+  //     } catch (e) {
+  //       console.error('Failed to save bookmarks', e)
+  //     }
+  //     return updated
+  //   })
+  //   alert('Job bookmark saved successfully!')
+  // }
+
+  const deleteJobBookmark = (id: string) => {
+    setBookmarks((prev) => {
+      const updated = prev.filter((b) => b.id !== id)
+      const storageKey = user ? `bookmarks_${user.username}` : 'bookmarks_anon'
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updated))
+      } catch (e) {
+        console.error('Failed to delete bookmark', e)
+      }
+      return updated
+    })
+  }
   const [showWhatsNew, setShowWhatsNew] = useState<boolean>(() => shouldShowWhatsNew())
 
   // History
@@ -214,6 +360,8 @@ function App() {
   const [activeFileName, setActiveFileName] = useState('')
   // Modal that diffs two saved uploads against each other.
   const [showCompare, setShowCompare] = useState(false)
+  // Modal for bulk resume analysis (#57)
+  const [showBulkModal, setShowBulkModal] = useState(false)
 
   const fetchDbHistory = useCallback(async () => {
     try {
@@ -315,7 +463,15 @@ function App() {
   // }
 
   useEffect(() => {
-    if (user) fetchDbHistory()
+    if (user) {
+      fetchDbHistory()
+      return
+    }
+    // The session ended. `useAnalysisHistory` drops the entries and clears
+    // storage on its own, but the "load more" cursor lives here, and a URL
+    // pointing at page 2 of the previous account's history must not survive
+    // into the next one (#864).
+    setHistoryNextUrl(null)
   }, [user, fetchDbHistory])
 
   useEffect(() => {
@@ -325,6 +481,15 @@ function App() {
       // persistence is best-effort; ignore if storage is unavailable
     }
   }, [experienceLevel])
+
+  // Auto-save Target Role selection (#757)
+  useEffect(() => {
+    try {
+      localStorage.setItem('selected_target_role', targetRole)
+    } catch {
+      // persistence is best-effort; ignore if storage is unavailable
+    }
+  }, [targetRole])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -346,8 +511,19 @@ function App() {
   }, [cooldownRemaining])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => (prev === 'light' ? 'dark' : prev === 'dark' ? 'high-contrast' : 'light'))
   }
+
+  // Holds the in-flight analysis poll so it can be abandoned when a new run
+  // starts or the component unmounts. Previously the loop had no owner and
+  // simply kept polling after the user navigated away.
+  const pollAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      pollAbortRef.current?.abort()
+    }
+  }, [])
 
   const getRetryDelay = (attemptNumber: number): number => {
     // Exponential backoff: 2^attemptNumber seconds, capped at 30 seconds
@@ -359,9 +535,12 @@ function App() {
     try {
       setLoading(true)
       setAnalysisSource(source)
+      setPreviewData(null)
+      setPreviewError(null)
       const formData = new FormData()
       formData.append('file', fileToAnalyze)
       formData.append('role', targetRole)
+      formData.append('experience_level', experienceLevel)
       if (jobDescription.trim()) {
         formData.append('job_description', jobDescription.trim())
       }
@@ -385,20 +564,33 @@ function App() {
       // See #706.
       const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
 
-      let result = null
-      while (true) {
-        const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
-        if (statusRes.data.state === 'SUCCESS') {
-          result = statusRes.data.result
-          break
-        } else if (statusRes.data.state === 'FAILURE') {
-          throw new Error(statusRes.data.error || 'Analysis failed')
-        }
-        await new Promise((r) => setTimeout(r, 1000))
-      }
+      // Any previous run is abandoned before this one starts, so two
+      // analyses cannot race to write the result state.
+      pollAbortRef.current?.abort()
+      const pollController = new AbortController()
+      pollAbortRef.current = pollController
+
+      const result = (await pollAnalysisTask(
+        taskId,
+        {
+          // `api`, not a bare axios call: it is the client that refreshes an
+          // expired access token (#633), and an analysis can outlive one.
+          fetchStatus: async (id, signal) => {
+            const statusRes = await api.get(`/api/status/${id}/`, {
+              signal,
+              headers: analysisHeaders,
+            })
+            return statusRes.data
+          },
+          sleep: abortableSleep,
+          now: () => Date.now(),
+        },
+        { signal: pollController.signal }
+      )) as AnalysisResult
 
       setScore(result.score)
       setScoreBreakdown(result.score_breakdown || null)
+      setFormattingChecks(result.formatting_checks || null)
       setTimeline(result.timeline || null)
       setSkills(result.skills_found || [])
       setSuggestions(result.suggestions || [])
@@ -414,6 +606,8 @@ function App() {
       // Clear draft once successfully analyzed (#533)
       try {
         localStorage.removeItem(JD_DRAFT_KEY)
+        localStorage.removeItem('selected_target_role')
+        localStorage.removeItem('selected_experience_level')
       } catch {
         // ignore
       }
@@ -430,6 +624,12 @@ function App() {
         await fetchDbHistory()
       }
     } catch (error: unknown) {
+      // The run was superseded or the component went away. There is nobody to
+      // tell, and the state it would write belongs to a newer run.
+      if (error instanceof AnalysisAbortedError) {
+        return
+      }
+
       console.error(error)
 
       let errorMsg = 'Unknown error'
@@ -452,6 +652,7 @@ function App() {
       setCooldownRemaining(getRetryDelay(newRetryCount))
     }
   }
+
 
   const uploadResume = async () => {
     if (!file) {
@@ -501,6 +702,7 @@ function App() {
     setFile(null)
     setScore(null)
     setScoreBreakdown(null)
+    setFormattingChecks(null)
     setTimeline(null)
     setSkills([])
     setSuggestions([])
@@ -517,6 +719,8 @@ function App() {
     setActiveFileName('')
     setRetryCount(0)
     setCooldownRemaining(0)
+    setPreviewData(null)
+    setPreviewError(null)
   }
 
   const submitSuggestionVote = useCallback(
@@ -605,14 +809,63 @@ function App() {
     if (entry.experienceLevel) {
       setExperienceLevel(entry.experienceLevel)
     }
-    // History entries carry a client-side id, not the analysis id, so there is
-    // nothing safe to attach a vote to when one is replayed.
-    setAnalysisId(null)
+    if (/^\d+$/.test(entry.id)) {
+      setAnalysisId(Number(entry.id))
+    } else {
+      setAnalysisId(null)
+    }
     setSuggestionVotes({})
     setActiveFileName(entry.fileName)
     setShowAllSkills(false)
     setCopied(false)
     setHistoryOpen(false)
+    setPreviewData(null)
+    setPreviewError(null)
+  }
+
+  if (location.pathname === '/skill-gap-analyzer') {
+    return (
+      <>
+        <SkillGapAnalyzer />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/career-roadmap') {
+    return (
+      <>
+        <CareerRoadmapPlanner />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/resume-compare') {
+    return (
+      <>
+        <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/interview-prep') {
+    return (
+      <>
+        <InterviewPrepCoach />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
+        <Footer />
+      </>
+    )
   }
 
   if (location.pathname === '/privacy') {
@@ -623,6 +876,22 @@ function App() {
       </>
     )
   }
+
+  if (location.pathname === '/release-notes') {
+    return (
+      <>
+        <ReleaseNotes />
+        <Footer />
+      </>
+    )
+  }
+
+  const displayScore = previewData ? previewData.score : score
+  const displayScoreBreakdown = previewData ? previewData.scoreBreakdown : scoreBreakdown
+  const displayMatchedSkills = previewData ? previewData.matchedSkills : matchedSkills
+  const displayMissingSkills = previewData ? previewData.missingSkills : missingSkills
+  const displaySuggestions = previewData ? previewData.suggestions : suggestions
+  const displayExperienceLevel = previewData ? previewData.experienceLevel : experienceLevel
 
   return (
     <>
@@ -639,26 +908,45 @@ function App() {
         onCompare={() => setShowCompare(true)}
         hasMoreOnServer={historyNextUrl !== null}
         onLoadMoreFromServer={loadMoreDbHistory}
+        isLoggedIn={!!user}
+        bookmarks={bookmarks}
+        onSelectBookmark={(b) => {
+          setTargetRole(b.role)
+          setExperienceLevel(b.experienceLevel)
+          setJobDescription(b.jobDescription)
+        }}
+        onDeleteBookmark={deleteJobBookmark}
       />
       {showCompare && (
         <CompareVersions
           entries={entries}
           token={user?.token}
+          username={user?.username}
           onClose={() => setShowCompare(false)}
+        />
+      )}
+      {showBulkModal && (
+        <BulkResumeAnalysisModal
+          onClose={() => setShowBulkModal(false)}
+          initialTargetRole={targetRole}
+          initialExperienceLevel={experienceLevel}
+          initialJobDescription={jobDescription}
         />
       )}
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
-          <button
-            type="button"
-            className="app-btn theme-toggle-btn"
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label="Toggle theme"
             aria-pressed={theme === 'dark'}
           >
             {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
+          </Button>
           {/* Auth bar */}
           <div className="auth-bar">
             {user ? (
@@ -670,14 +958,14 @@ function App() {
                 >
                   👤 {user.username}
                 </Link>
-                <button className="auth-bar-btn" onClick={logout}>
+                <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={logout}>
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
-              <button className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
+              <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
                 🔐 Login / Sign Up
-              </button>
+              </Button>
             )}
           </div>
           {showAuthModal && (
@@ -688,49 +976,53 @@ function App() {
               onClose={() => setShowAuthModal(false)}
             />
           )}
-          <h1 className="mb-2">🚀 AI Resume Analyzer</h1>
-          <p
-            className="mb-4"
-            style={{
-              color: 'var(--muted-text, #94a3b8)',
-              fontSize: '1rem',
-              maxWidth: '620px',
-              margin: '0 auto 28px',
-              lineHeight: 1.5,
-            }}
-          >
-            Optimize your resume for Applicant Tracking Systems in 3 simple steps: choose your target career track, upload your resume, and get actionable scoring.
-          </p>
+          <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
 
+          {/* Step 1: Configuration */}
           <div
-            className="upload-flow-container"
+            className="step-card mb-4"
             style={{
-              maxWidth: '720px',
-              margin: '0 auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '20px',
-              textAlign: 'left',
+              background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
+              border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '20px',
             }}
           >
-            {/* Step 1: Configuration */}
             <div
-              className="step-card"
               style={{
-                background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
-                border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
-                borderRadius: 'var(--radius-lg, 12px)',
-                padding: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '14px',
               }}
             >
-              <div
+              <span
                 style={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '14px',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
                 }}
               >
+                1
+              </span>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: '600',
+                  color: 'var(--heading-text, #fff)',
+                }}
+              >
+                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+              </label>
+              {isDraftSaved && (
                 <span
                   style={{
                     display: 'inline-flex',
@@ -770,7 +1062,11 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label
                     htmlFor="roleSelect"
-                    style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
                   >
                     Target Career Track:
                   </label>
@@ -796,7 +1092,11 @@ function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label
                     htmlFor="experienceLevelSelect"
-                    style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
                   >
                     Experience Level:
                   </label>
@@ -841,7 +1141,16 @@ function App() {
                       gap: '6px',
                     }}
                   >
-                    💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+                    💼 Target Job Description{' '}
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'normal',
+                        color: 'var(--muted-text, #94a3b8)',
+                      }}
+                    >
+                      (Optional)
+                    </span>
                   </label>
                   {isDraftSaved && (
                     <span
@@ -863,6 +1172,7 @@ function App() {
                   placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
+                  maxLength={MAX_CHARS}
                   rows={3}
                   style={{
                     width: '100%',
@@ -872,201 +1182,325 @@ function App() {
                     boxSizing: 'border-box',
                   }}
                 />
-                {jobDescription && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      marginTop: '6px',
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setJobDescription('')}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--muted-text, #94a3b8)',
-                        fontSize: '0.75rem',
-                        cursor: 'pointer',
-                        textDecoration: 'underline',
-                      }}
-                    >
-                      Clear Draft
-                    </button>
-                  </div>
-                )}
-              </div>
+                {(() => {
+                  const wordCount = jobDescription.trim()
+                    ? jobDescription.trim().split(/\s+/).length
+                    : 0
+                  if (wordCount > 0 && wordCount < 50) {
+                    return (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '8px 12px',
+                          backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                          border: '1px solid rgba(234, 179, 8, 0.3)',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          color: '#facc15',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        ⚠️{' '}
+                        <span>
+                          Friendly tip: Very short job descriptions might yield less accurate
+                          analysis. Consider pasting the full description!
+                        </span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💾 Draft auto-saved
+                </span>
+              )}
+                Set Career Track &amp; Experience
+              </h3>
             </div>
 
-            {/* Step 2: Upload Document */}
+            {/* Role and Experience Level Selectors */}
             <div
-              className="step-card"
               style={{
-                background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
-                border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
-                borderRadius: 'var(--radius-lg, 12px)',
-                padding: '20px',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '14px',
               }}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '14px',
-                }}
-              >
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    background: 'var(--color-primary, #6366f1)',
-                    color: '#fff',
-                    fontWeight: '700',
-                    fontSize: '0.8rem',
-                  }}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label
+                  htmlFor="roleSelect"
+                  style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
                 >
-                  2
-                </span>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: '1.05rem',
-                    fontWeight: '600',
-                    color: 'var(--heading-text, #fff)',
-                  }}
-                >
-                  Upload Your Resume
-                </h3>
-              </div>
-
-              <div
-                className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  setIsDragging(true)
-                }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setIsDragging(false)
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    const f = e.dataTransfer.files[0]
-                    setUploadError(null)
-                    const result = validateResumeFile(f, {
-                      maxSizeBytes: MAX_FILE_SIZE,
-                      label: 'resume',
-                    })
-                    if (!result.ok) {
-                      setUploadError(result.error)
-                      setFile(null)
-                      return
-                    }
-                    setFile(f)
-                  }
-                }}
-              >
-                <input
-                  type="file"
-                  id="fileUpload"
-                  className="sr-only"
-                  accept={RESUME_ACCEPT_ATTRIBUTE}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setUploadError(null)
-                    const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
-                    if (!f) {
-                      setFile(null)
-                      return
-                    }
-                    const result = validateResumeFile(f, {
-                      maxSizeBytes: MAX_FILE_SIZE,
-                      label: 'resume',
-                    })
-                    if (!result.ok) {
-                      setUploadError(result.error)
-                      setFile(null)
-                      return
-                    }
-                    setFile(f)
-                  }}
-                />
-                <label htmlFor="fileUpload" className="upload-label">
-                  <span className="upload-icon-wrapper" aria-hidden="true">
-                    📄
-                  </span>
-                  <span className="upload-text-primary">
-                    Drag &amp; Drop Resume or{' '}
-                    <span className="upload-text-browse">Click to Browse</span>
-                  </span>
-                  {file ? (
-                    <span
-                      className="upload-text-secondary"
-                      style={{ display: 'block', marginTop: '4px', fontWeight: '600', color: '#4ade80' }}
-                    >
-                      ✓ Selected: {file.name}
-                    </span>
-                  ) : uploadError ? (
-                    <span
-                      className="upload-text-error"
-                      style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
-                    >
-                      {uploadError}
-                    </span>
-                  ) : (
-                    <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
-                  )}
+                  Target Career Track:
                 </label>
-              </div>
-
-              {/* Action Buttons */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '12px',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  marginTop: '16px',
-                }}
-              >
-                <button
-                  className="analyze-btn"
-                  onClick={uploadResume}
-                  disabled={loading || cooldownRemaining > 0}
+                <select
+                  id="roleSelect"
+                  value={targetRole}
+                  onChange={(e) => setTargetRole(e.target.value)}
                   style={{
-                    padding: '12px 32px',
-                    fontSize: '1rem',
-                    fontWeight: '700',
-                    letterSpacing: '0.02em',
-                    boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                    background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                    color: 'var(--control-text, #fff)',
+                    fontSize: '0.9rem',
                   }}
                 >
-                  {loading && analysisSource === 'upload'
-                    ? '⏳ Extracting and analyzing resume text...'
-                    : cooldownRemaining > 0
-                      ? `Retry available in ${cooldownRemaining}s`
-                      : '🚀 Analyze Resume'}
-                </button>
-                <button
-                  className="secondary-btn"
-                  onClick={handleSampleResume}
-                  disabled={loading || cooldownRemaining > 0}
-                  type="button"
-                  style={{ padding: '12px 20px', fontSize: '0.95rem' }}
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="Backend Developer">Backend Developer</option>
+                  <option value="Data Analyst">Data Analyst</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label
+                  htmlFor="experienceLevelSelect"
+                  style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--heading-text, #fff)' }}
                 >
-                  {loading && analysisSource === 'sample'
-                    ? '⏳ Loading Sample...'
-                    : cooldownRemaining > 0
-                      ? `Retry available in ${cooldownRemaining}s`
-                      : 'Try Sample Resume'}
-                </button>
+                  Experience Level:
+                </label>
+                <select
+                  id="experienceLevelSelect"
+                  value={experienceLevel}
+                  onChange={(e) => setExperienceLevel(e.target.value)}
+                  style={{
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                    background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                    color: 'var(--control-text, #fff)',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  <option value="Junior">Junior (0-2 yrs)</option>
+                  <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                  <option value="Senior">Senior (5+ yrs)</option>
+                </select>
               </div>
             </div>
+
+            {/* Job Description Draft Input (#533 / #754) */}
+            <div style={{ marginTop: '16px' }}>
+              {isDraftSaved && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#4ade80',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    💾 Draft auto-saved
+                  </span>
+                </div>
+              )}
+              <JobDescriptionInput
+                value={jobDescription}
+                onChange={setJobDescription}
+                maxCharacters={MAX_CHARS}
+              />
+              {(() => {
+                const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
+                if (wordCount > 0 && wordCount < 50) {
+                  return (
+                    <div
+                      style={{
+                        marginTop: '8px',
+                        padding: '8px 12px',
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        border: '1px solid rgba(234, 179, 8, 0.3)',
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        color: '#facc15',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          </div>
+
+          {/* Step 2: Upload Document */}
+          <div
+            className="step-card"
+            style={{
+              background: 'var(--surface-soft-bg, rgba(255, 255, 255, 0.03))',
+              border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.1))',
+              borderRadius: 'var(--radius-lg, 12px)',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginBottom: '14px',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  background: 'var(--color-primary, #6366f1)',
+                  color: '#fff',
+                  fontWeight: '700',
+                  fontSize: '0.8rem',
+                }}
+              >
+                2
+              </span>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: '600',
+                  color: 'var(--heading-text, #fff)',
+                }}
+              >
+                Upload Document
+              </h3>
+            </div>
+            <div
+              className={`upload-box mb-3${isDragging ? ' dragging' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setIsDragging(true)
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setIsDragging(false)
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  const f = e.dataTransfer.files[0]
+                  setUploadError(null)
+                  const result = validateResumeFile(f, {
+                    maxSizeBytes: MAX_FILE_SIZE,
+                    label: 'resume',
+                  })
+                  if (!result.ok) {
+                    setUploadError(result.error)
+                    setFile(null)
+                    return
+                  }
+                  setFile(f)
+                }
+              }}
+            >
+              <input
+                type="file"
+                id="fileUpload"
+                className="sr-only"
+                accept={RESUME_ACCEPT_ATTRIBUTE}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setUploadError(null)
+                  const f = e.target.files && e.target.files[0] ? e.target.files[0] : null
+                  if (!f) {
+                    setFile(null)
+                    return
+                  }
+                  const result = validateResumeFile(f, {
+                    maxSizeBytes: MAX_FILE_SIZE,
+                    label: 'resume',
+                  })
+                  if (!result.ok) {
+                    setUploadError(result.error)
+                    setFile(null)
+                    return
+                  }
+                  setFile(f)
+                }}
+              />
+              <label htmlFor="fileUpload" className="upload-label">
+                <span className="upload-icon-wrapper" aria-hidden="true">
+                  📄
+                </span>
+                <span className="upload-text-primary">
+                  Drag &amp; Drop Resume or{' '}
+                  <span className="upload-text-browse">Click to Browse</span>
+                </span>
+                {file ? (
+                  <span
+                    className="upload-text-secondary"
+                    style={{ display: 'block', marginTop: '4px' }}
+                  >
+                    Selected: {file.name}
+                  </span>
+                ) : uploadError ? (
+                  <span
+                    className="upload-text-error"
+                    style={{ display: 'block', marginTop: '4px', color: '#ff6b6b' }}
+                  >
+                    {uploadError}
+                  </span>
+                ) : (
+                  <span className="upload-text-secondary">{describeUploadLimits(MAX_FILE_SIZE)}</span>
+                )}
+              </label>
+            </div>
+          </div>
+          <div
+            style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
+            className="mb-3"
+          >
+            <Button
+              variant="primary"
+              size="lg"
+              className="analyze-btn"
+              onClick={uploadResume}
+              disabled={loading || cooldownRemaining > 0}
+            >
+              {loading && analysisSource === 'upload'
+                ? '⏳ Extracting and analyzing resume text...'
+                : cooldownRemaining > 0
+                  ? `Retry available in ${cooldownRemaining}s`
+                  : '🚀 Analyze Resume'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="secondary-btn"
+              onClick={handleSampleResume}
+              disabled={loading || cooldownRemaining > 0}
+            >
+              {loading && analysisSource === 'sample'
+                ? '⏳ Loading Sample...'
+                : cooldownRemaining > 0
+                  ? `Retry available in ${cooldownRemaining}s`
+                  : 'Try Sample Resume'}
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="secondary-btn"
+              onClick={() => setShowBulkModal(true)}
+              disabled={loading}
+              title="Upload and analyze multiple resumes at once"
+            >
+              📂 Bulk Analysis
+            </Button>
           </div>
           {/* Loading spinner — shown while the resume is being analyzed */}
           {loading && (
@@ -1091,9 +1525,11 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={score} />
+              <AtsScore score={displayScore!} />
 
-              <ScoreBreakdown breakdown={scoreBreakdown} />
+              <ScoreBreakdown breakdown={displayScoreBreakdown} />
+
+              <FormattingChecks formattingChecks={formattingChecks} />
 
               {/*
                 Employment timeline. Recruiters read the dates before the
@@ -1115,13 +1551,97 @@ function App() {
               <ShareResult analysisId={analysisId} />
 
               <h5 className="analysis-done" role="status" aria-live="polite">
-                ✅ Resume Analysis Complete
+                {previewData ? '🔍 Previewing Growth Details' : '✅ Resume Analysis Complete'}
               </h5>
               {activeFileName && (
                 <p style={{ fontSize: '13px', opacity: 0.7, marginTop: '-8px' }}>
-                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {experienceLevel}
+                  📄 {activeFileName} • 🎯 {targetRole} • 💼 {displayExperienceLevel}{' '}
+                  {previewData && (
+                    <span style={{ color: '#818cf8', fontWeight: 'bold' }}>(PREVIEW)</span>
+                  )}
                 </p>
               )}
+
+              {/* Preview level selector */}
+              <div
+                style={{
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1.5px solid rgba(99, 102, 241, 0.25)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  maxWidth: '560px',
+                  margin: '12px auto 24px',
+                  textAlign: 'center',
+                }}
+              >
+                <label
+                  htmlFor="previewLevelSelect"
+                  style={{
+                    fontSize: '13.5px',
+                    fontWeight: '600',
+                    color: '#a5b4fc',
+                    display: 'block',
+                    marginBottom: '6px',
+                  }}
+                >
+                  📈 Preview suggestions at a different Experience Level:
+                </label>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '8px',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <select
+                    id="previewLevelSelect"
+                    value={previewData ? previewData.experienceLevel : experienceLevel}
+                    onChange={(e) => handlePreviewLevel(e.target.value)}
+                    disabled={previewing}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      color: '#fff',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value={experienceLevel}>{experienceLevel} (Original)</option>
+                    {['Junior', 'Mid-Level', 'Senior']
+                      .filter((l) => l !== experienceLevel)
+                      .map((level) => (
+                        <option key={level} value={level}>
+                          {level} (Preview)
+                        </option>
+                      ))}
+                  </select>
+                  {previewing && (
+                    <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>
+                  )}
+                  {previewData && !previewing && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setPreviewData(null)}
+                      style={{
+                        padding: '4px 10px',
+                        fontSize: '12px',
+                      }}
+                    >
+                      Reset to Actual Selection
+                    </Button>
+                  )}
+                </div>
+                {previewError && (
+                  <p style={{ color: '#ef4444', fontSize: '12px', margin: '6px 0 0' }}>
+                    ⚠️ {previewError}
+                  </p>
+                )}
+              </div>
 
               {/* Skills container */}
               <div className="mt-4">
@@ -1144,14 +1664,14 @@ function App() {
                   )}
                 </div>
                 {skills.length > 15 && (
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     style={{ marginTop: '16px' }}
                     onClick={() => setShowAllSkills(!showAllSkills)}
                   >
                     {showAllSkills ? 'Show Less ▲' : `Show More (${skills.length - 15} more) ▼`}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1160,14 +1680,16 @@ function App() {
                 className="mt-4 p-3"
                 style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}
               >
-                <h4>🎯 Skill Gap Matrix ({targetRole} • {experienceLevel})</h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px', flexWrap: 'wrap', gap: '16px' }}>
+                <h4>
+                  🎯 Skill Gap Matrix ({targetRole} • {displayExperienceLevel})
+                </h4>
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '12px' }}>
                   <div>
                     <h6 style={{ color: '#22c55e' }}>Matched Skills</h6>
-                    {matchedSkills.length === 0 ? (
+                    {displayMatchedSkills.length === 0 ? (
                       <p style={{ fontSize: '12px' }}>None</p>
                     ) : (
-                      matchedSkills.map((s, i) => (
+                      displayMatchedSkills.map((s, i) => (
                         <span key={i} className="badge bg-success m-1">
                           {s}
                         </span>
@@ -1181,7 +1703,11 @@ function App() {
                         const name = typeof p === 'string' ? p : p.skill
                         const variant = typeof p === 'object' ? p.matched_variant : ''
                         return (
-                          <span key={i} className="badge bg-warning text-dark m-1" title={typeof p === 'object' ? p.note : ''}>
+                          <span
+                            key={i}
+                            className="badge bg-warning text-dark m-1"
+                            title={typeof p === 'object' ? p.note : ''}
+                          >
                             {name} {variant ? `(${variant})` : ''}
                           </span>
                         )
@@ -1190,10 +1716,10 @@ function App() {
                   )}
                   <div>
                     <h6 style={{ color: '#ef4444' }}>Missing Skills</h6>
-                    {missingSkills.length === 0 ? (
+                    {displayMissingSkills.length === 0 ? (
                       <p style={{ fontSize: '12px' }}>None</p>
                     ) : (
-                      missingSkills.map((s, i) => (
+                      displayMissingSkills.map((s, i) => (
                         <span key={i} className="badge bg-danger m-1">
                           {s}
                         </span>
@@ -1216,7 +1742,14 @@ function App() {
                     borderRadius: '8px',
                   }}
                 >
-                  <h4 style={{ color: '#eab308', margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+                  <h4
+                    style={{
+                      color: '#eab308',
+                      margin: '0 0 12px 0',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                    }}
+                  >
                     ⚡ Skills You're Closest to Matching (Partial Credit)
                   </h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -1239,18 +1772,26 @@ function App() {
                           }}
                         >
                           <div>
-                            <span className="badge bg-warning text-dark me-2" style={{ fontWeight: '600' }}>
+                            <span
+                              className="badge bg-warning text-dark me-2"
+                              style={{ fontWeight: '600' }}
+                            >
                               Partial Match
                             </span>
                             <strong style={{ color: '#fff', fontSize: '14px' }}>{skillName}</strong>
                             {variant && (
-                              <span style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}>
-                                (Resume mentions: <code style={{ color: '#fef08a' }}>{variant}</code>)
+                              <span
+                                style={{ fontSize: '13px', color: '#cbd5e1', marginLeft: '8px' }}
+                              >
+                                (Resume mentions:{' '}
+                                <code style={{ color: '#fef08a' }}>{variant}</code>)
                               </span>
                             )}
                           </div>
                           {note && (
-                            <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>
+                            <span
+                              style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}
+                            >
                               💡 {note}
                             </span>
                           )}
@@ -1308,18 +1849,76 @@ function App() {
                       🔥 Roast Mode {roastMode ? 'ON' : 'OFF'}
                     </label>
                   </div>
-                  {suggestions.length > 0 && (
-                    <button
-                      type="button"
-                      className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                      onClick={copySuggestionsToClipboard}
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                    </button>
+                  {displaySuggestions.length > 0 && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                        onClick={copySuggestionsToClipboard}
+                      >
+                        {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          import('jspdf').then(({ default: jsPDF }) => {
+                            const doc = new jsPDF()
+                            doc.setFontSize(22)
+                            doc.text("AI Resume Analyzer - Report", 20, 20)
+                            doc.setFontSize(11)
+                            doc.setTextColor(100)
+                            const timestamp = new Date().toLocaleString()
+                            doc.text(`Generated on: ${timestamp}`, 20, 30)
+                            doc.text(`File: ${activeFileName}`, 20, 36)
+                            doc.text(`Target Role: ${targetRole}`, 20, 42)
+                            doc.setTextColor(0)
+                            doc.setFontSize(16)
+                            const reportScore = displayScore !== null ? displayScore : 0
+                            doc.text(`ATS Score: ${reportScore}/100`, 20, 56)
+                            doc.setFontSize(14)
+                            doc.text(`Skills Found (${skills.length})`, 20, 70)
+                            doc.setFontSize(11)
+                            let y = 78
+                            const wrappedSkills = doc.splitTextToSize(skills.join(", ") || "None", 170)
+                            doc.text(wrappedSkills, 20, y)
+                            y += wrappedSkills.length * 6 + 10
+                            if (y > 270) {
+                              doc.addPage()
+                              y = 20
+                            }
+                            doc.setFontSize(14)
+                            doc.text("Suggestions", 20, y)
+                            y += 10
+                            doc.setFontSize(11)
+                            if (displaySuggestions.length === 0) {
+                              doc.text("No suggestions.", 20, y)
+                            } else {
+                              displaySuggestions.forEach((s: string) => {
+                                const lines = doc.splitTextToSize(`• ${s}`, 170)
+                                if (y + lines.length * 6 > 280) {
+                                  doc.addPage()
+                                  y = 20
+                                }
+                                doc.text(lines, 20, y)
+                                y += lines.length * 6 + 3
+                              })
+                            }
+                            doc.save(`ATS_Report_${activeFileName ? activeFileName.replace(/\.[^/.]+$/, "") : "resume"}.pdf`)
+                          }).catch(err => {
+                            console.error("Failed to load jsPDF:", err)
+                            alert("Failed to generate PDF report.")
+                          })
+                        }}
+                      >
+                        📄 Download Report
+                      </Button>
+                    </div>
                   )}
                 </div>
 
-                {suggestions.map((s: string, i: number) => {
+                {displaySuggestions.map((s: string, i: number) => {
                   let displayText = s
                   if (roastMode) {
                     if (s.startsWith('Add projects or experience with ')) {
@@ -1347,13 +1946,13 @@ function App() {
 
                 {/* Reset Button */}
                 <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={resetAnalysis}
                   >
                     🔄 Start New Analysis
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -1364,7 +1963,12 @@ function App() {
         </div>{' '}
         {/* closes .main-card */}
       </div>{' '}
-      <Footer onOpenWhatsNew={() => setShowWhatsNew(true)} />
+      <Footer
+        onOpenWhatsNew={() => {
+          window.history.pushState({}, '', '/release-notes')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }}
+      />
       <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </>
   )

@@ -6,8 +6,10 @@ from django.contrib.auth import get_user_model
 from .models import ResumeAnalysis
 from . import role_skills
 from .skill_matcher import extract_skills, match_skills_with_partial
+from .nlp_matcher import calculate_jd_match
 from .scoring import compute_score_breakdown
 from .timeline import analyse as analyse_timeline
+from .formatting_checker import check_resume_formatting
 from resume_analyzer.quantify_checker import flag_unquantified_bullets
 
 User = get_user_model()
@@ -451,9 +453,15 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     readability_score, readability_label = calculate_readability(raw_text)
     detected = extract_skills(text)
 
+    job_match_score = None
+    jd_missing_skills = []
+    jd_matched_skills = []
+
     if job_description and job_description.strip():
         required = extract_skills(job_description)
         role_skill_set = None
+        # Compute bespoke JD Match score
+        job_match_score, jd_missing_skills, jd_matched_skills = calculate_jd_match(raw_text, job_description)
     else:
         role_skill_set = resolve_role_skills(target_role, experience_level)
         required = role_skill_set.skills
@@ -498,6 +506,9 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
                 target_role=target_role,
                 experience_level=experience_level or "Mid-Level",
                 job_description=job_description,
+                job_match_score=job_match_score,
+                jd_missing_skills=jd_missing_skills,
+                jd_matched_skills=jd_matched_skills,
                 score=score,
                 skills_found=detected,
                 suggestions=suggestions,
@@ -548,7 +559,17 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
             "skills_source": role_set.source,
         }
 
-    quantify_nudges = flag_unquantified_bullets(raw_text.split('\n'))
+    # splitlines(), not split('\n'): compute_score_breakdown splits the same
+    # text with splitlines(), and score_quantification compares the two by line
+    # index. The two disagree on a form feed (\x0c), which pdfplumber emits at
+    # a page break, and that would shift every index after the first page.
+    quantify_nudges = flag_unquantified_bullets(raw_text.splitlines())
+
+    # Structural formatting & ATS-friendliness checks (#80)
+    formatting_checks = check_resume_formatting(
+        text=raw_text,
+        file_type=file_name.split('.')[-1].lower() if '.' in file_name else "pdf",
+    )
 
     # Employment timeline. Deliberately kept out of `score` for the same reason
     # `score_breakdown` is: that number is persisted on ResumeAnalysis and read
@@ -574,9 +595,13 @@ def analyze_resume(file_path, target_role, file_name="resume.pdf", user_id=None,
     return {
         "id": analysis_id,
         "score": score,
+        "job_match_score": job_match_score,
+        "jd_missing_skills": jd_missing_skills,
+        "jd_matched_skills": jd_matched_skills,
         "score_breakdown": score_breakdown.as_dict(),
         "readability_score": readability_score,
         "readability_label": readability_label,
+        "formatting_checks": formatting_checks,
         "skills_found": detected,
         "suggestions": suggestions,
         "quantify_nudges": quantify_nudges,

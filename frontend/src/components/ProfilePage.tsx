@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { getConsentPreferences, saveConsentPreferences } from '../utils/cookieConsent'
+import { requestNotificationPermission, saveNotificationPreferences } from '../utils/notification'
+
+type NotificationPreferences = { in_app: boolean; browser: boolean }
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = { in_app: true, browser: false }
 
 export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession, exportUserData } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false)
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES)
   const [analyticsConsent, setAnalyticsConsentState] = useState<boolean>(() => getConsentPreferences().analytics)
   const [resumeRoastConsent, setResumeRoastConsentState] = useState<boolean>(() => getConsentPreferences().resumeRoast)
   const [isEditing, setIsEditing] = useState(false)
@@ -15,6 +20,7 @@ export const ProfilePage: React.FC = () => {
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
   const [originalOptIn, setOriginalOptIn] = useState(false)
+  const [originalNotificationPreferences, setOriginalNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES)
   const [originalAnalyticsConsent, setOriginalAnalyticsConsent] = useState<boolean>(() => getConsentPreferences().analytics)
   const [originalResumeRoastConsent, setOriginalResumeRoastConsent] = useState<boolean>(() => getConsentPreferences().resumeRoast)
 
@@ -31,18 +37,21 @@ export const ProfilePage: React.FC = () => {
       try {
         setLoading(true)
         setError(null)
-        // Through `api` so an expired access token is refreshed and the
-        // request retried. Building the header from `user.token` by hand meant
-        // the profile page was blank with "Failed to load profile details"
-        // fifteen minutes after signing in.
         const response = await api.get('/api/profile/')
         const data = response.data
+        const prefs: NotificationPreferences = {
+          in_app: data.notification_preferences?.in_app !== false,
+          browser: data.notification_preferences?.browser === true,
+        }
         setUsername(data.username)
         setEmail(data.email || '')
         setWeeklyDigestOptIn(!!data.weekly_digest_opt_in)
+        setNotificationPreferences(prefs)
+        saveNotificationPreferences(prefs)
         setOriginalUsername(data.username)
         setOriginalEmail(data.email || '')
         setOriginalOptIn(!!data.weekly_digest_opt_in)
+        setOriginalNotificationPreferences(prefs)
 
         const consentPrefs = getConsentPreferences()
         setAnalyticsConsentState(consentPrefs.analytics)
@@ -63,6 +72,8 @@ export const ProfilePage: React.FC = () => {
     setUsername(originalUsername)
     setEmail(originalEmail)
     setWeeklyDigestOptIn(originalOptIn)
+    setNotificationPreferences(originalNotificationPreferences)
+    saveNotificationPreferences(originalNotificationPreferences)
     setAnalyticsConsentState(originalAnalyticsConsent)
     setResumeRoastConsentState(originalResumeRoastConsent)
     setIsEditing(false)
@@ -75,9 +86,7 @@ export const ProfilePage: React.FC = () => {
       setExporting(true)
       setError(null)
       setSuccessMsg(null)
-
       await exportUserData()
-
       setSuccessMsg('Your account data has been downloaded successfully.')
     } catch (err: any) {
       setError(err.response?.data?.error || err.message || 'Failed to export your data.')
@@ -86,12 +95,24 @@ export const ProfilePage: React.FC = () => {
     }
   }
 
+  const updateNotificationPreference = async (channel: keyof NotificationPreferences, enabled: boolean) => {
+    if (channel === 'browser' && enabled) {
+      const permission = await requestNotificationPermission()
+      if (permission !== 'granted') {
+        setError(permission === 'denied'
+          ? 'Browser notifications are blocked by your browser. Allow notifications for this site and try again.'
+          : 'Browser notification permission was not granted.')
+        return
+      }
+      setError(null)
+    }
+    setNotificationPreferences((current) => ({ ...current, [channel]: enabled }))
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
 
-    // Client-side validations
     if (!username.trim()) {
       setError('Username cannot be empty.')
       return
@@ -115,17 +136,24 @@ export const ProfilePage: React.FC = () => {
         username,
         email,
         weekly_digest_opt_in: weeklyDigestOptIn,
+        notification_preferences: notificationPreferences,
       })
 
       const updated = response.data
+      const savedPrefs: NotificationPreferences = {
+        in_app: updated.notification_preferences?.in_app !== false,
+        browser: updated.notification_preferences?.browser === true,
+      }
       setUsername(updated.username)
       setEmail(updated.email)
       setWeeklyDigestOptIn(!!updated.weekly_digest_opt_in)
+      setNotificationPreferences(savedPrefs)
+      saveNotificationPreferences(savedPrefs)
       setOriginalUsername(updated.username)
       setOriginalEmail(updated.email)
       setOriginalOptIn(!!updated.weekly_digest_opt_in)
+      setOriginalNotificationPreferences(savedPrefs)
 
-      // Save client-side data consent preferences (#536)
       saveConsentPreferences({
         analytics: analyticsConsent,
         resumeRoast: resumeRoastConsent,
@@ -133,10 +161,8 @@ export const ProfilePage: React.FC = () => {
       setOriginalAnalyticsConsent(analyticsConsent)
       setOriginalResumeRoastConsent(resumeRoastConsent)
 
-      // Update global context session
       updateProfileSession(updated.username)
-
-      setSuccessMsg('Profile updated successfully!')
+      setSuccessMsg('Profile and notification preferences updated successfully!')
       setIsEditing(false)
     } catch (err: any) {
       if (err.response?.data) {
@@ -156,6 +182,44 @@ export const ProfilePage: React.FC = () => {
     }
   }
 
+  const preferenceCard = (
+    id: string,
+    label: string,
+    description: string,
+    defaultText: string,
+    checked: boolean,
+    onChange: (enabled: boolean) => void,
+  ) => (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '14px 16px',
+      borderRadius: 'var(--radius-md)',
+      border: '1px solid var(--control-border)',
+      background: 'rgba(255, 255, 255, 0.02)',
+      gap: '16px',
+    }}>
+      <div>
+        <label htmlFor={id} style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>{label}</label>
+        <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '3px' }}>{description}</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--muted-text)', display: 'block', marginTop: '4px' }}>Default: {defaultText}</span>
+      </div>
+      <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em', flexShrink: 0 }}>
+        <input
+          id={id}
+          className="form-check-input"
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          disabled={!isEditing || saving}
+          style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
+        />
+      </div>
+    </div>
+  )
+
   if (!user) {
     return (
       <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '60px 20px' }}>
@@ -169,12 +233,12 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <div className="app-container" style={{ display: 'flex', justifyContent: 'center', padding: '40px 20px' }}>
-      <div className="analysis-card" style={{ maxWidth: '600px', width: '100%', padding: '30px' }}>
+      <div className="analysis-card" style={{ maxWidth: '700px', width: '100%', padding: '30px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--surface-border)', paddingBottom: '16px' }}>
           <span style={{ fontSize: '2rem' }}>👤</span>
           <div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: 'var(--heading-text)' }}>Account Profile</h1>
-            <p style={{ fontSize: '0.85rem', color: 'var(--muted-text)', margin: '4px 0 0 0' }}>Manage your account username and contact details</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--muted-text)', margin: '4px 0 0 0' }}>Manage your account and notification preferences</p>
           </div>
         </div>
 
@@ -186,242 +250,69 @@ export const ProfilePage: React.FC = () => {
         ) : (
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {error && (
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid var(--color-danger)',
-                color: 'var(--color-danger)',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>⚠️</span>
-                <span>{error}</span>
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚠️</span><span>{error}</span>
               </div>
             )}
-
             {successMsg && (
-              <div style={{
-                background: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid var(--color-accent)',
-                color: 'var(--color-accent)',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>✅</span>
-                <span>{successMsg}</span>
+              <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid var(--color-accent)', color: 'var(--color-accent)', padding: '12px 16px', borderRadius: 'var(--radius-md)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>✅</span><span>{successMsg}</span>
               </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="profile-username" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Username</label>
-              <input
-                id="profile-username"
-                name="username"
-                type="text"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={!isEditing || saving}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--control-border)',
-                  background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)',
-                  color: 'var(--control-text)',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                  cursor: isEditing ? 'text' : 'not-allowed'
-                }}
-              />
+              <input id="profile-username" name="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={!isEditing || saving} style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)', color: 'var(--control-text)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s ease', cursor: isEditing ? 'text' : 'not-allowed' }} />
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="profile-email" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Email Address</label>
-              <input
-                id="profile-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={!isEditing || saving}
-                style={{
-                  padding: '10px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--control-border)',
-                  background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)',
-                  color: 'var(--control-text)',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s ease',
-                  cursor: isEditing ? 'text' : 'not-allowed'
-                }}
-              />
+              <input id="profile-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isEditing || saving} style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)', color: 'var(--control-text)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s ease', cursor: isEditing ? 'text' : 'not-allowed' }} />
             </div>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--control-border)',
-              background: 'rgba(255, 255, 255, 0.02)'
-            }}>
+            <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
-                <label htmlFor="weekly-digest-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
-                  📧 Weekly Resume-Tips Email Digest
-                </label>
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
-                  Receive actionable resume guidelines and score improvement nudges once a week.
-                </span>
+                <h2 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--heading-text)' }}>🔔 Notification Preferences</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--muted-text)', margin: '4px 0 0' }}>Manage all optional notification channels in one place. Changes are saved to your account.</p>
               </div>
-              <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
-                <input
-                  id="weekly-digest-toggle"
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  checked={weeklyDigestOptIn}
-                  onChange={(e) => setWeeklyDigestOptIn(e.target.checked)}
-                  disabled={!isEditing || saving}
-                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
-                />
-              </div>
+              {preferenceCard('in-app-notifications-toggle', '🔔 In-app notifications', 'Show notification messages inside Resume Analyzer.', 'On (opt-out)', notificationPreferences.in_app, (enabled) => updateNotificationPreference('in_app', enabled))}
+              {preferenceCard('browser-notifications-toggle', '🌐 Browser notifications', 'Show a native browser notification when analysis finishes in a background tab.', 'Off (opt-in)', notificationPreferences.browser, (enabled) => updateNotificationPreference('browser', enabled))}
+              {preferenceCard('weekly-digest-toggle', '📧 Weekly Resume-Tips Email Digest', 'Receive actionable resume guidelines and score improvement nudges once a week.', 'Off (opt-in)', weeklyDigestOptIn, setWeeklyDigestOptIn)}
             </div>
 
             {/* Optional Data Collection: Analytics (#536) */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--control-border)',
-              background: 'rgba(255, 255, 255, 0.02)'
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: 'rgba(255, 255, 255, 0.02)' }}>
               <div>
-                <label htmlFor="profile-analytics-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
-                  📊 Analytics & Performance Telemetry
-                </label>
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
-                  Allow anonymous usage telemetry to diagnose issues and optimize ATS parsing accuracy (Off by default).
-                </span>
+                <label htmlFor="profile-analytics-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>📊 Analytics & Performance Telemetry</label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>Allow anonymous usage telemetry to diagnose issues and optimize ATS parsing accuracy (Off by default).</span>
               </div>
               <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
-                <input
-                  id="profile-analytics-toggle"
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  checked={analyticsConsent}
-                  onChange={(e) => setAnalyticsConsentState(e.target.checked)}
-                  disabled={!isEditing || saving}
-                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
-                />
+                <input id="profile-analytics-toggle" className="form-check-input" type="checkbox" role="switch" checked={analyticsConsent} onChange={(e) => setAnalyticsConsentState(e.target.checked)} disabled={!isEditing || saving} style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }} />
               </div>
             </div>
 
             {/* Optional Data Collection: Resume Roast (#536) */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '12px 16px',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--control-border)',
-              background: 'rgba(255, 255, 255, 0.02)'
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: 'rgba(255, 255, 255, 0.02)' }}>
               <div>
-                <label htmlFor="profile-roast-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>
-                  🔥 AI Resume Roast Feedback Consent
-                </label>
-                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
-                  Opt in to allow processing alternate humorous and spicy feedback tone suggestions (Off by default).
-                </span>
+                <label htmlFor="profile-roast-toggle" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)', display: 'block' }}>🔥 AI Resume Roast Feedback Consent</label>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>Opt in to allow processing alternate humorous and spicy feedback tone suggestions (Off by default).</span>
               </div>
               <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
-                <input
-                  id="profile-roast-toggle"
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  checked={resumeRoastConsent}
-                  onChange={(e) => setResumeRoastConsentState(e.target.checked)}
-                  disabled={!isEditing || saving}
-                  style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }}
-                />
+                <input id="profile-roast-toggle" className="form-check-input" type="checkbox" role="switch" checked={resumeRoastConsent} onChange={(e) => setResumeRoastConsentState(e.target.checked)} disabled={!isEditing || saving} style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }} />
               </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--surface-border)', paddingTop: '20px' }}>
-              <button
-                type="button"
-                className="app-btn app-btn--secondary"
-                onClick={handleExportData}
-                disabled={exporting || saving}
-                style={{ minWidth: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-              >
-                {exporting ? (
-                  <>
-                    <span
-                      className="spinner-border spinner-border-sm"
-                      role="status"
-                      aria-hidden="true"
-                      style={{ width: '1rem', height: '1rem' }}
-                    />
-                    Exporting...
-                  </>
-                ) : (
-                  'Export My Data'
-                )}
+              <button type="button" className="app-btn app-btn--secondary" onClick={handleExportData} disabled={exporting || saving} style={{ minWidth: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                {exporting ? <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{ width: '1rem', height: '1rem' }} />Exporting...</> : 'Export My Data'}
               </button>
-
               {!isEditing ? (
-                <button
-                  type="button"
-                  className="app-btn app-btn--primary"
-                  onClick={() => {
-                    setIsEditing(true)
-                    setSuccessMsg(null)
-                  }}
-                  style={{ minWidth: '100px' }}
-                >
-                  ✏️ Edit Profile
-                </button>
+                <button type="button" className="app-btn app-btn--primary" onClick={() => { setIsEditing(true); setSuccessMsg(null) }} style={{ minWidth: '100px' }}>✏️ Edit Profile</button>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
-                    onClick={handleCancel}
-                    disabled={saving}
-                    style={{ minWidth: '100px' }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="app-btn app-btn--primary"
-                    disabled={saving}
-                    style={{ minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                  >
-                    {saving ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{ width: '1rem', height: '1rem' }} />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
+                  <button type="button" className="app-btn app-btn--secondary" onClick={handleCancel} disabled={saving} style={{ minWidth: '100px' }}>Cancel</button>
+                  <button type="submit" className="app-btn app-btn--primary" disabled={saving} style={{ minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    {saving ? <><span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{ width: '1rem', height: '1rem' }} />Saving...</> : 'Save Changes'}
                   </button>
                 </>
               )}
