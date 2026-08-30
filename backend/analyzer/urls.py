@@ -63,9 +63,11 @@ from .cliche_views import ClicheDetectorView
 from .linkedin_views import LinkedInOptimizationView, LinkedInConsistencyView
 from .sanitizer_views import FileMetadataView, SanitizeResumeView
 from .ats_simulator_views import list_ats_profiles, simulate_ats
+from .job_board_views import suggest_roles
 
 urlpatterns = [
     path("upload/", upload_resume),
+    path("job-board/suggest/", suggest_roles, name="suggest_roles"),
     path("preview-level/", preview_experience_level_view),
     path("status/<str:task_id>/", task_status),
     path("mock-interview/", mock_interview_view),
