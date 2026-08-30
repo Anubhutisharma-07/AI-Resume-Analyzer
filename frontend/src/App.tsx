@@ -35,6 +35,8 @@ import {
   abortableSleep,
   pollAnalysisTask,
 } from './utils/pollAnalysisTask'
+import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SkillsRadarChart } from './components/SkillsRadarChart'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -1726,6 +1728,9 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Skills Radar Chart */}
+              <SkillsRadarChart skills={skills} />
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
