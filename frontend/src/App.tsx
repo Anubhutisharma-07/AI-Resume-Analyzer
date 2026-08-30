@@ -19,6 +19,7 @@ import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import LinkedInConsistencyChecker from './components/LinkedInConsistencyChecker'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
@@ -863,6 +864,16 @@ function App() {
     return (
       <>
         <PortfolioShowcaseBuilder />
+        <Footer />
+      </>
+    )
+  }
+
+
+  if (location.pathname === '/linkedin-consistency') {
+    return (
+      <>
+        <LinkedInConsistencyChecker />
         <Footer />
       </>
     )
