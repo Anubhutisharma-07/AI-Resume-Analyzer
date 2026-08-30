@@ -192,10 +192,22 @@ def validate_uploaded_file(f, formats=RESUME_FORMATS, field_label="resume"):
     return True
 
 
+from .abuse_detection import check_signup_abuse
+
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([SignupThrottle])
 def signup(request):
+    ip_address = get_client_ip(request)
+    user_agent = request.META.get('HTTP_USER_AGENT', '')
+    
+    is_allowed, reason = check_signup_abuse(ip_address, user_agent)
+    if not is_allowed:
+        return Response(
+            {"detail": "Too many signup attempts from this IP. Please try again later."},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
     captcha_token = request.data.get("captcha_token") or request.data.get("captcha")
     if not verify_captcha_token(captcha_token):
         return Response(
@@ -213,6 +225,37 @@ def signup(request):
         )
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    summary="Check real-time username/email availability",
+    description="Checks if a given username or email address is available during signup.",
+    parameters=[
+        OpenApiParameter(name="field", type=str, location=OpenApiParameter.QUERY, description="Field to check: 'username' or 'email'"),
+        OpenApiParameter(name="value", type=str, location=OpenApiParameter.QUERY, description="The username or email value to check"),
+    ],
+    responses={
+        200: OpenApiResponse(description="Returns availability status for the requested field"),
+    },
+)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def check_availability(request):
+    field = request.GET.get("field", "").strip().lower()
+    value = request.GET.get("value", "").strip()
+
+    if not value or field not in ("username", "email"):
+        return Response({"isAvailable": True, "field": field}, status=status.HTTP_200_OK)
+
+    User = get_user_model()
+    if field == "username":
+        is_available = not User.objects.filter(username__iexact=value).exists()
+    elif field == "email":
+        is_available = not User.objects.filter(email__iexact=value).exists()
+    else:
+        is_available = True
+
+    return Response({"isAvailable": is_available, "field": field}, status=status.HTTP_200_OK)
 
 
 @extend_schema(

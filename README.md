@@ -595,6 +595,16 @@ Once both services are running, open the frontend in your browser and ensure it 
 
 ---
 
+## ATS Simulator (Issue #974)
+
+The **ATS Simulator** is a specialized feature that evaluates analyzed resumes against the known parsing quirks and limitations of major enterprise applicant tracking systems (like Workday, Greenhouse, and Taleo).
+
+- **Approximation Notice**: This feature *simulates* how different platforms might interpret your formatting, contact information, and headings based on publicly documented behavior. It is **not** an official or proprietary parser.
+- **Profiles**: Out-of-the-box profiles simulate the strict chronological requirements of Workday, the contact-dependent indexing of Greenhouse, and the rigid formatting checks of Taleo legacy systems.
+- **Usage**: The Simulator is available at the bottom of a successful resume analysis. It dynamically builds recommendations on how to tweak your layout to improve parsing compatibility.
+
+---
+
 ## Roadmap
 
 - [ ] **DOCX Document Parsing** — Integrate `python-docx` to support Word resume parser pipelines.

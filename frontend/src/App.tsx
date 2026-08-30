@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import './index.css'
@@ -19,6 +19,7 @@ import { AuthModal } from './AuthModal'
 import { SuggestionVote, type VoteValue } from './components/SuggestionVote'
 import { Footer } from './Footer'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import LinkedInConsistencyChecker from './components/LinkedInConsistencyChecker'
 import { InterviewQuestionsPanel } from './components/InterviewQuestionsPanel'
 import { TimelinePanel } from './components/TimelinePanel'
 import { type TimelineData } from './utils/timelineFormat'
@@ -27,8 +28,49 @@ import { ScoreBreakdown, type ScoreBreakdownData } from './components/ScoreBreak
 import { FormattingChecks, type FormattingChecksData } from './components/FormattingChecks'
 import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
+import ReleaseNotes from './pages/ReleaseNotes'
 import { ShareResult } from './components/ShareResult'
+import { Button } from './components/Button'
+import {
+  AnalysisAbortedError,
+  abortableSleep,
+  pollAnalysisTask,
+} from './utils/pollAnalysisTask'
+import { SectionAnalyzer } from './components/SectionAnalyzer'
+import { SkillsRadarChart } from './components/SkillsRadarChart'
+import { AtsSimulator } from './components/atsAnalytics/AtsSimulator'
+
+/**
+ * The subset of the analysis payload this screen reads.
+ *
+ * Not the full response — the point is that every field `runAnalysis` pulls
+ * off the result is declared, so adding a `setX(result.y)` line for an
+ * undeclared `y` is a compile error rather than an `undefined` at runtime.
+ * `timeline` and `partial_skills` landed on `main` while this branch was open
+ * and were caught exactly that way on the rebase.
+ */
+interface AnalysisResult {
+  id?: number
+  score: number
+  score_breakdown?: ScoreBreakdownData | null
+  formatting_checks?: FormattingChecksData | null
+  timeline?: TimelineData | null
+  skills_found?: string[]
+  suggestions?: string[]
+  matched_skills?: string[]
+  partial_skills?: PartialSkillItem[]
+  missing_skills?: string[]
+  resume_text?: string
+  interview_questions?: string[]
+}
+
+import CareerRoadmapPlanner from './components/CareerRoadmapPlanner'
+import ResumeCompareDashboard from './components/ResumeCompareDashboard'
+import InterviewPrepCoach from './components/InterviewPrepCoach'
+import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
+
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+
 import { setResumeRoastConsent } from './utils/cookieConsent'
  feature/readiness-composite-score-758
 import { ReadinessDisplay } from './components/ReadinessDisplay'
@@ -38,12 +80,12 @@ import { calculateReadinessScore } from './utils/readinessEngine'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
  main
 
-type Theme = 'light' | 'dark'
+type Theme = 'light' | 'dark' | 'high-contrast'
 
 function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem('theme')
-    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'light' || saved === 'dark' || saved === 'high-contrast') return saved as Theme
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
     }
@@ -480,8 +522,19 @@ function App() {
   }, [cooldownRemaining])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+    setTheme((prev) => (prev === 'light' ? 'dark' : prev === 'dark' ? 'high-contrast' : 'light'))
   }
+
+  // Holds the in-flight analysis poll so it can be abandoned when a new run
+  // starts or the component unmounts. Previously the loop had no owner and
+  // simply kept polling after the user navigated away.
+  const pollAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      pollAbortRef.current?.abort()
+    }
+  }, [])
 
   const getRetryDelay = (attemptNumber: number): number => {
     // Exponential backoff: 2^attemptNumber seconds, capped at 30 seconds
@@ -521,6 +574,7 @@ function App() {
       // than the query string so it does not follow the id into those logs.
       // See #706.
       const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
+ feature/readiness-composite-score-758
       let result = null
       while (true) {
         const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
@@ -532,6 +586,32 @@ function App() {
         }
         await new Promise((r) => setTimeout(r, 1000))
       }
+
+
+      // Any previous run is abandoned before this one starts, so two
+      // analyses cannot race to write the result state.
+      pollAbortRef.current?.abort()
+      const pollController = new AbortController()
+      pollAbortRef.current = pollController
+
+      const result = (await pollAnalysisTask(
+        taskId,
+        {
+          // `api`, not a bare axios call: it is the client that refreshes an
+          // expired access token (#633), and an analysis can outlive one.
+          fetchStatus: async (id, signal) => {
+            const statusRes = await api.get(`/api/status/${id}/`, {
+              signal,
+              headers: analysisHeaders,
+            })
+            return statusRes.data
+          },
+          sleep: abortableSleep,
+          now: () => Date.now(),
+        },
+        { signal: pollController.signal }
+      )) as AnalysisResult
+ main
 
       setScore(result.score)
       setJobMatchScore(result.job_match_score || null)
@@ -570,6 +650,12 @@ function App() {
         await fetchDbHistory()
       }
     } catch (error: unknown) {
+      // The run was superseded or the component went away. There is nobody to
+      // tell, and the state it would write belongs to a newer run.
+      if (error instanceof AnalysisAbortedError) {
+        return
+      }
+
       console.error(error)
 
       let errorMsg = 'Unknown error'
@@ -592,6 +678,7 @@ function App() {
       setCooldownRemaining(getRetryDelay(newRetryCount))
     }
   }
+
 
   const uploadResume = async () => {
     if (!file) {
@@ -772,10 +859,65 @@ function App() {
     )
   }
 
+  if (location.pathname === '/career-roadmap') {
+    return (
+      <>
+        <CareerRoadmapPlanner />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/resume-compare') {
+    return (
+      <>
+        <ResumeCompareDashboard />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/interview-prep') {
+    return (
+      <>
+        <InterviewPrepCoach />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/portfolio') {
+    return (
+      <>
+        <PortfolioShowcaseBuilder />
+        <Footer />
+      </>
+    )
+  }
+
+
+  if (location.pathname === '/linkedin-consistency') {
+    return (
+      <>
+        <LinkedInConsistencyChecker />
+        <Footer />
+      </>
+    )
+  }
+
   if (location.pathname === '/privacy') {
     return (
       <>
         <PrivacyPolicyPage />
+        <Footer />
+      </>
+    )
+  }
+
+  if (location.pathname === '/release-notes') {
+    return (
+      <>
+        <ReleaseNotes />
         <Footer />
       </>
     )
@@ -831,19 +973,28 @@ function App() {
       <div className="container mt-5">
         <div className="main-card text-center">
           {/* Theme toggle */}
-          <button
-            type="button"
-            className="app-btn theme-toggle-btn"
+          <Button
+            variant="ghost"
+            size="sm"
+            pill
+            className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label="Toggle theme"
             aria-pressed={theme === 'dark'}
           >
             {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
-          </button>
+          </Button>
           {/* Auth bar */}
           <div className="auth-bar">
             {user ? (
               <>
+                <Link
+                  to="/career-roadmap"
+                  className="auth-bar-btn"
+                  style={{ textDecoration: 'none', marginRight: '8px', background: 'rgba(99, 102, 241, 0.2)', borderColor: 'rgba(99, 102, 241, 0.4)', color: '#818cf8' }}
+                >
+                  🗺️ Career Roadmap
+                </Link>
                 <Link
                   to="/profile"
                   className="auth-username"
@@ -851,14 +1002,14 @@ function App() {
                 >
                   👤 {user.username}
                 </Link>
-                <button className="auth-bar-btn" onClick={logout}>
+                <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={logout}>
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
-              <button className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
+              <Button variant="ghost" size="sm" pill className="auth-bar-btn" onClick={() => setShowAuthModal(true)}>
                 🔐 Login / Sign Up
-              </button>
+              </Button>
             )}
           </div>
           {showAuthModal && (
@@ -958,6 +1109,210 @@ function App() {
                   color: 'var(--heading-text, #fff)',
                 }}
               >
+                💼 Target Job Description <span style={{ fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--muted-text, #94a3b8)' }}>(Optional)</span>
+              </label>
+              {isDraftSaved && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'var(--color-primary, #6366f1)',
+                    color: '#fff',
+                    fontWeight: '700',
+                    fontSize: '0.8rem',
+                  }}
+                >
+                  1
+                </span>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '1.05rem',
+                    fontWeight: '600',
+                    color: 'var(--heading-text, #fff)',
+                  }}
+                >
+                  Set Career Track &amp; Experience
+                </h3>
+              </div>
+
+              {/* Role and Experience Level Selectors */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gap: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label
+                    htmlFor="roleSelect"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
+                  >
+                    Target Career Track:
+                  </label>
+                  <select
+                    id="roleSelect"
+                    value={targetRole}
+                    onChange={(e) => setTargetRole(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                      background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                      color: 'var(--control-text, #fff)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <option value="Frontend Developer">Frontend Developer</option>
+                    <option value="Backend Developer">Backend Developer</option>
+                    <option value="Data Analyst">Data Analyst</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label
+                    htmlFor="experienceLevelSelect"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                    }}
+                  >
+                    Experience Level:
+                  </label>
+                  <select
+                    id="experienceLevelSelect"
+                    value={experienceLevel}
+                    onChange={(e) => setExperienceLevel(e.target.value)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--surface-border, rgba(255, 255, 255, 0.15))',
+                      background: 'var(--control-bg, rgba(255, 255, 255, 0.05))',
+                      color: 'var(--control-text, #fff)',
+                      fontSize: '0.9rem',
+                    }}
+                  >
+                    <option value="Junior">Junior (0-2 yrs)</option>
+                    <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                    <option value="Senior">Senior (5+ yrs)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Job Description Draft Input (#533) */}
+              <div style={{ marginTop: '16px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '6px',
+                  }}
+                >
+                  <label
+                    htmlFor="jobDescriptionInput"
+                    style={{
+                      fontWeight: '600',
+                      fontSize: '0.85rem',
+                      color: 'var(--heading-text, #fff)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    💼 Target Job Description{' '}
+                    <span
+                      style={{
+                        fontSize: '0.8rem',
+                        fontWeight: 'normal',
+                        color: 'var(--muted-text, #94a3b8)',
+                      }}
+                    >
+                      (Optional)
+                    </span>
+                  </label>
+                  {isDraftSaved && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        color: '#4ade80',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      💾 Draft auto-saved
+                    </span>
+                  )}
+                </div>
+                <textarea
+                  id="jobDescriptionInput"
+                  className="custom-textarea"
+                  placeholder="Paste job description text here to tailor matching and identify specific missing skills..."
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  maxLength={MAX_CHARS}
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    minHeight: '76px',
+                    fontSize: '0.88rem',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                  }}
+                />
+                {(() => {
+                  const wordCount = jobDescription.trim()
+                    ? jobDescription.trim().split(/\s+/).length
+                    : 0
+                  if (wordCount > 0 && wordCount < 50) {
+                    return (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '8px 12px',
+                          backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                          border: '1px solid rgba(234, 179, 8, 0.3)',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          color: '#facc15',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        ⚠️{' '}
+                        <span>
+                          Friendly tip: Very short job descriptions might yield less accurate
+                          analysis. Consider pasting the full description!
+                        </span>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
+                <div
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  💾 Draft auto-saved
+                </span>
+              )}
                 Set Career Track &amp; Experience
               </h3>
             </div>
@@ -1263,7 +1618,9 @@ function App() {
             style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}
             className="mb-3"
           >
-            <button
+            <Button
+              variant="primary"
+              size="lg"
               className="analyze-btn"
               onClick={uploadResume}
               disabled={loading || cooldownRemaining > 0}
@@ -1273,28 +1630,30 @@ function App() {
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : '🚀 Analyze Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={handleSampleResume}
               disabled={loading || cooldownRemaining > 0}
-              type="button"
             >
               {loading && analysisSource === 'sample'
                 ? '⏳ Loading Sample...'
                 : cooldownRemaining > 0
                   ? `Retry available in ${cooldownRemaining}s`
                   : 'Try Sample Resume'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               className="secondary-btn"
               onClick={() => setShowBulkModal(true)}
               disabled={loading}
-              type="button"
               title="Upload and analyze multiple resumes at once"
             >
               📂 Bulk Analysis
-            </button>
+            </Button>
           </div>
           {/* Loading spinner — shown while the resume is being analyzed */}
           {loading && (
@@ -1319,7 +1678,7 @@ function App() {
                 </div>
               )}
 
-              <AtsScore score={displayScore!}/>
+              <AtsScore score={displayScore!} />
 
               {(() => {
                 const getTargetLevel = (level?: string): 'Junior' | 'Mid' | 'Senior' | 'Lead' => {
@@ -1360,6 +1719,9 @@ function App() {
               <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
+
+              {analysisId !== null && <AtsSimulator analysisId={analysisId} />}
+              <SectionAnalyzer resumeText={resumeText} skills={skills} />
 
               {/*
                 Share controls. Previously there was no way to publish or
@@ -1443,20 +1805,17 @@ function App() {
                     <span style={{ fontSize: '12px', opacity: 0.7 }}>Loading preview...</span>
                   )}
                   {previewData && !previewing && (
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
                       onClick={() => setPreviewData(null)}
-                      className="app-btn"
                       style={{
                         padding: '4px 10px',
                         fontSize: '12px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        borderColor: 'rgba(239, 68, 68, 0.3)',
-                        color: '#f87171',
-                        cursor: 'pointer',
                       }}
                     >
                       Reset to Actual Selection
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {previewError && (
@@ -1487,14 +1846,14 @@ function App() {
                   )}
                 </div>
                 {skills.length > 15 && (
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     style={{ marginTop: '16px' }}
                     onClick={() => setShowAllSkills(!showAllSkills)}
                   >
                     {showAllSkills ? 'Show Less ▲' : `Show More (${skills.length - 15} more) ▼`}
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -1551,6 +1910,9 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Skills Radar Chart */}
+              <SkillsRadarChart skills={skills} />
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
@@ -1670,13 +2032,71 @@ function App() {
                     </label>
                   </div>
                   {displaySuggestions.length > 0 && (
-                    <button
-                      type="button"
-                      className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
-                      onClick={copySuggestionsToClipboard}
-                    >
-                      {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        className={`app-btn app-btn--accent${copied ? ' is-success' : ''}`}
+                        onClick={copySuggestionsToClipboard}
+                      >
+                        {copied ? '✅ Copied!' : '📋 Copy Suggestions'}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          import('jspdf').then(({ default: jsPDF }) => {
+                            const doc = new jsPDF()
+                            doc.setFontSize(22)
+                            doc.text("AI Resume Analyzer - Report", 20, 20)
+                            doc.setFontSize(11)
+                            doc.setTextColor(100)
+                            const timestamp = new Date().toLocaleString()
+                            doc.text(`Generated on: ${timestamp}`, 20, 30)
+                            doc.text(`File: ${activeFileName}`, 20, 36)
+                            doc.text(`Target Role: ${targetRole}`, 20, 42)
+                            doc.setTextColor(0)
+                            doc.setFontSize(16)
+                            const reportScore = displayScore !== null ? displayScore : 0
+                            doc.text(`ATS Score: ${reportScore}/100`, 20, 56)
+                            doc.setFontSize(14)
+                            doc.text(`Skills Found (${skills.length})`, 20, 70)
+                            doc.setFontSize(11)
+                            let y = 78
+                            const wrappedSkills = doc.splitTextToSize(skills.join(", ") || "None", 170)
+                            doc.text(wrappedSkills, 20, y)
+                            y += wrappedSkills.length * 6 + 10
+                            if (y > 270) {
+                              doc.addPage()
+                              y = 20
+                            }
+                            doc.setFontSize(14)
+                            doc.text("Suggestions", 20, y)
+                            y += 10
+                            doc.setFontSize(11)
+                            if (displaySuggestions.length === 0) {
+                              doc.text("No suggestions.", 20, y)
+                            } else {
+                              displaySuggestions.forEach((s: string) => {
+                                const lines = doc.splitTextToSize(`• ${s}`, 170)
+                                if (y + lines.length * 6 > 280) {
+                                  doc.addPage()
+                                  y = 20
+                                }
+                                doc.text(lines, 20, y)
+                                y += lines.length * 6 + 3
+                              })
+                            }
+                            doc.save(`ATS_Report_${activeFileName ? activeFileName.replace(/\.[^/.]+$/, "") : "resume"}.pdf`)
+                          }).catch(err => {
+                            console.error("Failed to load jsPDF:", err)
+                            alert("Failed to generate PDF report.")
+                          })
+                        }}
+                      >
+                        📄 Download Report
+                      </Button>
+                    </div>
                   )}
                 </div>
 
@@ -1708,13 +2128,13 @@ function App() {
 
                 {/* Reset Button */}
                 <div style={{ marginTop: '24px', textAlign: 'center' }}>
-                  <button
-                    type="button"
-                    className="app-btn app-btn--secondary"
+                  <Button
+                    variant="secondary"
+                    size="md"
                     onClick={resetAnalysis}
                   >
                     🔄 Start New Analysis
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -1725,7 +2145,12 @@ function App() {
         </div>{' '}
         {/* closes .main-card */}
       </div>{' '}
-      <Footer onOpenWhatsNew={() => setShowWhatsNew(true)} />
+      <Footer
+        onOpenWhatsNew={() => {
+          window.history.pushState({}, '', '/release-notes')
+          window.dispatchEvent(new PopStateEvent('popstate'))
+        }}
+      />
       <WhatsNewModal isOpen={showWhatsNew} onClose={() => setShowWhatsNew(false)} />
     </>
   )
