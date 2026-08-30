@@ -70,6 +70,7 @@ import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+import { JobBoardSuggestions } from './components/JobBoardSuggestions'
 
 import { setResumeRoastConsent } from './utils/cookieConsent'
 import { JobDescriptionInput } from './components/JobDescriptionInput'
@@ -1978,6 +1979,7 @@ function App() {
                 </div>
               </div>
 
+              <JobBoardSuggestions skills={skills} track={targetRole} />
               <InterviewQuestionsPanel questions={interviewQuestions} />
             </>
           )}{' '}
