@@ -27,6 +27,7 @@ import { WhatsNewModal } from './components/WhatsNewModal'
 import { shouldShowWhatsNew } from './data/whatsNewReleases'
 import { ShareResult } from './components/ShareResult'
 import { setResumeRoastConsent } from './utils/cookieConsent'
+import { SkillsRadarChart } from './components/SkillsRadarChart'
 
 type Theme = 'light' | 'dark'
 
@@ -1201,6 +1202,9 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Skills Radar Chart */}
+              <SkillsRadarChart skills={skills} />
 
               {/* Skills You're Closest to Matching (Partial Credit Suggestions) */}
               {partialSkills.length > 0 && (
