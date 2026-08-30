@@ -52,6 +52,7 @@ import { TermsOfService } from './pages/TermsOfService'
 import { ProfilePage } from './components/ProfilePage'
 import { CareerRoadmap } from './pages/CareerRoadmap'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
+import { ATSCompatibilityScanner } from './components/ATSCompatibilityScanner'
 
 
 createRoot(document.getElementById('root')!).render(
@@ -65,6 +66,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/docs" element={<ApiDocs />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/career-roadmap" element={<CareerRoadmap />} />
+          <Route path="/ats-scanner" element={<ATSCompatibilityScanner />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
