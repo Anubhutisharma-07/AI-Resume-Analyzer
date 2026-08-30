@@ -82,10 +82,17 @@ import InterviewPrepCoach from './components/InterviewPrepCoach'
 import PortfolioShowcaseBuilder from './components/PortfolioShowcaseBuilder'
 
 import SkillGapAnalyzer from './components/SkillGapAnalyzer'
+import { JobBoardSuggestions } from './components/JobBoardSuggestions'
 
  main
 import { setResumeRoastConsent } from './utils/cookieConsent'
+ feature/readiness-composite-score-758
+import { ReadinessDisplay } from './components/ReadinessDisplay'
+import { calculateReadinessScore } from './utils/readinessEngine'
+
+
 import { JobDescriptionInput } from './components/JobDescriptionInput'
+ main
 
 type Theme = 'light' | 'dark' | 'high-contrast'
 
@@ -140,6 +147,7 @@ interface HistoryRow {
   target_role: string
   experience_level?: string
   created_at: string
+  job_match_score?: number | null
 }
 
 interface HistoryPage {
@@ -170,6 +178,7 @@ function toAnalysisEntries(payload: HistoryRow[] | HistoryPage): AnalysisEntry[]
     targetRole: item.target_role,
     experienceLevel: item.experience_level || 'Mid-Level',
     fileName: item.file_name,
+    jobMatchScore: item.job_match_score,
   }))
 }
 
@@ -192,6 +201,7 @@ function App() {
   const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
   const [isDragging, setIsDragging] = useState(false)
   const [score, setScore] = useState<number | null>(null)
+  const [jobMatchScore, setJobMatchScore] = useState<number | null>(null)
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdownData | null>(null)
   const [formattingChecks, setFormattingChecks] = useState<FormattingChecksData | null>(null)
   const [timeline, setTimeline] = useState<TimelineData | null>(null)
@@ -579,6 +589,19 @@ function App() {
       // than the query string so it does not follow the id into those logs.
       // See #706.
       const analysisHeaders = analysisTokenHeaders(res.data.analysis_token)
+ feature/readiness-composite-score-758
+      let result = null
+      while (true) {
+        const statusRes = await api.get(`/api/status/${taskId}/`, { headers: analysisHeaders })
+        if (statusRes.data.state === 'SUCCESS') {
+          result = statusRes.data.result
+          break
+        } else if (statusRes.data.state === 'FAILURE') {
+          throw new Error(statusRes.data.error || 'Analysis failed')
+        }
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+
 
       // Any previous run is abandoned before this one starts, so two
       // analyses cannot race to write the result state.
@@ -603,8 +626,10 @@ function App() {
         },
         { signal: pollController.signal }
       )) as AnalysisResult
+ main
 
       setScore(result.score)
+      setJobMatchScore(result.job_match_score || null)
       setScoreBreakdown(result.score_breakdown || null)
       setFormattingChecks(result.formatting_checks || null)
       setTimeline(result.timeline || null)
@@ -824,6 +849,7 @@ function App() {
 
   const selectHistoryEntry = (entry: AnalysisEntry) => {
     setScore(entry.score)
+    setJobMatchScore(entry.jobMatchScore || null)
     // History entries predate the breakdown and do not carry one.
     setScoreBreakdown(null)
     setTimeline(null)
@@ -1022,6 +1048,7 @@ function App() {
           )}
           <h1 className="mb-4">🚀 AI Resume Analyzer</h1>
  feature/auto-detect-experience-759
+ feature/auto-detect-experience-759
           <div
             className="upload-flow-container"
             style={{
@@ -1032,6 +1059,53 @@ function App() {
               gap: '20px',
               textAlign: 'left',
 
+
+ feature/readiness-composite-score-758
+
+
+          {/* Role and Experience Level Selectors */}
+          <div className="mb-4 d-flex flex-wrap gap-3 align-items-center justify-content-center">
+            <div className="d-flex align-items-center">
+              <label
+                htmlFor="roleSelect"
+                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
+              >
+                Target Career Track:
+              </label>
+              <select
+                id="roleSelect"
+                value={targetRole}
+                onChange={(e) => setTargetRole(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option value="Frontend Developer">Frontend Developer</option>
+                <option value="Backend Developer">Backend Developer</option>
+                <option value="Data Analyst">Data Analyst</option>
+              </select>
+            </div>
+
+            <div className="d-flex align-items-center">
+              <label
+                htmlFor="experienceLevelSelect"
+                style={{ marginRight: '10px', fontWeight: '600', color: '#fff' }}
+              >
+                Experience Level:
+              </label>
+              <select
+                id="experienceLevelSelect"
+                value={experienceLevel}
+                onChange={(e) => setExperienceLevel(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc' }}
+              >
+                <option value="Junior">Junior (0-2 yrs)</option>
+                <option value="Mid-Level">Mid-Level (2-5 yrs)</option>
+                <option value="Senior">Senior (5+ yrs)</option>
+              </select>
+            </div>
+          </div>
+
+ main
+ main
 
           {/* Step 1: Configuration */}
           <div
@@ -1682,6 +1756,69 @@ function App() {
                 gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                 gap: '14px',
               }}
+ feature/readiness-composite-score-758
+            />
+            {(() => {
+              const wordCount = jobDescription.trim() ? jobDescription.trim().split(/\s+/).length : 0;
+              if (wordCount > 0 && wordCount < 50) {
+                return (
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '8px 12px',
+                      backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                      border: '1px solid rgba(234, 179, 8, 0.3)',
+                      borderRadius: '6px',
+                      fontSize: '0.8rem',
+                      color: '#facc15',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    ⚠️ <span>Friendly tip: Very short job descriptions might yield less accurate analysis. Consider pasting the full description!</span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '6px',
+                fontSize: '0.75rem',
+              }}
+            >
+              <span
+                style={{
+                  color: isOver ? '#ef4444' : (isClose ? '#f97316' : 'var(--muted-text, #94a3b8)'),
+                  fontWeight: isOver ? 'bold' : 'normal',
+                  opacity: isOver || isClose ? 1 : 0.8,
+                }}
+              >
+                {jobDescription.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} characters
+              </span>
+              {jobDescription && (
+                <button
+                  type="button"
+                  onClick={() => setJobDescription('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--muted-text, #94a3b8)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Clear Draft
+                </button>
+              )}
+            </div>
+          </div>
+
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label
@@ -1786,6 +1923,7 @@ function App() {
           </div>
 
           {/* Step 2: Upload Document */}
+ main
           <div
             className="step-card"
             style={{
@@ -1974,6 +2112,32 @@ function App() {
               )}
 
               <AtsScore score={displayScore!} />
+
+              {(() => {
+                const getTargetLevel = (level?: string): 'Junior' | 'Mid' | 'Senior' | 'Lead' => {
+                  if (level === 'Junior') return 'Junior';
+                  if (level === 'Senior') return 'Senior';
+                  if (level === 'Lead') return 'Lead';
+                  return 'Mid';
+                };
+                
+                const expYears = timeline 
+                  ? timeline.total_years 
+                  : (experienceLevel === 'Junior' ? 1 : experienceLevel === 'Senior' ? 5 : experienceLevel === 'Lead' ? 8 : 3);
+
+                const hasJD = jobMatchScore !== null;
+                const readinessReport = calculateReadinessScore({
+                  resumeAtsScore: score || 0,
+                  experienceYears: expYears,
+                  targetExperienceLevel: getTargetLevel(experienceLevel),
+                  hasJobDescription: hasJD,
+                  careerTrackAlignment: hasJD ? (jobMatchScore || 0) : (score || 0),
+                });
+
+                return (
+                  <ReadinessDisplay report={readinessReport} atsScore={score || 0} />
+                );
+              })()}
 
               <ScoreBreakdown breakdown={displayScoreBreakdown} />
 
@@ -2407,6 +2571,7 @@ function App() {
                 </div>
               </div>
 
+              <JobBoardSuggestions skills={skills} track={targetRole} />
               <InterviewQuestionsPanel questions={interviewQuestions} />
             </>
           )}{' '}

@@ -25,6 +25,7 @@ export interface AnalysisEntry {
   coverLetterText?: string
   coverLetterFeedback?: any
   interviewQuestions?: string[]
+  jobMatchScore?: number | null
 }
 
 const STORAGE_KEY = 'resume_analysis_history'
