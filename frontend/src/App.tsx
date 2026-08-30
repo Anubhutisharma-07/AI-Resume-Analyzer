@@ -35,6 +35,7 @@ import {
   abortableSleep,
   pollAnalysisTask,
 } from './utils/pollAnalysisTask'
+import { SectionAnalyzer } from './components/SectionAnalyzer'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -1545,6 +1546,8 @@ function App() {
               <TimelinePanel timeline={timeline} />
 
               <ResumePreview text={resumeText} skills={skills} />
+
+              <SectionAnalyzer resumeText={resumeText} skills={skills} />
 
               {/*
                 Share controls. Previously there was no way to publish or
