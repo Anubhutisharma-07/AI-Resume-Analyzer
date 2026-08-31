@@ -110,6 +110,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             🔗 LinkedIn Consistency
           </Link>
+          <Link
+            to="/contributors"
+            className={location.pathname === '/contributors' || location.pathname === '/contributor-certificate' ? 'active' : ''}
+            onClick={() => setMobileOpen(false)}
+          >
+            🎖️ Contributors
+          </Link>
           <a
             href="#ats-score"
             className={isAtsActive ? 'active' : ''}

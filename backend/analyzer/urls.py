@@ -65,6 +65,7 @@ from .sanitizer_views import FileMetadataView, SanitizeResumeView
 from .ats_simulator_views import list_ats_profiles, simulate_ats
 from .cover_letter_views import generate_cover_letter_view
 from .job_board_views import suggest_roles
+from .contributor_views import ContributorCertificateView
 
 urlpatterns = [
     path("upload/", upload_resume),
@@ -207,4 +208,5 @@ urlpatterns = [
         name="sanitize_resume",
     ),
     path("check-linkedin-consistency/", LinkedInConsistencyView.as_view(), name="check_linkedin_consistency"),
+    path("contributor-certificate/", ContributorCertificateView.as_view(), name="contributor_certificate"),
 ]

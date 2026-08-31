@@ -53,6 +53,7 @@ import { ProfilePage } from './components/ProfilePage'
 import { CareerRoadmap } from './pages/CareerRoadmap'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
 import { ATSCompatibilityScanner } from './components/ATSCompatibilityScanner'
+import { ContributorCertificate } from './components/ContributorCertificate'
 
 
 createRoot(document.getElementById('root')!).render(
@@ -67,6 +68,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/career-roadmap" element={<CareerRoadmap />} />
           <Route path="/ats-scanner" element={<ATSCompatibilityScanner />} />
+          <Route path="/contributors" element={<ContributorCertificate />} />
+          <Route path="/contributor-certificate" element={<ContributorCertificate />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
