@@ -50,6 +50,7 @@ import {
 import { SectionAnalyzer } from './components/SectionAnalyzer'
 import { SkillsRadarChart } from './components/SkillsRadarChart'
 import { AtsSimulator } from './components/atsAnalytics/AtsSimulator'
+import { AiCoverLetterGenerator } from './components/AiCoverLetterGenerator'
 
 /**
  * The subset of the analysis payload this screen reads.
@@ -2153,7 +2154,12 @@ function App() {
 
               <ResumePreview text={resumeText} skills={skills} />
 
-              {analysisId !== null && <AtsSimulator analysisId={analysisId} />}
+              {analysisId !== null && (
+                <>
+                  <AtsSimulator analysisId={analysisId} />
+                  <AiCoverLetterGenerator analysisId={analysisId} />
+                </>
+              )}
               <SectionAnalyzer resumeText={resumeText} skills={skills} />
 
               {/*

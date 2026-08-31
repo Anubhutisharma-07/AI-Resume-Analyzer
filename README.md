@@ -595,6 +595,17 @@ Once both services are running, open the frontend in your browser and ensure it 
 
 ---
 
+## AI Cover Letter Generator (Issue #965)
+
+The **AI Cover Letter Generator** creates highly personalized cover letter drafts by intelligently matching extracted resume evidence against a provided target job description.
+
+- **Anti-Fabrication Safeguards**: Uses strict prompt guardrails to ensure no companies, job titles, or skills are hallucinated if they are not explicitly listed in your resume.
+- **Customizable**: Allows users to input specific job descriptions to fine-tune the relevance of the output.
+- **Draft Status**: All outputs are clearly labeled as `[AI-GENERATED DRAFT - PLEASE REVIEW AND EDIT]`, ensuring it's used as a starting point.
+- **Architecture**: Plugs cleanly into the existing Django REST Framework API and React UI, using an LLM integration (configurable via `OPENAI_API_KEY`) accessed directly through standard REST requests.
+
+---
+
 ## ATS Simulator (Issue #974)
 
 The **ATS Simulator** is a specialized feature that evaluates analyzed resumes against the known parsing quirks and limitations of major enterprise applicant tracking systems (like Workday, Greenhouse, and Taleo).
