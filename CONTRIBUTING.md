@@ -53,6 +53,8 @@ You can contribute by:
 
 # Getting Started
 
+> 🌱 New to Git and GitHub? Start with our [Your First Pull Request Ever](docs/FIRST_PULL_REQUEST.md) guide — a step-by-step walkthrough with real commands that assumes zero prior experience.
+
 ## 1. Fork the repository
 
 Click the **Fork** button on GitHub.

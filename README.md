@@ -630,6 +630,8 @@ The **ATS Simulator** is a specialized feature that evaluates analyzed resumes a
 
 We welcome contributions of all levels under the **ECSoC'26** program!
 
+> 🌱 **Never opened a pull request before?** Follow our beginner-friendly [Your First Pull Request Ever](docs/FIRST_PULL_REQUEST.md) guide — a step-by-step walkthrough (forking, cloning, branching, committing, and opening the PR) that assumes zero prior Git/GitHub experience.
+
 📜 Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in this project. By contributing, you agree to abide by its guidelines.
 
 1. **Fork** the repository on GitHub.
