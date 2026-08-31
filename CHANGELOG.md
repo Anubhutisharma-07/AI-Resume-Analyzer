@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Multi-resume "Download All (.ZIP)" export in Bulk JD Compare and History Sidebar; generates individual PDF and JSON reports per resume with distinguishable filenames inside a single ZIP archive (#495).
 - Optional weekly resume-tips email digest: logged-in users can opt-in via an Account Settings toggle; digest includes a curated actionable tip and a personalised ATS score-improvement nudge; unsubscribe link included in every email and a dedicated `/unsubscribe` page provided (#496).
 ### Changed
-- Refactored monolithic App.tsx into reusable, modular React components (`AppHeader`, `HeroBanner`, `AppFooterSection`, `AnalysisDashboardView`) improving maintainability, component reusability, and testability (#187).
+- Redesigned Skill Gap Matrix with adaptive responsive grid/table views, filter controls, aggregate score progress badge, critical gap alert banners, and interactive detail drawer (#106).
 - Improved upload screen visual hierarchy with clear step indicators, structured cards, and enhanced CTA prominence (#67).
 - Password hashing now uses Argon2 as the primary hasher, with PBKDF2 retained as a fallback so existing users are transparently migrated to Argon2 on their next successful login (#478).
 - Compressed static raster images and added WebP optimized assets reducing total image bundle size from ~1.15 MB to ~956 KB (16.8% reduction) with no visible quality loss (#353).
