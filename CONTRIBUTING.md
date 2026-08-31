@@ -335,6 +335,6 @@ Make sure all commands complete successfully and coverage meets defined threshol
 
 # Need Help?
 
-If you have questions, feel free to open a discussion or issue.
+If you have questions, ideas, or want to share something, start a conversation in [GitHub Discussions](https://github.com/Muskankr/AI-Resume-Analyzer/discussions) (Q&A, Ideas, Show and Tell). For actionable bugs or scoped work, open an issue.
 
 Happy Contributing! 🚀
