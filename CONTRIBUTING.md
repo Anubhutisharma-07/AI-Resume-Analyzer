@@ -22,6 +22,7 @@ Please read this guide before contributing.
 - Pull Request Process
 - Semantic Versioning
 - Contributor Checklist
+- Mentorship Program
 - Need Help?
 
 ---
@@ -330,6 +331,33 @@ npm run test:coverage
 Make sure all commands complete successfully and coverage meets defined thresholds (Backend: 60%, Frontend: 50%).
 
 - Ensure any UI changes have been verified against the [Theme QA Checklist](docs/THEME_QA_CHECKLIST.md).
+
+---
+
+# Mentorship Program
+
+New to open source or making your first pull request here? You don't have to do it alone. Our mentorship pairing program pairs newcomers with an experienced contributor (a "buddy") who can answer questions, review early drafts, and help you land your first PR.
+
+## How Pairing Requests Work
+
+1. **Ask for a buddy.** Open a request in the dedicated mentorship space (GitHub Discussions or the pinned mentorship channel on our [Discord Community](YOUR_DISCORD_URL)). Include:
+   - The issue you'd like to work on (link it if one exists).
+   - Your experience level and what you'd like help with (e.g., setup, Git workflow, review).
+2. **Get paired.** An available mentor will respond and claim your request. If no one responds within a couple of days, feel free to bump the thread.
+3. **Work together.** Your mentor can help you scope the issue, review your branch before you open a PR, and guide you through the [Pull Request Process](#pull-request-process).
+4. **Wrap up.** Once your PR is merged, the pairing is complete. You're always welcome to request another buddy for your next contribution.
+
+Mentorship is lightweight and asynchronous — mentors are volunteers, so please be patient and respectful of their time.
+
+## Becoming a Mentor
+
+Experienced contributors who'd like to help newcomers can opt in by adding their name to the mentors list in the mentorship space. Mentors typically:
+
+- Respond to pairing requests when they have capacity.
+- Answer setup and workflow questions.
+- Give friendly, constructive reviews on a mentee's first PRs.
+
+There's no minimum commitment — help when you can.
 
 ---
 
