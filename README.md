@@ -675,4 +675,6 @@ A huge thanks to all the developers who have contributed code, fixed bugs, and i
 
 ## Community
 
+Have a question, idea, or something to show off? Use [GitHub Discussions](https://github.com/Muskankr/AI-Resume-Analyzer/discussions) for open-ended conversations (Q&A, Ideas, Show and Tell), and keep the [Issues](https://github.com/Muskankr/AI-Resume-Analyzer/issues) tab for actionable, scoped work items.
+
 Join our [Discord Community](YOUR_DISCORD_URL) to ask questions, discuss the project, and connect with contributors.
