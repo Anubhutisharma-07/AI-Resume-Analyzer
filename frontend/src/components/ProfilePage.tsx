@@ -4,6 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { getConsentPreferences, saveConsentPreferences } from '../utils/cookieConsent'
 import { requestNotificationPermission, saveNotificationPreferences } from '../utils/notification'
 
+const MAX_BIO_LENGTH = 250
+
 type NotificationPreferences = { in_app: boolean; browser: boolean }
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = { in_app: true, browser: false }
 
@@ -11,6 +13,7 @@ export const ProfilePage: React.FC = () => {
   const { user, updateProfileSession, exportUserData } = useAuth()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
+  const [bio, setBio] = useState('')
   const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false)
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES)
   const [analyticsConsent, setAnalyticsConsentState] = useState<boolean>(() => getConsentPreferences().analytics)
@@ -19,6 +22,7 @@ export const ProfilePage: React.FC = () => {
 
   const [originalUsername, setOriginalUsername] = useState('')
   const [originalEmail, setOriginalEmail] = useState('')
+  const [originalBio, setOriginalBio] = useState('')
   const [originalOptIn, setOriginalOptIn] = useState(false)
   const [originalNotificationPreferences, setOriginalNotificationPreferences] = useState<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES)
   const [originalAnalyticsConsent, setOriginalAnalyticsConsent] = useState<boolean>(() => getConsentPreferences().analytics)
@@ -45,11 +49,13 @@ export const ProfilePage: React.FC = () => {
         }
         setUsername(data.username)
         setEmail(data.email || '')
+        setBio(data.bio || data.headline || '')
         setWeeklyDigestOptIn(!!data.weekly_digest_opt_in)
         setNotificationPreferences(prefs)
         saveNotificationPreferences(prefs)
         setOriginalUsername(data.username)
         setOriginalEmail(data.email || '')
+        setOriginalBio(data.bio || data.headline || '')
         setOriginalOptIn(!!data.weekly_digest_opt_in)
         setOriginalNotificationPreferences(prefs)
 
@@ -71,6 +77,7 @@ export const ProfilePage: React.FC = () => {
   const handleCancel = () => {
     setUsername(originalUsername)
     setEmail(originalEmail)
+    setBio(originalBio)
     setWeeklyDigestOptIn(originalOptIn)
     setNotificationPreferences(originalNotificationPreferences)
     saveNotificationPreferences(originalNotificationPreferences)
@@ -127,6 +134,13 @@ export const ProfilePage: React.FC = () => {
       return
     }
 
+    // Basic content sanitization on the client: strip HTML tags and trim excessive whitespace
+    const sanitizedBio = bio.replace(/<[^>]*>?/gm, '').trim()
+    if (sanitizedBio.length > MAX_BIO_LENGTH) {
+      setError(`Bio / headline cannot exceed ${MAX_BIO_LENGTH} characters.`)
+      return
+    }
+
     try {
       setSaving(true)
       setError(null)
@@ -135,6 +149,7 @@ export const ProfilePage: React.FC = () => {
       const response = await api.put('/api/profile/', {
         username,
         email,
+        bio: sanitizedBio,
         weekly_digest_opt_in: weeklyDigestOptIn,
         notification_preferences: notificationPreferences,
       })
@@ -146,11 +161,13 @@ export const ProfilePage: React.FC = () => {
       }
       setUsername(updated.username)
       setEmail(updated.email)
+      setBio(updated.bio || updated.headline || '')
       setWeeklyDigestOptIn(!!updated.weekly_digest_opt_in)
       setNotificationPreferences(savedPrefs)
       saveNotificationPreferences(savedPrefs)
       setOriginalUsername(updated.username)
       setOriginalEmail(updated.email)
+      setOriginalBio(updated.bio || updated.headline || '')
       setOriginalOptIn(!!updated.weekly_digest_opt_in)
       setOriginalNotificationPreferences(savedPrefs)
 
@@ -171,6 +188,8 @@ export const ProfilePage: React.FC = () => {
           setError(Array.isArray(errors.username) ? errors.username[0] : errors.username)
         } else if (errors.email) {
           setError(Array.isArray(errors.email) ? errors.email[0] : errors.email)
+        } else if (errors.bio) {
+          setError(Array.isArray(errors.bio) ? errors.bio[0] : errors.bio)
         } else {
           setError(errors.error || 'Failed to update profile details.')
         }
@@ -268,6 +287,44 @@ export const ProfilePage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label htmlFor="profile-email" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>Email Address</label>
               <input id="profile-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!isEditing || saving} style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--control-border)', background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)', color: 'var(--control-text)', fontSize: '0.95rem', outline: 'none', transition: 'border-color 0.2s ease', cursor: isEditing ? 'text' : 'not-allowed' }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label htmlFor="profile-bio" style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--heading-text)' }}>
+                  Bio / Headline
+                </label>
+                <span style={{ fontSize: '0.75rem', color: bio.length > MAX_BIO_LENGTH ? 'var(--color-danger)' : 'var(--muted-text)' }}>
+                  {bio.length} / {MAX_BIO_LENGTH} characters
+                </span>
+              </div>
+              <textarea
+                id="profile-bio"
+                name="bio"
+                rows={3}
+                maxLength={MAX_BIO_LENGTH}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                disabled={!isEditing || saving}
+                placeholder={isEditing ? "e.g. Senior Full-Stack Engineer | Open Source Contributor | Cloud & AI" : "No bio added yet."}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--control-border)',
+                  background: isEditing ? 'var(--control-bg)' : 'var(--upload-bg)',
+                  color: 'var(--control-text)',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  resize: 'vertical',
+                  minHeight: '70px',
+                  fontFamily: 'inherit',
+                  transition: 'border-color 0.2s ease',
+                  cursor: isEditing ? 'text' : 'not-allowed',
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted-text)' }}>
+                A short bio or headline summarizing your professional background and goals.
+              </span>
             </div>
 
             <div style={{ borderTop: '1px solid var(--surface-border)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
