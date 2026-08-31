@@ -51,6 +51,7 @@ import { Routes, Route } from 'react-router-dom'
 import { TermsOfService } from './pages/TermsOfService'
 import { ProfilePage } from './components/ProfilePage'
 import { CareerRoadmap } from './pages/CareerRoadmap'
+import { SkillGapAnalyzer } from './components/SkillGapAnalyzer'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
 import { ATSCompatibilityScanner } from './components/ATSCompatibilityScanner'
 
@@ -67,6 +68,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/career-roadmap" element={<CareerRoadmap />} />
           <Route path="/ats-scanner" element={<ATSCompatibilityScanner />} />
+          <Route path="/skill-gap" element={<SkillGapAnalyzer />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
