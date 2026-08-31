@@ -20,6 +20,7 @@ Please read this guide before contributing.
 - Coding Standards
 - Reporting Issues
 - Claiming an Issue
+- Issue Assignment Activity
 - Pull Request Process
 - Semantic Versioning
 - Contributor Checklist
@@ -263,6 +264,17 @@ The **preferred way to claim an issue** is to comment `/assign-me` on it. A GitH
 - If the issue is **already claimed**, the bot replies letting you know who has it, so you can pick another one.
 
 Only work on issues that are assigned to you, and please avoid claiming more issues than you can actively work on at once.
+
+---
+
+# Issue Assignment Activity
+
+To keep assigned issues from getting stuck, an automated workflow checks for inactivity on assigned issues:
+
+- **After 14 days** with no activity on an assigned issue, the bot posts a friendly check-in comment asking whether you're still working on it. A quick reply keeps it assigned to you.
+- **After a further 7-day grace period** with no response, the bot automatically unassigns the issue so it's free for others to pick up.
+
+These thresholds are intentionally generous so slow-but-active contributors aren't pushed out — just leave a short comment if you're still on it. You can always claim an unassigned issue again later.
 
 ---
 
