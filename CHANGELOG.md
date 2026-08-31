@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
-- Upgraded bot protection from simple arithmetic puzzle to enterprise CAPTCHA service (hCaptcha/reCAPTCHA/Turnstile integration with server-side verification and accessible mode) (#643).
+- Added lightweight Feature Flag system with local storage overrides, role restrictions, percentage rollouts, and React hooks (`useFeatureFlag`) for experimental features (#544).
 - Added database indexing and query performance review for history, leaderboard aggregation, and analysis retrieval (#979).
 - Unified reusable Button component with primary, secondary, ghost, outline, danger, and accent variants, size modifiers, pill shape, accessible loading spinner, and consistent hover/active/focus/disabled states (#102).
 - Added drag-and-drop resume upload functionality to compare tools allowing drag-and-drop directly on the file inputs (#20).
