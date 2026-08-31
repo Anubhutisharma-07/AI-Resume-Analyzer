@@ -184,6 +184,12 @@ class BatchUpload(models.Model):
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     avatar = models.FileField(upload_to="avatars/", blank=True, null=True)
+    bio = models.CharField(
+        max_length=250,
+        blank=True,
+        default="",
+        help_text="Short bio or professional headline.",
+    )
     weekly_digest_opt_in = models.BooleanField(default=False)
     notification_preferences = models.JSONField(
         default=dict,
