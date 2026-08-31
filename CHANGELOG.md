@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Improved frontend performance and usability.
 
 ### Fixed
+- Fixed truncated "Answ" label on login security-check field by refactoring `<SecurityCheckInput />` component and conducting modal input flexbox layout audit across all viewports (#617).
 - Fixed "How It Works" heading and step card description contrast meeting WCAG AA standards (>= 4.5:1 ratio), resolved low-opacity fade animation issue (#140), and updated step badges (#276).
 - Fixed widespread low-opacity/faded text across stats, How It Works cards, upload zone, and footer (#242).
 - Added proper HTML autocomplete attributes (`username`, `email`, `new-password`, `current-password`) to auth and account form inputs for password manager compatibility (#531).
