@@ -242,6 +242,7 @@ REST_FRAMEWORK = {
         # request body to disk before it does anything else.
         'file_metadata': os.environ.get('FILE_METADATA_RATE', '20/hour'),
         'sanitize_resume': os.environ.get('SANITIZE_RESUME_RATE', '60/hour'),
+        'cover_letter_gen': os.environ.get('COVER_LETTER_GEN_RATE', '20/hour'),
     },
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
