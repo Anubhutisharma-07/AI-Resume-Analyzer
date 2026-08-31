@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { getConsentPreferences, saveConsentPreferences } from '../utils/cookieConsent'
@@ -357,6 +358,19 @@ export const ProfilePage: React.FC = () => {
               <div className="form-check form-switch" style={{ margin: 0, paddingLeft: '2.5em' }}>
                 <input id="profile-roast-toggle" className="form-check-input" type="checkbox" role="switch" checked={resumeRoastConsent} onChange={(e) => setResumeRoastConsentState(e.target.checked)} disabled={!isEditing || saving} style={{ width: '2.2em', height: '1.2em', cursor: isEditing ? 'pointer' : 'not-allowed' }} />
               </div>
+            </div>
+
+            {/* Contributor Recognition Banner (#181, #963) */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.05)', gap: '16px' }}>
+              <div>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#fef08a', display: 'block' }}>🎖️ Open Source Contributor?</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--muted-text)', display: 'block', marginTop: '2px' }}>
+                  Have you contributed code, features, or bug fixes to AI Resume Analyzer? Generate and download your official Certificate of Contribution.
+                </span>
+              </div>
+              <Link to="/contributors" className="app-btn app-btn--secondary" style={{ flexShrink: 0, textDecoration: 'none', fontSize: '0.85rem', padding: '8px 14px', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}>
+                Claim Certificate →
+              </Link>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--surface-border)', paddingTop: '20px' }}>
