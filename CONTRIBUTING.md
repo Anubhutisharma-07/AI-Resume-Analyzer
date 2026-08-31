@@ -19,6 +19,7 @@ Please read this guide before contributing.
 - Commit Message Guidelines
 - Coding Standards
 - Reporting Issues
+- Claiming an Issue
 - Pull Request Process
 - Semantic Versioning
 - Contributor Checklist
@@ -248,6 +249,19 @@ is:issue is:open label:bug login
 
 This searches for open issues labeled `bug` containing the keyword `login`. You can replace `bug` and `login` with labels or keywords relevant to your issue.
 
+
+---
+
+# Claiming an Issue
+
+Before you start working on something, please claim the issue so others don't duplicate your effort.
+
+The **preferred way to claim an issue** is to comment `/assign-me` on it. A GitHub Action handles the rest:
+
+- If the issue is **open and unassigned**, it is assigned to you automatically and the bot confirms with a comment.
+- If the issue is **already claimed**, the bot replies letting you know who has it, so you can pick another one.
+
+Only work on issues that are assigned to you, and please avoid claiming more issues than you can actively work on at once.
 
 ---
 
