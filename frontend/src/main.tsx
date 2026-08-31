@@ -54,6 +54,7 @@ import { CareerRoadmap } from './pages/CareerRoadmap'
 import { SkillGapAnalyzer } from './components/SkillGapAnalyzer'
 import { RecruiterDashboard } from './pages/Recruiter/RecruiterDashboard'
 import { ATSCompatibilityScanner } from './components/ATSCompatibilityScanner'
+import { ResumeVersionHistory } from './components/ResumeVersionHistory'
 
 
 createRoot(document.getElementById('root')!).render(
@@ -69,6 +70,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/career-roadmap" element={<CareerRoadmap />} />
           <Route path="/ats-scanner" element={<ATSCompatibilityScanner />} />
           <Route path="/skill-gap" element={<SkillGapAnalyzer />} />
+          <Route path="/version-history" element={<ResumeVersionHistory />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>
