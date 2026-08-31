@@ -124,6 +124,20 @@ export const Footer: React.FC<FooterProps> = ({ onOpenWhatsNew }) => {
                 🔒 Privacy Policy
               </Link>
             </li>
+            <li>
+              <Link
+                to="/contributors"
+                style={{
+                  color: '#94a3b8',
+                  fontSize: 'var(--font-size-sm)',
+                  textDecoration: 'none',
+                  transition: 'color 0.2s',
+                }}
+                className="footer-link"
+              >
+                🎖️ Contributor Certificate
+              </Link>
+            </li>
           </ul>
         </div>
 
