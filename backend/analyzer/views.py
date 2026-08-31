@@ -1212,6 +1212,7 @@ def export_user_data(request):
             ),
             "weekly_digest_opt_in": profile.weekly_digest_opt_in,
             "avatar": profile.avatar.name if profile.avatar else None,
+            "bio": profile.bio or "",
         },
         "analysis_history": [
             {
